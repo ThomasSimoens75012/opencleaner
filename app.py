@@ -319,6 +319,14 @@ def _run_largefiles(job_id, folder, min_bytes):
         job["done"] = True
 
 
+@app.route("/api/relaunch-admin", methods=["POST"])
+def api_relaunch_admin():
+    if is_admin():
+        return jsonify({"ok": True, "already": True})
+    _relaunch_as_admin()
+    return jsonify({"ok": True})
+
+
 @app.route("/api/restore-points")
 def api_restore_points():
     return jsonify(list_restore_points())
@@ -694,12 +702,7 @@ def _run_desktop():
 
 
 if __name__ == "__main__":
-    if not is_admin():
-        print("\n  Droits insuffisants — demande d'élévation UAC...\n")
-        _relaunch_as_admin()
-        raise SystemExit(0)
-
     threading.Thread(target=_scheduler_thread, daemon=True).start()
-    print("\n  PC Cleaner [Administrateur]\n")
-
+    mode = "[Administrateur]" if is_admin() else "[Mode standard]"
+    print(f"\n  PC Cleaner {mode}\n")
     _run_desktop()

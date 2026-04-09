@@ -669,6 +669,24 @@
     .hm-pct  { font-size: 12px; font-weight: 700; }
 
     /* ══════════════════════════════════════════
+       BANNIÈRE ADMIN
+    ══════════════════════════════════════════ */
+    .admin-banner {
+      background: var(--amber-bg); border-bottom: 1px solid var(--amber-bdr, #fde68a);
+      padding: 9px 24px; display: flex; align-items: center; gap: 12px;
+      font-size: 12px; color: var(--amber);
+    }
+    .admin-banner-icon { font-size: 14px; flex-shrink: 0; }
+    .admin-banner-text { flex: 1; font-weight: 500; }
+    .admin-banner-btn {
+      padding: 5px 14px; background: var(--amber); color: white;
+      border: none; border-radius: 8px; font-size: 12px; font-weight: 700;
+      cursor: pointer; white-space: nowrap; font-family: 'Inter', sans-serif;
+      transition: filter .15s; flex-shrink: 0; overflow: hidden; position: relative;
+    }
+    .admin-banner-btn:hover { filter: brightness(1.1); }
+
+    /* ══════════════════════════════════════════
        FOOTER
     ══════════════════════════════════════════ */
     footer {
@@ -716,6 +734,18 @@
     <button class="tab-btn" onclick="switchTab('planificateur', this)">🕐 Planificateur</button>
   </div>
 </nav>
+
+{% if not is_admin %}
+<div class="admin-banner" id="admin-banner">
+  <span class="admin-banner-icon">🔒</span>
+  <span class="admin-banner-text">Mode standard — registre, points de restauration et certaines tâches système nécessitent les droits administrateur</span>
+  <button class="admin-banner-btn" onclick="relancerAdmin()">Relancer en administrateur</button>
+</div>
+{% endif %}
+
+<script>
+  const IS_ADMIN = {{ 'true' if is_admin else 'false' }};
+</script>
 
 <!-- ══════════════════ ONGLET NETTOYAGE ══════════════════ -->
 <div id="tab-nettoyage" class="tab-panel active">
@@ -1137,9 +1167,6 @@
 <!-- ── Footer ── -->
 <footer>
   PC Cleaner &nbsp;·&nbsp; <span>Mots de passe et cookies jamais supprimés</span>
-  {% if not is_admin %}
-  &nbsp;·&nbsp; Lancez en administrateur pour toutes les fonctionnalités
-  {% endif %}
 </footer>
 
 <script>

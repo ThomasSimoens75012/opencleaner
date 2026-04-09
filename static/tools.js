@@ -481,7 +481,11 @@ function fmtBytesTools(b) {
 
 let registryIssues = [];
 
-async function startRegistryScan() {
+function startRegistryScan() {
+  requireAdmin(_startRegistryScan);
+}
+
+async function _startRegistryScan() {
   const logEl    = document.getElementById("reg-log");
   const resultEl = document.getElementById("reg-results");
   const btnEl    = document.getElementById("btn-scan-reg");
@@ -1074,7 +1078,11 @@ function renderRestorePoints(data) {
   });
 }
 
-async function deleteSelectedRestorePoints() {
+function deleteSelectedRestorePoints() {
+  requireAdmin(_deleteSelectedRestorePoints);
+}
+
+async function _deleteSelectedRestorePoints() {
   const checked = [...document.querySelectorAll("#rp-results input[type=checkbox]:checked")];
   if (!checked.length) { showToast("Aucune sélection", "Cochez au moins un point de restauration.", "warn"); return; }
 

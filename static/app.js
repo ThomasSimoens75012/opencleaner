@@ -325,6 +325,24 @@ function animateDiskBars() {
   });
 }
 
+// ── Élévation admin ──────────────────────────────────────────────────────────
+function requireAdmin(callback) {
+  if (window.IS_ADMIN) { callback(); return; }
+  showConfirm(
+    "Droits administrateur requis",
+    "Cette fonctionnalité nécessite les droits administrateur. L'application va se relancer avec les droits nécessaires.",
+    async () => {
+      await fetch("/api/relaunch-admin", { method: "POST" });
+      window.close();
+    }
+  );
+}
+
+async function relancerAdmin() {
+  await fetch("/api/relaunch-admin", { method: "POST" });
+  window.close();
+}
+
 // ── Badge santé ───────────────────────────────────────────────────────────────
 async function loadHealthBadge() {
   try {
