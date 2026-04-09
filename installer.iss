@@ -4,7 +4,7 @@
 #define AppName      "OpenCleaner"
 #define AppVersion   "1.0.0"
 #define AppPublisher "OpenCleaner"
-#define AppURL       "https://github.com/TON_USERNAME/opencleaner"
+#define AppURL       "https://github.com/ThomasSimoens75012/opencleaner"
 #define AppExeName   "OpenCleaner.exe"
 #define DistDir      "dist\OpenCleaner"
 
