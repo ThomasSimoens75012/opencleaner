@@ -2,6 +2,34 @@
 
 let toolsInitialized = false;
 
+// Registre des streams SSE actifs par section
+const _activeStreams = {};
+
+function _cancelStream(sectionId) {
+  const es = _activeStreams[sectionId];
+  if (es) { es.close(); delete _activeStreams[sectionId]; }
+}
+
+function _showCancelBtn(btnEl, sectionId, onCancel) {
+  const cancelId = `cancel-${sectionId}`;
+  if (document.getElementById(cancelId)) return;
+  const cancelBtn = document.createElement("button");
+  cancelBtn.id = cancelId;
+  cancelBtn.className = "btn-ghost";
+  cancelBtn.style.cssText = "font-size:12px;padding:5px 12px;margin-left:8px;color:var(--danger,#e05)";
+  cancelBtn.textContent = "Annuler";
+  cancelBtn.addEventListener("click", () => {
+    _cancelStream(sectionId);
+    cancelBtn.remove();
+    onCancel();
+  });
+  btnEl.insertAdjacentElement("afterend", cancelBtn);
+}
+
+function _removeCancelBtn(sectionId) {
+  document.getElementById(`cancel-${sectionId}`)?.remove();
+}
+
 // ── Helpers animation boutons ─────────────────────────────────────────────────
 
 function _btnScan(btn, label = "Analyse…") {
@@ -320,17 +348,19 @@ async function startDuplicateScan() {
     const { job_id } = await res.json();
 
     const es = new EventSource(`/api/stream/${job_id}`);
+    _activeStreams["dupes"] = es;
+    _showCancelBtn(btnEl, "dupes", () => { _btnReset(btnEl); document.getElementById("dupe-log").innerHTML = ""; });
     es.onmessage = (e) => {
       const item = JSON.parse(e.data);
       if (item.type === "log")    dupeLog(item.msg);
       if (item.type === "result") renderDuplicates(item.groups, item.total_fmt);
       if (item.type === "done") {
-        es.close();
+        es.close(); _removeCancelBtn("dupes");
         const n = duplicateGroups.length;
         _btnDone(btnEl, n > 0 ? `${n} groupe(s)` : "Aucun doublon ✓", n === 0);
       }
     };
-    es.onerror = () => { es.close(); _btnReset(btnEl); };
+    es.onerror = () => { es.close(); _removeCancelBtn("dupes"); _btnReset(btnEl); };
 
   } catch (err) {
     dupeLog("Erreur : " + err);
@@ -512,18 +542,20 @@ async function _startRegistryScan() {
     const { job_id } = await res.json();
 
     const es = new EventSource(`/api/stream/${job_id}`);
+    _activeStreams["reg"] = es;
+    _showCancelBtn(btnEl, "reg", () => { _btnReset(btnEl); });
     es.onmessage = (e) => {
       const item = JSON.parse(e.data);
       if (item.type === "log")    regLog(item.msg);
       if (item.type === "result") renderRegistryIssues(item.issues);
       if (item.type === "done") {
         regLog(item.msg);
-        es.close();
+        es.close(); _removeCancelBtn("reg");
         const n = registryIssues.length;
         _btnDone(btnEl, n > 0 ? `${n} problème(s)` : "Registre propre ✓", n === 0);
       }
     };
-    es.onerror = () => { es.close(); _btnReset(btnEl); };
+    es.onerror = () => { es.close(); _removeCancelBtn("reg"); _btnReset(btnEl); };
   } catch (err) {
     regLog("Erreur : " + err);
     _btnReset(btnEl);
@@ -931,16 +963,18 @@ async function startLargeFileScan() {
     const { job_id } = await res.json();
 
     const es = new EventSource(`/api/stream/${job_id}`);
+    _activeStreams["lf"] = es;
+    _showCancelBtn(btnEl, "lf", () => { _btnReset(btnEl); document.getElementById("lf-log").innerHTML = ""; });
     es.onmessage = (e) => {
       const item = JSON.parse(e.data);
       if (item.type === "log")    lfLog(item.msg);
       if (item.type === "result") renderLargeFiles(item.files, item.total_fmt);
       if (item.type === "done") {
-        es.close();
+        es.close(); _removeCancelBtn("lf");
         _btnDone(btnEl, "Analyse terminée", true);
       }
     };
-    es.onerror = () => { es.close(); _btnReset(btnEl); };
+    es.onerror = () => { es.close(); _removeCancelBtn("lf"); _btnReset(btnEl); };
   } catch (err) {
     lfLog("Erreur : " + err);
     _btnReset(btnEl);
@@ -1050,6 +1084,11 @@ function _runDiskAnalysis(folder, resetHistory) {
   .then(({ job_id }) => {
     const es = new EventSource(`/api/stream/${job_id}`);
     _daEsActive = es;
+    _activeStreams["da"] = es;
+    _showCancelBtn(btnEl, "da", () => {
+      _btnReset(btnEl);
+      document.getElementById("da-results").innerHTML = "";
+    });
 
     es.onmessage = (e) => {
       const msg = JSON.parse(e.data);
@@ -1064,11 +1103,11 @@ function _runDiskAnalysis(folder, resetHistory) {
         _daTotal  = msg.total;
         _renderDiskItems(_daItems, _daTotal, folder);
         _btnDone(btnEl, "Analyse terminée", true);
-        es.close(); _daEsActive = null;
+        es.close(); _daEsActive = null; _removeCancelBtn("da");
       }
       if (msg.type === "done" && !msg.items) {
         _btnDone(btnEl, "Terminé", true);
-        es.close(); _daEsActive = null;
+        es.close(); _daEsActive = null; _removeCancelBtn("da");
       }
     };
     es.onerror = () => {
@@ -1492,16 +1531,18 @@ async function startEmptyFolderScan() {
     const { job_id } = await res.json();
 
     const es = new EventSource(`/api/stream/${job_id}`);
+    _activeStreams["ef"] = es;
+    _showCancelBtn(btnEl, "ef", () => { _btnReset(btnEl); document.getElementById("ef-log").innerHTML = ""; });
     es.onmessage = (e) => {
       const item = JSON.parse(e.data);
       if (item.type === "log")    addLog(item.msg);
       if (item.type === "result") { _emptyFolders = item.folders; renderEmptyFolders(item.folders); }
       if (item.type === "done") {
-        es.close();
+        es.close(); _removeCancelBtn("ef");
         _btnDone(btnEl, item.count > 0 ? `${item.count} trouvé(s)` : "Aucun dossier vide ✓", item.count === 0);
       }
     };
-    es.onerror = () => { es.close(); _btnReset(btnEl); };
+    es.onerror = () => { es.close(); _removeCancelBtn("ef"); _btnReset(btnEl); };
   } catch (err) {
     addLog("Erreur : " + err);
     _btnReset(btnEl);
@@ -1593,16 +1634,18 @@ async function startOrphanScan() {
     const { job_id } = await res.json();
 
     const es = new EventSource(`/api/stream/${job_id}`);
+    _activeStreams["orphan"] = es;
+    _showCancelBtn(btnEl, "orphan", () => { _btnReset(btnEl); document.getElementById("orphan-log").innerHTML = ""; });
     es.onmessage = (e) => {
       const item = JSON.parse(e.data);
       if (item.type === "log")    addLog(item.msg);
       if (item.type === "result") renderOrphanFolders(item.folders, item.total_fmt);
       if (item.type === "done") {
-        es.close();
+        es.close(); _removeCancelBtn("orphan");
         _btnDone(btnEl, item.count > 0 ? `${item.count} orphelin(s)` : "Aucun orphelin ✓", item.count === 0);
       }
     };
-    es.onerror = () => { es.close(); _btnReset(btnEl); };
+    es.onerror = () => { es.close(); _removeCancelBtn("orphan"); _btnReset(btnEl); };
   } catch (err) {
     addLog("Erreur : " + err);
     _btnReset(btnEl);
@@ -1752,18 +1795,11 @@ async function _deleteSelectedRestorePoints() {
   const checked = [...document.querySelectorAll("#rp-results input[type=checkbox]:checked")];
   if (!checked.length) { showToast("Aucune sélection", "Cochez au moins un point de restauration.", "warn"); return; }
 
-  // Garde-fou : ne pas supprimer tous les points
-  const allRp = document.querySelectorAll("#rp-results input[type=checkbox]");
-  if (checked.length >= allRp.length) {
-    showToast("Action impossible", "Conservez au moins un point de restauration.", "warn");
-    return;
-  }
-
   const ids = checked.map(c => parseInt(c.dataset.id));
   const btn = document.getElementById("btn-delete-rp");
   showConfirm(
     `Supprimer ${ids.length} point(s) de restauration ?`,
-    "Ces points de restauration seront définitivement supprimés. Vous ne pourrez plus revenir à ces états.",
+    "Ces points seront définitivement supprimés. Assurez-vous de conserver au moins un point récent si vous souhaitez pouvoir restaurer votre système.",
     async () => {
       if (btn) { btn.disabled = true; btn.textContent = "Suppression…"; }
       try {

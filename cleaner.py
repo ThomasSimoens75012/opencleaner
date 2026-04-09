@@ -735,12 +735,23 @@ def get_installed_apps():
 
 
 def launch_uninstaller(uninstall_string):
-    """Lance le désinstalleur d'une application."""
+    """
+    Lance le désinstalleur via ShellExecuteW (déclenche l'UAC si nécessaire).
+    Fallback sur Popen si l'appel COM échoue.
+    """
+    import shlex
     try:
-        subprocess.Popen(uninstall_string, shell=True)
-        return True
+        parts = shlex.split(uninstall_string, posix=False)
+        exe   = parts[0].strip('"').strip("'")
+        args  = " ".join(parts[1:]) if len(parts) > 1 else None
+        ret = ctypes.windll.shell32.ShellExecuteW(None, "open", exe, args, None, 1)
+        return int(ret) > 32   # >32 = succès selon l'API Win32
     except Exception:
-        return False
+        try:
+            subprocess.Popen(uninstall_string, shell=True)
+            return True
+        except Exception:
+            return False
 
 
 # ──────────────────────────────────────────────────────────────────────────────
