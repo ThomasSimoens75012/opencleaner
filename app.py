@@ -31,6 +31,8 @@ from cleaner import (
     get_software_updates,
     get_privacy_items, clean_privacy_items,
     get_hibernation_info, disable_hibernation,
+    get_windows_old_info, delete_windows_old,
+    find_old_installers, delete_installer_files,
     is_admin,
 )
 
@@ -77,7 +79,9 @@ def index():
          "admin": t["admin"], "default": t["default"], "group": t["group"]}
         for t in TASKS
     ])
-    return render_template("index.html", tasks_json=tasks_json, is_admin=is_admin())
+    downloads = str(Path.home() / "Downloads")
+    return render_template("index.html", tasks_json=tasks_json,
+                           is_admin=is_admin(), downloads_folder=downloads)
 
 
 @app.route("/api/sizes")
@@ -426,6 +430,43 @@ def api_hibernation_disable():
         return jsonify({"error": "Droits administrateur requis."}), 403
     ok, err = disable_hibernation()
     return jsonify({"ok": ok, "error": err if not ok else None})
+
+
+@app.route("/api/windows-old")
+def api_windows_old():
+    return jsonify(get_windows_old_info())
+
+
+@app.route("/api/windows-old/delete", methods=["POST"])
+def api_windows_old_delete():
+    if not is_admin():
+        return jsonify({"error": "Droits administrateur requis."}), 403
+    ok, err = delete_windows_old()
+    return jsonify({"ok": ok, "error": err if not ok else None})
+
+
+@app.route("/api/old-installers", methods=["POST"])
+def api_old_installers():
+    data    = request.get_json(force=True) or {}
+    folder  = data.get("folder", "")
+    max_age = int(data.get("max_age_days", 90))
+    if not folder or not Path(folder).exists():
+        return jsonify({"error": "Dossier invalide ou introuvable."}), 400
+    results = find_old_installers(folder, max_age)
+    total   = sum(f["size"] for f in results)
+    return jsonify({"files": results, "count": len(results),
+                    "total": total, "total_fmt": fmt_size(total)})
+
+
+@app.route("/api/old-installers/delete", methods=["POST"])
+def api_old_installers_delete():
+    data  = request.get_json(force=True) or {}
+    paths = data.get("paths", [])
+    if not paths:
+        return jsonify({"error": "Aucun fichier sélectionné."}), 400
+    freed, errors = delete_installer_files(paths)
+    return jsonify({"ok": freed > 0 or not errors, "freed": freed,
+                    "freed_fmt": fmt_size(freed), "errors": errors})
 
 
 @app.route("/api/relaunch-admin", methods=["POST"])

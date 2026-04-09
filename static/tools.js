@@ -69,6 +69,8 @@ function initTools() {
   loadRestorePoints();
   loadPrivacy();
   loadHibernation();
+  loadWindowsOld();
+  _setDefaultInstallerFolder();
 }
 
 // ── Démarrage ─────────────────────────────────────────────────────────────────
@@ -1004,6 +1006,159 @@ async function deleteSelectedLargeFiles() {
           showToast("Fichiers supprimés", data.freed_fmt + " libérés.", "success");
         }
         checked.forEach(c => c.closest(".dupe-row").remove());
+        if (btn) { btn.disabled = false; btn.textContent = "Supprimer la sélection"; }
+      } catch (e) {
+        showToast("Erreur", e.message, "warn");
+        if (btn) { btn.disabled = false; btn.textContent = "Supprimer la sélection"; }
+      }
+    }
+  );
+}
+
+// ── Windows.old ──────────────────────────────────────────────────────────────
+
+async function loadWindowsOld() {
+  const el = document.getElementById("windows-old-info");
+  if (!el) return;
+  try {
+    const res  = await fetch("/api/windows-old");
+    const data = await res.json();
+    renderWindowsOld(data);
+  } catch (e) {
+    el.innerHTML = `<div class="tool-error">Erreur de chargement.</div>`;
+  }
+}
+
+function renderWindowsOld(data) {
+  const el = document.getElementById("windows-old-info");
+  if (!data.exists) {
+    el.innerHTML = `<div class="tool-empty">✅ Aucun dossier Windows.old détecté sur ce système.</div>`;
+    return;
+  }
+  el.innerHTML = "";
+  const row = document.createElement("div"); row.className = "tool-row"; row.style.padding = "14px 16px";
+  const info = document.createElement("div"); info.className = "tool-info";
+  const nameD = document.createElement("div"); nameD.className = "tool-name"; nameD.textContent = "C:\\Windows.old";
+  const subD  = document.createElement("div"); subD.className  = "tool-sub";
+  subD.textContent = `${data.size_fmt} — ancienne installation Windows, inutile si votre système fonctionne bien`;
+  info.append(nameD, subD);
+  const btn = document.createElement("button"); btn.className = "btn-ghost"; btn.style.cssText = "font-size:12px;flex-shrink:0;color:var(--danger,#e05)";
+  btn.textContent = `Supprimer (libérer ${data.size_fmt})`;
+  btn.addEventListener("click", () => deleteWindowsOld(btn, data.size_fmt));
+  row.append(info, btn);
+  el.appendChild(row);
+}
+
+async function deleteWindowsOld(btn, sizeFmt) {
+  showConfirm(
+    "Supprimer Windows.old ?",
+    `L'ancienne installation Windows (${sizeFmt}) sera définitivement supprimée. Vous ne pourrez plus revenir à la version précédente de Windows.`,
+    async () => {
+      if (btn) { btn.disabled = true; btn.textContent = "Suppression…"; }
+      try {
+        const res  = await fetch("/api/windows-old/delete", { method: "POST" });
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          showToast("Erreur", data.error || "Suppression impossible.", "warn");
+          if (btn) { btn.disabled = false; btn.textContent = `Supprimer (libérer ${sizeFmt})`; }
+        } else {
+          showToast("Windows.old supprimé", `${sizeFmt} libérés.`, "success");
+          loadWindowsOld();
+        }
+      } catch (e) {
+        showToast("Erreur", e.message, "warn");
+        if (btn) { btn.disabled = false; btn.textContent = `Supprimer (libérer ${sizeFmt})`; }
+      }
+    }
+  );
+}
+
+// ── Anciens installers ────────────────────────────────────────────────────────
+
+function _setDefaultInstallerFolder() {
+  // Le dossier est déjà pré-rempli côté Jinja — rien à faire
+}
+
+async function startInstallerScan() {
+  const folder  = document.getElementById("inst-folder").value.trim();
+  const maxAge  = parseInt(document.getElementById("inst-age").value) || 90;
+  if (!folder) { showToast("Dossier requis", "Entrez un dossier à analyser.", "warn"); return; }
+
+  const resultEl = document.getElementById("inst-results");
+  const btnEl    = document.getElementById("btn-scan-inst");
+  resultEl.innerHTML = _skeleton(4);
+  _btnScan(btnEl, "Analyse…");
+
+  try {
+    const res = await fetch("/api/old-installers", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ folder, max_age_days: maxAge }),
+    });
+    const data = await res.json();
+    if (!res.ok) { showToast("Erreur", data.error, "warn"); _btnReset(btnEl); return; }
+    _btnDone(btnEl, data.count > 0 ? `${data.count} fichier(s)` : "Aucun installer ancien ✓", data.count === 0);
+    renderInstallers(data);
+  } catch (e) {
+    resultEl.innerHTML = `<div class="tool-error">Erreur : ${e.message}</div>`;
+    _btnReset(btnEl);
+  }
+}
+
+function renderInstallers(data) {
+  const el = document.getElementById("inst-results");
+  if (!data.files.length) {
+    el.innerHTML = `<div class="tool-empty">✅ Aucun installer de plus de ${document.getElementById("inst-age").value} jours trouvé.</div>`;
+    return;
+  }
+  el.innerHTML = "";
+
+  const header = document.createElement("div"); header.className = "reg-header";
+  const span = document.createElement("span"); span.textContent = `${data.count} fichier(s) — ${data.total_fmt}`;
+  const btnDel = document.createElement("button"); btnDel.className = "btn-ghost";
+  btnDel.id = "btn-delete-inst"; btnDel.style.cssText = "font-size:12px;padding:6px 12px";
+  btnDel.textContent = "Supprimer la sélection";
+  btnDel.addEventListener("click", deleteSelectedInstallers);
+  header.append(span, btnDel);
+  el.appendChild(header);
+
+  data.files.forEach((f, i) => {
+    const row  = document.createElement("div"); row.className = "dupe-row";
+    const cbId = `inst-${i}`;
+    const cb   = document.createElement("input"); cb.type = "checkbox"; cb.id = cbId; cb.dataset.path = f.path; cb.checked = true;
+    const lbl  = document.createElement("label"); lbl.htmlFor = cbId;
+    lbl.style.cssText = "flex:1;font-size:12px;color:var(--text-mid);cursor:pointer;word-break:break-all";
+    const sizeSpan = document.createElement("span"); sizeSpan.className = "dupe-size"; sizeSpan.textContent = f.size_fmt;
+    const nameSpan = document.createElement("span"); nameSpan.style.cssText = "font-weight:600;color:var(--text)"; nameSpan.textContent = f.name;
+    const ageSpan  = document.createElement("span"); ageSpan.style.color = "var(--text-dim)"; ageSpan.textContent = `${f.age_days} jours`;
+    lbl.append(sizeSpan, " ", nameSpan, " — ", ageSpan);
+    row.append(cb, lbl);
+    el.appendChild(row);
+  });
+}
+
+async function deleteSelectedInstallers() {
+  const checked = [...document.querySelectorAll("#inst-results input[type=checkbox]:checked")];
+  if (!checked.length) { showToast("Aucune sélection", "Cochez au moins un fichier.", "warn"); return; }
+  const paths = checked.map(c => c.dataset.path);
+  const btn = document.getElementById("btn-delete-inst");
+  showConfirm(
+    `Supprimer ${paths.length} fichier(s) ?`,
+    "Ces fichiers d'installation seront définitivement supprimés. Vous devrez les re-télécharger si besoin.",
+    async () => {
+      if (btn) { btn.disabled = true; btn.textContent = "Suppression…"; }
+      try {
+        const res  = await fetch("/api/old-installers/delete", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ paths }),
+        });
+        const data = await res.json();
+        if (!res.ok || (!data.ok && !data.freed)) {
+          showToast("Erreur", (data.errors || []).join(", ") || "Suppression impossible.", "warn");
+        } else {
+          const errCount = (data.errors || []).length;
+          showToast("Fichiers supprimés", `${data.freed_fmt} libérés.`, errCount > 0 ? "warn" : "success");
+          checked.forEach(c => c.closest(".dupe-row").remove());
+        }
         if (btn) { btn.disabled = false; btn.textContent = "Supprimer la sélection"; }
       } catch (e) {
         showToast("Erreur", e.message, "warn");

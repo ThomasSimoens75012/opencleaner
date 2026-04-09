@@ -1813,6 +1813,92 @@ def disable_hibernation():
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+# Windows.old
+# ──────────────────────────────────────────────────────────────────────────────
+
+def get_windows_old_info():
+    """Retourne la présence et la taille de C:\\Windows.old."""
+    p = Path("C:/Windows.old")
+    if not p.exists():
+        return {"exists": False, "size": 0, "size_fmt": "—"}
+    size = get_folder_size(str(p))
+    return {"exists": True, "size": size, "size_fmt": fmt_size(size)}
+
+
+def delete_windows_old():
+    """Supprime C:\\Windows.old via rd (gère les permissions NTFS). Requiert admin."""
+    try:
+        r = subprocess.run(
+            ["cmd", "/c", "rd", "/s", "/q", r"C:\Windows.old"],
+            capture_output=True, timeout=120,
+        )
+        if r.returncode == 0:
+            return True, None
+        err = r.stderr.decode("utf-8", errors="replace").strip()
+        return False, err or "Suppression échouée."
+    except Exception as e:
+        return False, str(e)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Anciens installers
+# ──────────────────────────────────────────────────────────────────────────────
+
+_INSTALLER_EXTS = {".exe", ".msi", ".msp", ".iso", ".img", ".zip", ".7z", ".rar"}
+
+
+def find_old_installers(folder, max_age_days=90, log=None):
+    """
+    Cherche les fichiers d'installation anciens dans folder.
+    Retourne une liste triée par taille décroissante.
+    """
+    from datetime import datetime, timedelta
+    cutoff = datetime.now().timestamp() - max_age_days * 86400
+    results = []
+    try:
+        with os.scandir(folder) as it:
+            for entry in it:
+                if not entry.is_file(follow_symlinks=False):
+                    continue
+                if Path(entry.name).suffix.lower() not in _INSTALLER_EXTS:
+                    continue
+                try:
+                    st = entry.stat(follow_symlinks=False)
+                    if st.st_mtime < cutoff:
+                        age_days = int((datetime.now().timestamp() - st.st_mtime) / 86400)
+                        results.append({
+                            "path":     entry.path,
+                            "name":     entry.name,
+                            "size":     st.st_size,
+                            "size_fmt": fmt_size(st.st_size),
+                            "age_days": age_days,
+                        })
+                except (OSError, PermissionError):
+                    pass
+    except (OSError, PermissionError) as e:
+        if log:
+            log(f"Erreur : {e}")
+    results.sort(key=lambda x: x["size"], reverse=True)
+    if log:
+        total = sum(f["size"] for f in results)
+        log(f"{len(results)} fichier(s) trouvé(s) — {fmt_size(total)} récupérables")
+    return results
+
+
+def delete_installer_files(paths):
+    """Supprime les fichiers sélectionnés. Retourne (freed_bytes, errors)."""
+    freed, errors = 0, []
+    for p in paths:
+        try:
+            size = Path(p).stat().st_size
+            Path(p).unlink()
+            freed += size
+        except Exception as e:
+            errors.append(f"{p}: {e}")
+    return freed, errors
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Bilan de santé
 # ──────────────────────────────────────────────────────────────────────────────
 

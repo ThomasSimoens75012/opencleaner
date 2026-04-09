@@ -1018,6 +1018,40 @@
     </div>
   </div>
 
+  <!-- Windows.old -->
+  <div{% if not is_admin %} class="tool-section-locked"{% endif %}>
+    <div class="section-head">
+      <div>
+        <div class="tool-section-title">Windows.old</div>
+        <div class="tool-section-sub">Ancien système Windows conservé après une mise à jour majeure</div>
+      </div>
+    </div>
+    <div class="card">
+      <div id="windows-old-info"><div class="tool-loading">Chargement…</div></div>
+    </div>
+  </div>
+
+  <!-- Anciens installers -->
+  <div>
+    <div class="section-head">
+      <div>
+        <div class="tool-section-title">Anciens installers</div>
+        <div class="tool-section-sub">Fichiers .exe, .msi, .zip, .iso non utilisés depuis longtemps</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-body">
+        <div class="dupe-scan-bar">
+          <input class="dupe-folder-input" id="inst-folder" placeholder="Dossier à analyser" value="{{ downloads_folder }}">
+          <input class="dupe-size-input" id="inst-age" type="number" value="90" min="7" title="Âge minimum en jours">
+          <span style="font-size:12px;color:var(--text-dim);white-space:nowrap">jours min.</span>
+          <button class="btn-primary" id="btn-scan-inst" onclick="startInstallerScan()" style="min-width:auto;flex:none;padding:9px 18px">Analyser</button>
+        </div>
+      </div>
+      <div id="inst-results" style="max-height:360px;overflow-y:auto;border-top:1px solid var(--border);"></div>
+    </div>
+  </div>
+
   <!-- Confidentialité -->
   <div>
     <div class="section-head">
