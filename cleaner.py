@@ -1290,32 +1290,24 @@ def list_restore_points():
 
 def delete_restore_points(ids):
     """
-    Supprime les points de restauration par numéro de séquence via CIM.
+    Supprime les points de restauration via SRRemoveRestorePoint (srclient.dll).
     Retourne (deleted, error).
     """
     if not ids:
         return 0, "Aucun identifiant fourni"
-    # Construit un tableau PowerShell : @(1, 2, 3)
-    ids_ps = "@(" + ", ".join(str(int(i)) for i in ids) + ")"
-    ps_cmd = (
-        f"$ids = {ids_ps}; "
-        "$rps = Get-CimInstance -Namespace root\\default -ClassName SystemRestore "
-        "| Where-Object { $_.SequenceNumber -in $ids }; "
-        "$rps | Remove-CimInstance; "
-        "exit 0"
-    )
     try:
-        r = subprocess.run(
-            ["powershell", "-Command", ps_cmd],
-            capture_output=True, timeout=30
-        )
-        if r.returncode != 0:
-            enc = "cp1252" if sys.platform == "win32" else "utf-8"
-            err = (r.stderr or r.stdout).decode(enc, errors="replace").strip()
-            if "refus" in err.lower() or "access" in err.lower() or "admin" in err.lower():
-                return 0, "Droits administrateur requis."
-            return 0, err[:200]
-        return len(ids), None
+        import ctypes
+        srclient = ctypes.windll.LoadLibrary("srclient.dll")
+        deleted = 0
+        for seq in ids:
+            ret = srclient.SRRemoveRestorePoint(int(seq))
+            if ret == 0:
+                deleted += 1
+        if deleted == 0:
+            return 0, "Aucun point supprimé — droits administrateur requis ou identifiants invalides."
+        return deleted, None
+    except OSError:
+        return 0, "srclient.dll introuvable (Windows requis)."
     except Exception as e:
         return 0, str(e)
 
