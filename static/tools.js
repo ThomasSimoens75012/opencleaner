@@ -259,13 +259,24 @@ async function uninstallApp(uninstallString, name, btn) {
     "Windows ouvrira le programme de désinstallation. L'application sera retirée de votre système.",
     async () => {
       if (btn) { btn.disabled = true; btn.textContent = "En cours…"; }
-      await fetch("/api/apps/uninstall", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ uninstall_string: uninstallString }),
-      });
-      showToast("Désinstallation lancée", `Windows a ouvert le programme de désinstallation de « ${name} »`, "success");
-      if (btn) { btn.textContent = "Lancé ✓"; }
+      try {
+        const res  = await fetch("/api/apps/uninstall", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ uninstall_string: uninstallString }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          showToast("Erreur", data.error || "Impossible de lancer la désinstallation.", "warn");
+          if (btn) { btn.disabled = false; btn.textContent = "Désinstaller"; }
+        } else {
+          showToast("Désinstallation lancée", `Windows a ouvert le programme de désinstallation de « ${name} »`, "success");
+          if (btn) { btn.textContent = "Lancé ✓"; }
+        }
+      } catch (e) {
+        showToast("Erreur", e.message, "warn");
+        if (btn) { btn.disabled = false; btn.textContent = "Désinstaller"; }
+      }
     }
   );
 }
@@ -441,7 +452,13 @@ async function deleteSelectedDupes() {
           body: JSON.stringify({ paths }),
         });
         const data = await res.json();
-        showToast("Doublons supprimés", data.freed_fmt + " libérés.", "success");
+        if (!res.ok) throw new Error(data.error || "Erreur serveur");
+        const errCount = (data.errors || []).length;
+        if (errCount > 0) {
+          showToast("Suppression partielle", `${data.freed_fmt} libérés — ${errCount} fichier(s) inaccessible(s).`, "warn");
+        } else {
+          showToast("Doublons supprimés", data.freed_fmt + " libérés.", "success");
+        }
         checked.forEach(c => c.closest(".dupe-row").remove());
         if (btn) { btn.disabled = false; btn.textContent = "Supprimer la sélection"; }
       } catch (e) {
@@ -765,13 +782,19 @@ async function installUpdate(pkgId, name, btn) {
     async () => {
       if (btn) { btn.disabled = true; btn.textContent = "En cours…"; }
       try {
-        await fetch("/api/updates/install", {
+        const res  = await fetch("/api/updates/install", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ id: pkgId }),
         });
-        showToast("Mise à jour lancée", `Installation de « ${name} » en cours dans une nouvelle fenêtre.`, "success");
-        if (btn) { btn.textContent = "Lancé ✓"; }
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          showToast("Erreur", data.error || "Impossible de lancer winget.", "warn");
+          if (btn) { btn.disabled = false; btn.textContent = "Mettre à jour"; }
+        } else {
+          showToast("Mise à jour lancée", `Installation de « ${name} » en cours dans une nouvelle fenêtre.`, "success");
+          if (btn) { btn.textContent = "Lancé ✓"; }
+        }
       } catch (e) {
         showToast("Erreur", e.message, "warn");
         if (btn) { btn.disabled = false; btn.textContent = "Mettre à jour"; }
@@ -853,7 +876,13 @@ async function deleteSelectedShortcuts() {
           body: JSON.stringify({ paths }),
         });
         const data = await res.json();
-        showToast("Raccourcis supprimés", `${data.deleted} raccourci(s) supprimé(s).`, "success");
+        if (!res.ok) throw new Error(data.error || "Erreur serveur");
+        if (data.deleted === 0) {
+          showToast("Aucun raccourci supprimé", "Les fichiers sont peut-être déjà absents ou verrouillés.", "warn");
+        } else {
+          const msg = data.errors > 0 ? `${data.deleted} supprimé(s), ${data.errors} échec(s).` : `${data.deleted} raccourci(s) supprimé(s).`;
+          showToast("Raccourcis supprimés", msg, data.errors > 0 ? "warn" : "success");
+        }
         checked.forEach(c => c.closest(".dupe-row").remove());
         if (btn) { btn.disabled = false; btn.textContent = "Supprimer la sélection"; }
       } catch (e) {
@@ -961,7 +990,13 @@ async function deleteSelectedLargeFiles() {
           body: JSON.stringify({ paths }),
         });
         const data = await res.json();
-        showToast("Fichiers supprimés", data.freed_fmt + " libérés.", "success");
+        if (!res.ok) throw new Error(data.error || "Erreur serveur");
+        const errCount = (data.errors || []).length;
+        if (errCount > 0) {
+          showToast("Suppression partielle", `${data.freed_fmt} libérés — ${errCount} fichier(s) inaccessible(s).`, "warn");
+        } else {
+          showToast("Fichiers supprimés", data.freed_fmt + " libérés.", "success");
+        }
         checked.forEach(c => c.closest(".dupe-row").remove());
         if (btn) { btn.disabled = false; btn.textContent = "Supprimer la sélection"; }
       } catch (e) {
