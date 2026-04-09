@@ -67,6 +67,8 @@ function initTools() {
   loadApps();
   loadExtensions();
   loadRestorePoints();
+  loadPrivacy();
+  loadHibernation();
 }
 
 // ── Démarrage ─────────────────────────────────────────────────────────────────
@@ -1002,6 +1004,360 @@ async function deleteSelectedLargeFiles() {
           showToast("Fichiers supprimés", data.freed_fmt + " libérés.", "success");
         }
         checked.forEach(c => c.closest(".dupe-row").remove());
+        if (btn) { btn.disabled = false; btn.textContent = "Supprimer la sélection"; }
+      } catch (e) {
+        showToast("Erreur", e.message, "warn");
+        if (btn) { btn.disabled = false; btn.textContent = "Supprimer la sélection"; }
+      }
+    }
+  );
+}
+
+// ── Confidentialité ──────────────────────────────────────────────────────────
+
+let _privacyItems = [];
+
+async function loadPrivacy() {
+  const el = document.getElementById("privacy-results");
+  if (!el) return;
+  el.innerHTML = _skeleton(4);
+  try {
+    const res  = await fetch("/api/privacy");
+    _privacyItems = await res.json();
+    renderPrivacy(_privacyItems);
+  } catch (e) {
+    el.innerHTML = `<div class="tool-error">Erreur de chargement.</div>`;
+  }
+}
+
+function renderPrivacy(items) {
+  const el = document.getElementById("privacy-results");
+  if (!items.length) { el.innerHTML = `<div class="tool-empty">Aucun élément de confidentialité détecté.</div>`; return; }
+
+  el.innerHTML = "";
+  const header = document.createElement("div"); header.className = "reg-header";
+  const span = document.createElement("span"); span.textContent = `${items.length} catégorie(s)`;
+  const btnClean = document.createElement("button"); btnClean.className = "btn-ghost";
+  btnClean.id = "btn-clean-privacy";
+  btnClean.style.cssText = "font-size:12px;padding:6px 12px"; btnClean.textContent = "Nettoyer la sélection";
+  btnClean.addEventListener("click", cleanSelectedPrivacy);
+  header.append(span, btnClean);
+  el.appendChild(header);
+
+  items.forEach((item, i) => {
+    const row  = document.createElement("div"); row.className = "dupe-row";
+    const cbId = `priv-${i}`;
+    const cb   = document.createElement("input"); cb.type = "checkbox"; cb.id = cbId; cb.dataset.id = item.id; cb.checked = item.count > 0;
+    if (item.count === 0) { cb.disabled = true; }
+    const lbl  = document.createElement("label"); lbl.htmlFor = cbId;
+    lbl.style.cssText = "flex:1;font-size:12px;color:var(--text-mid);cursor:pointer";
+    const nameSpan = document.createElement("span"); nameSpan.style.cssText = "font-weight:600;color:var(--text)"; nameSpan.textContent = item.label;
+    const countSpan = document.createElement("span"); countSpan.className = "dupe-size"; countSpan.textContent = item.size_fmt;
+    const descSpan  = document.createElement("span"); descSpan.style.color = "var(--text-dim)"; descSpan.textContent = item.desc;
+    lbl.append(nameSpan, " ", countSpan, document.createElement("br"), descSpan);
+    row.append(cb, lbl);
+    el.appendChild(row);
+  });
+}
+
+async function cleanSelectedPrivacy() {
+  const checked = [...document.querySelectorAll("#privacy-results input[type=checkbox]:checked")];
+  if (!checked.length) { showToast("Aucune sélection", "Cochez au moins un élément.", "warn"); return; }
+  const ids = checked.map(c => c.dataset.id);
+  const btn = document.getElementById("btn-clean-privacy");
+  showConfirm(
+    `Nettoyer ${ids.length} élément(s) de confidentialité ?`,
+    "L'historique sélectionné sera effacé. Cette action ne supprime pas de fichiers personnels.",
+    async () => {
+      if (btn) { btn.disabled = true; btn.textContent = "Nettoyage…"; }
+      try {
+        const res  = await fetch("/api/privacy/clean", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ids }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          showToast("Erreur", (data.errors || []).join(", ") || data.error || "Nettoyage impossible.", "warn");
+        } else {
+          showToast("Confidentialité nettoyée", `${data.cleaned} élément(s) supprimé(s).`, "success");
+          loadPrivacy();
+        }
+        if (btn) { btn.disabled = false; btn.textContent = "Nettoyer la sélection"; }
+      } catch (e) {
+        showToast("Erreur", e.message, "warn");
+        if (btn) { btn.disabled = false; btn.textContent = "Nettoyer la sélection"; }
+      }
+    }
+  );
+}
+
+// ── Fichier d'hibernation ─────────────────────────────────────────────────────
+
+async function loadHibernation() {
+  const el = document.getElementById("hiberfil-info");
+  if (!el) return;
+  try {
+    const res  = await fetch("/api/hibernation");
+    const data = await res.json();
+    renderHibernation(data);
+  } catch (e) {
+    el.innerHTML = `<div class="tool-error">Erreur de chargement.</div>`;
+  }
+}
+
+function renderHibernation(data) {
+  const el = document.getElementById("hiberfil-info");
+  if (!data.enabled) {
+    el.innerHTML = `<div class="tool-empty">✅ L'hibernation est déjà désactivée — aucun fichier hiberfil.sys sur le disque.</div>`;
+    return;
+  }
+  el.innerHTML = "";
+  const row = document.createElement("div"); row.className = "tool-row"; row.style.padding = "14px 16px";
+  const info = document.createElement("div"); info.className = "tool-info";
+  const nameD = document.createElement("div"); nameD.className = "tool-name"; nameD.textContent = "C:\\hiberfil.sys";
+  const subD  = document.createElement("div"); subD.className  = "tool-sub";
+  subD.textContent = `${data.size_fmt} — sauvegarde de la RAM pour la veille prolongée`;
+  info.append(nameD, subD);
+
+  const btn = document.createElement("button"); btn.className = "btn-ghost"; btn.style.cssText = "font-size:12px;flex-shrink:0";
+  btn.textContent = `Désactiver l'hibernation (libérer ${data.size_fmt})`;
+  btn.addEventListener("click", () => disableHibernation(btn, data.size_fmt));
+  row.append(info, btn);
+  el.appendChild(row);
+}
+
+async function disableHibernation(btn, sizeFmt) {
+  showConfirm(
+    `Désactiver l'hibernation ?`,
+    `hiberfil.sys (${sizeFmt}) sera supprimé et la veille prolongée ne sera plus disponible. Vous pouvez la réactiver à tout moment via les options d'alimentation.`,
+    async () => {
+      if (btn) { btn.disabled = true; btn.textContent = "Désactivation…"; }
+      try {
+        const res  = await fetch("/api/hibernation/disable", { method: "POST" });
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          showToast("Erreur", data.error || "Impossible de désactiver l'hibernation.", "warn");
+          if (btn) { btn.disabled = false; btn.textContent = `Désactiver l'hibernation (libérer ${sizeFmt})`; }
+        } else {
+          showToast("Hibernation désactivée", `${sizeFmt} libérés — hiberfil.sys supprimé.`, "success");
+          loadHibernation();
+        }
+      } catch (e) {
+        showToast("Erreur", e.message, "warn");
+        if (btn) { btn.disabled = false; btn.textContent = `Désactiver l'hibernation (libérer ${sizeFmt})`; }
+      }
+    }
+  );
+}
+
+// ── Dossiers vides ────────────────────────────────────────────────────────────
+
+let _emptyFolders = [];
+
+async function startEmptyFolderScan() {
+  const folder  = document.getElementById("ef-folder").value.trim();
+  if (!folder) { showToast("Dossier requis", "Entrez un chemin à analyser.", "warn"); return; }
+
+  const logEl    = document.getElementById("ef-log");
+  const resultEl = document.getElementById("ef-results");
+  const btnEl    = document.getElementById("btn-scan-ef");
+
+  logEl.innerHTML = "";
+  resultEl.innerHTML = "";
+  _emptyFolders = [];
+  _btnScan(btnEl, "Analyse…");
+
+  const addLog = (msg) => {
+    const d = document.createElement("div"); d.className = "log-entry";
+    d.innerHTML = `<span class="log-ts">${new Date().toLocaleTimeString("fr-FR")}</span><span class="log-msg">${msg}</span>`;
+    logEl.appendChild(d); logEl.scrollTop = logEl.scrollHeight;
+  };
+
+  try {
+    const res = await fetch("/api/empty-folders", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ folder }),
+    });
+    if (!res.ok) { const e = await res.json(); showToast("Erreur", e.error, "warn"); _btnReset(btnEl); return; }
+    const { job_id } = await res.json();
+
+    const es = new EventSource(`/api/stream/${job_id}`);
+    es.onmessage = (e) => {
+      const item = JSON.parse(e.data);
+      if (item.type === "log")    addLog(item.msg);
+      if (item.type === "result") { _emptyFolders = item.folders; renderEmptyFolders(item.folders); }
+      if (item.type === "done") {
+        es.close();
+        _btnDone(btnEl, item.count > 0 ? `${item.count} trouvé(s)` : "Aucun dossier vide ✓", item.count === 0);
+      }
+    };
+    es.onerror = () => { es.close(); _btnReset(btnEl); };
+  } catch (err) {
+    addLog("Erreur : " + err);
+    _btnReset(btnEl);
+  }
+}
+
+function renderEmptyFolders(folders) {
+  const el = document.getElementById("ef-results");
+  if (!folders.length) {
+    el.innerHTML = `<div class="tool-empty">✅ Aucun dossier vide trouvé.</div>`;
+    return;
+  }
+  el.innerHTML = "";
+
+  const header = document.createElement("div"); header.className = "reg-header";
+  const span = document.createElement("span"); span.textContent = `${folders.length} dossier(s) vide(s)`;
+  const btnDel = document.createElement("button"); btnDel.className = "btn-ghost";
+  btnDel.id = "btn-delete-ef";
+  btnDel.style.cssText = "font-size:12px;padding:6px 12px"; btnDel.textContent = "Supprimer la sélection";
+  btnDel.addEventListener("click", deleteSelectedEmptyFolders);
+  header.append(span, btnDel);
+  el.appendChild(header);
+
+  folders.forEach((f, i) => {
+    const row  = document.createElement("div"); row.className = "dupe-row";
+    const cbId = `ef-${i}`;
+    const cb   = document.createElement("input"); cb.type = "checkbox"; cb.id = cbId; cb.dataset.path = f.path; cb.checked = true;
+    const lbl  = document.createElement("label"); lbl.htmlFor = cbId;
+    lbl.style.cssText = "flex:1;font-size:12px;color:var(--text-mid);cursor:pointer;word-break:break-all";
+    const nameSpan = document.createElement("span"); nameSpan.style.cssText = "font-weight:600;color:var(--text)"; nameSpan.textContent = f.name;
+    const pathSpan = document.createElement("span"); pathSpan.style.color = "var(--text-dim)"; pathSpan.textContent = f.path;
+    lbl.append(nameSpan, document.createElement("br"), pathSpan);
+    row.append(cb, lbl);
+    el.appendChild(row);
+  });
+}
+
+async function deleteSelectedEmptyFolders() {
+  const checked = [...document.querySelectorAll("#ef-results input[type=checkbox]:checked")];
+  if (!checked.length) { showToast("Aucune sélection", "Cochez au moins un dossier.", "warn"); return; }
+  const paths = checked.map(c => c.dataset.path);
+  const btn = document.getElementById("btn-delete-ef");
+  showConfirm(
+    `Supprimer ${paths.length} dossier(s) vide(s) ?`,
+    "Ces dossiers sont vides et seront définitivement supprimés.",
+    async () => {
+      if (btn) { btn.disabled = true; btn.textContent = "Suppression…"; }
+      try {
+        const res  = await fetch("/api/empty-folders/delete", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ paths }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          showToast("Erreur", (data.errors || []).join(", ") || "Suppression impossible.", "warn");
+        } else {
+          showToast("Dossiers supprimés", `${data.deleted} dossier(s) supprimé(s).`, "success");
+          checked.forEach(c => c.closest(".dupe-row").remove());
+        }
+        if (btn) { btn.disabled = false; btn.textContent = "Supprimer la sélection"; }
+      } catch (e) {
+        showToast("Erreur", e.message, "warn");
+        if (btn) { btn.disabled = false; btn.textContent = "Supprimer la sélection"; }
+      }
+    }
+  );
+}
+
+// ── Dossiers orphelins ────────────────────────────────────────────────────────
+
+async function startOrphanScan() {
+  const logEl    = document.getElementById("orphan-log");
+  const resultEl = document.getElementById("orphan-results");
+  const btnEl    = document.getElementById("btn-scan-orphan");
+
+  logEl.innerHTML = "";
+  resultEl.innerHTML = _skeleton(3);
+  _btnScan(btnEl, "Analyse…");
+
+  const addLog = (msg) => {
+    const d = document.createElement("div"); d.className = "log-entry";
+    d.innerHTML = `<span class="log-ts">${new Date().toLocaleTimeString("fr-FR")}</span><span class="log-msg">${msg}</span>`;
+    logEl.appendChild(d); logEl.scrollTop = logEl.scrollHeight;
+  };
+
+  try {
+    const res = await fetch("/api/orphan-folders", { method: "POST" });
+    if (!res.ok) { const e = await res.json(); showToast("Erreur", e.error, "warn"); _btnReset(btnEl); return; }
+    const { job_id } = await res.json();
+
+    const es = new EventSource(`/api/stream/${job_id}`);
+    es.onmessage = (e) => {
+      const item = JSON.parse(e.data);
+      if (item.type === "log")    addLog(item.msg);
+      if (item.type === "result") renderOrphanFolders(item.folders, item.total_fmt);
+      if (item.type === "done") {
+        es.close();
+        _btnDone(btnEl, item.count > 0 ? `${item.count} orphelin(s)` : "Aucun orphelin ✓", item.count === 0);
+      }
+    };
+    es.onerror = () => { es.close(); _btnReset(btnEl); };
+  } catch (err) {
+    addLog("Erreur : " + err);
+    _btnReset(btnEl);
+  }
+}
+
+function renderOrphanFolders(folders, totalFmt) {
+  const el = document.getElementById("orphan-results");
+  if (!folders.length) {
+    el.innerHTML = `<div class="tool-empty">✅ Aucun dossier orphelin détecté.</div>`;
+    return;
+  }
+  el.innerHTML = "";
+
+  const header = document.createElement("div"); header.className = "reg-header";
+  const span = document.createElement("span"); span.textContent = `${folders.length} dossier(s) orphelin(s) — ${totalFmt || ""} potentiellement récupérables`;
+  const btnDel = document.createElement("button"); btnDel.className = "btn-ghost";
+  btnDel.id = "btn-delete-orphan";
+  btnDel.style.cssText = "font-size:12px;padding:6px 12px"; btnDel.textContent = "Supprimer la sélection";
+  btnDel.addEventListener("click", deleteSelectedOrphanFolders);
+  header.append(span, btnDel);
+  el.appendChild(header);
+
+  folders.forEach((f, i) => {
+    const row  = document.createElement("div"); row.className = "dupe-row";
+    const cbId = `or-${i}`;
+    const cb   = document.createElement("input"); cb.type = "checkbox"; cb.id = cbId; cb.dataset.path = f.path;
+    const lbl  = document.createElement("label"); lbl.htmlFor = cbId;
+    lbl.style.cssText = "flex:1;font-size:12px;color:var(--text-mid);cursor:pointer;word-break:break-all";
+    const sizeSpan = document.createElement("span"); sizeSpan.className = "dupe-size"; sizeSpan.textContent = f.size_fmt;
+    const nameSpan = document.createElement("span"); nameSpan.style.cssText = "font-weight:600;color:var(--text)"; nameSpan.textContent = f.name;
+    const pathSpan = document.createElement("span"); pathSpan.style.color = "var(--text-dim)"; pathSpan.textContent = f.path;
+    lbl.append(sizeSpan, " ", nameSpan, document.createElement("br"), pathSpan);
+    row.append(cb, lbl);
+    el.appendChild(row);
+  });
+}
+
+async function deleteSelectedOrphanFolders() {
+  const checked = [...document.querySelectorAll("#orphan-results input[type=checkbox]:checked")];
+  if (!checked.length) { showToast("Aucune sélection", "Cochez au moins un dossier.", "warn"); return; }
+  const paths = checked.map(c => c.dataset.path);
+  const btn = document.getElementById("btn-delete-orphan");
+  showConfirm(
+    `Supprimer ${paths.length} dossier(s) orphelin(s) ?`,
+    "Assurez-vous que ces dossiers correspondent bien à des applications désinstallées. Cette action est irréversible.",
+    async () => {
+      if (btn) { btn.disabled = true; btn.textContent = "Suppression…"; }
+      try {
+        const res  = await fetch("/api/orphan-folders/delete", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ paths }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          const errMsg = (data.errors || []).join(", ") || data.error || "Suppression impossible.";
+          showToast("Erreur", errMsg, "warn");
+        } else {
+          const errCount = (data.errors || []).length;
+          const msg = errCount > 0
+            ? `${data.deleted} supprimé(s), ${errCount} échec(s).`
+            : `${data.deleted} dossier(s) supprimé(s).`;
+          showToast("Dossiers supprimés", msg, errCount > 0 ? "warn" : "success");
+          checked.forEach(c => c.closest(".dupe-row").remove());
+        }
         if (btn) { btn.disabled = false; btn.textContent = "Supprimer la sélection"; }
       } catch (e) {
         showToast("Erreur", e.message, "warn");

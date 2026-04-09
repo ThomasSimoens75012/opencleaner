@@ -1018,6 +1018,68 @@
     </div>
   </div>
 
+  <!-- Confidentialité -->
+  <div>
+    <div class="section-head">
+      <div>
+        <div class="tool-section-title">Confidentialité</div>
+        <div class="tool-section-sub">Fichiers récents, historique de navigation, presse-papier</div>
+      </div>
+      <button class="btn-ghost" id="btn-refresh-privacy" onclick="loadPrivacy()">↻ Actualiser</button>
+    </div>
+    <div class="card">
+      <div id="privacy-results"><div class="tool-loading">Chargement…</div></div>
+    </div>
+  </div>
+
+  <!-- Fichier d'hibernation -->
+  <div{% if not is_admin %} class="tool-section-locked"{% endif %}>
+    <div class="section-head">
+      <div>
+        <div class="tool-section-title">Fichier d'hibernation</div>
+        <div class="tool-section-sub">hiberfil.sys — sauvegarde RAM pour la veille prolongée</div>
+      </div>
+    </div>
+    <div class="card">
+      <div id="hiberfil-info"><div class="tool-loading">Chargement…</div></div>
+    </div>
+  </div>
+
+  <!-- Dossiers vides -->
+  <div>
+    <div class="section-head">
+      <div>
+        <div class="tool-section-title">Dossiers vides</div>
+        <div class="tool-section-sub">Dossiers sans aucun fichier laissés par des désinstallations</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-body">
+        <div class="dupe-scan-bar">
+          <input class="dupe-folder-input" id="ef-folder" placeholder="Ex: C:\Users" value="C:\Users">
+          <button class="btn-primary" id="btn-scan-ef" onclick="startEmptyFolderScan()" style="min-width:auto;flex:none;padding:9px 18px">Analyser</button>
+        </div>
+      </div>
+      <div class="log-body" id="ef-log" style="border-top:1px solid var(--border);max-height:60px;"></div>
+      <div id="ef-results" style="max-height:320px;overflow-y:auto;border-top:1px solid var(--border);"></div>
+    </div>
+  </div>
+
+  <!-- Dossiers orphelins -->
+  <div>
+    <div class="section-head">
+      <div>
+        <div class="tool-section-title">Dossiers orphelins</div>
+        <div class="tool-section-sub">Dossiers dans Program Files sans entrée registre correspondante</div>
+      </div>
+      <button class="btn-primary" id="btn-scan-orphan" onclick="startOrphanScan()" style="min-width:auto;flex:none;padding:9px 18px">Analyser</button>
+    </div>
+    <div class="card">
+      <div class="log-body" id="orphan-log" style="max-height:60px;"></div>
+      <div id="orphan-results"><div class="tool-empty">Cliquez sur « Analyser » pour détecter les dossiers orphelins.</div></div>
+    </div>
+  </div>
+
   <!-- Points de restauration -->
   <div>
     <div class="section-head">

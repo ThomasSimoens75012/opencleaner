@@ -1236,6 +1236,201 @@ def find_large_files(folder, min_size_bytes, log=None):
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+# Dossiers vides
+# ──────────────────────────────────────────────────────────────────────────────
+
+def find_empty_folders(folder, log=None):
+    """
+    Retourne la liste des dossiers vides (sans aucun fichier dans tout le sous-arbre).
+    Exclut les dossiers système et les points de jonction NTFS.
+    """
+    _SKIP = {"$Recycle.Bin", "System Volume Information", "Windows", "Program Files",
+             "Program Files (x86)", "ProgramData"}
+    results = []
+
+    try:
+        root = Path(folder).resolve()
+    except Exception:
+        return []
+
+    for dirpath, dirnames, filenames in os.walk(root, topdown=False):
+        p = Path(dirpath)
+        if p.name in _SKIP:
+            dirnames.clear()
+            continue
+        # Ignore les points de jonction / liens symboliques
+        try:
+            if p.is_symlink() or p.stat().st_file_attributes & 0x400:  # FILE_ATTRIBUTE_REPARSE_POINT
+                continue
+        except (OSError, AttributeError):
+            pass
+        try:
+            # Un dossier est vide si aucun fichier ni sous-dossier non-vide dedans
+            has_content = bool(filenames) or any(
+                Path(dirpath, d) not in [Path(r["path"]) for r in results]
+                and not any(Path(dirpath, d) == Path(r["path"]).parent for r in results)
+                for d in dirnames
+            )
+        except Exception:
+            continue
+
+        # Recalcul simple : dossier vide = stat walk retourne 0 fichiers dans tout le sous-arbre
+        total_files = sum(1 for _ in Path(dirpath).rglob("*") if Path(os.path.join(dirpath, _)).is_file() if False)
+        # Approche directe et fiable
+        try:
+            total_files = sum(
+                1 for entry in os.scandir(dirpath)
+                if entry.is_file(follow_symlinks=False)
+            )
+            sub_dirs_empty = all(
+                Path(os.path.join(dirpath, entry.name)) in {Path(r["path"]) for r in results}
+                for entry in os.scandir(dirpath)
+                if entry.is_dir(follow_symlinks=False)
+            )
+            if total_files == 0 and sub_dirs_empty and dirpath != str(root):
+                results.append({"path": dirpath, "name": p.name})
+        except (PermissionError, OSError):
+            pass
+
+    results.sort(key=lambda x: x["path"])
+    if log:
+        log(f"Dossiers vides — {len(results)} trouvé(s)")
+    return results
+
+
+def delete_empty_folders(paths):
+    """Supprime les dossiers vides. Retourne (deleted, errors)."""
+    deleted, errors = 0, []
+    # Trie du plus profond au moins profond pour supprimer les enfants d'abord
+    for p in sorted(paths, key=lambda x: x.count(os.sep), reverse=True):
+        try:
+            Path(p).rmdir()
+            deleted += 1
+        except Exception as e:
+            errors.append(f"{p}: {e}")
+    return deleted, errors
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Dossiers orphelins
+# ──────────────────────────────────────────────────────────────────────────────
+
+_ORPHAN_SCAN_ROOTS = [
+    Path(os.environ.get("ProgramFiles",    r"C:\Program Files")),
+    Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")),
+    Path(os.environ.get("LOCALAPPDATA",    r"C:\Users\Default\AppData\Local")),
+]
+
+_ORPHAN_SYSTEM_SKIP = {
+    "common files", "microsoft", "microsoft.net", "windows",
+    "windows nt", "windowsapps", "windowspowershell",
+    "internet explorer", "mozilla firefox", "google", "microsoft edge",
+    "packaged_programs", "reference assemblies",
+    "dotnet", "desktop", "documents", "downloads",
+}
+
+
+def find_orphan_folders(log=None):
+    """
+    Détecte les dossiers dans Program Files / AppData qui n'ont plus
+    d'entrée correspondante dans le registre Uninstall.
+    Retourne une liste de dicts {path, name, size, size_fmt}.
+    """
+    import winreg
+
+    # 1. Collecte toutes les InstallLocation connues depuis le registre
+    known_locations: set[str] = set()
+    known_names: set[str] = set()
+
+    uninstall_paths = [
+        (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"),
+        (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"),
+        (winreg.HKEY_CURRENT_USER,  r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"),
+    ]
+    for hive, reg_path in uninstall_paths:
+        try:
+            key = winreg.OpenKey(hive, reg_path)
+            i = 0
+            while True:
+                try:
+                    sub_name = winreg.EnumKey(key, i)
+                    sub = winreg.OpenKey(key, sub_name)
+                    def _val(k):
+                        try: return str(winreg.QueryValueEx(sub, k)[0]).strip()
+                        except: return ""
+                    loc = _val("InstallLocation").rstrip("\\/").lower()
+                    if loc:
+                        known_locations.add(loc)
+                        # Ajoute aussi les parents directs (cas des sous-dossiers)
+                        known_locations.add(str(Path(loc).parent).lower())
+                    name = _val("DisplayName").lower()
+                    if name:
+                        known_names.add(name)
+                    winreg.CloseKey(sub)
+                    i += 1
+                except OSError:
+                    break
+            winreg.CloseKey(key)
+        except OSError:
+            pass
+
+    if log:
+        log(f"Registre : {len(known_locations)} emplacements connus, {len(known_names)} noms connus")
+
+    # 2. Parcourt les racines et détecte les dossiers orphelins
+    orphans = []
+    for root in _ORPHAN_SCAN_ROOTS:
+        if not root.exists():
+            continue
+        try:
+            for entry in os.scandir(root):
+                if not entry.is_dir(follow_symlinks=False):
+                    continue
+                name_lower = entry.name.lower()
+                if name_lower in _ORPHAN_SYSTEM_SKIP:
+                    continue
+                path_lower = entry.path.lower()
+
+                # Vérifie si ce dossier (ou un parent) est dans les emplacements connus
+                matched = path_lower in known_locations
+                if not matched:
+                    # Correspondance approximative sur le nom du dossier vs noms d'apps
+                    matched = any(
+                        name_lower in app_name or app_name in name_lower
+                        for app_name in known_names
+                        if len(app_name) >= 4
+                    )
+                if not matched:
+                    size = get_folder_size(entry.path)
+                    if size > 0:   # ignore les dossiers vides (déjà gérés par find_empty_folders)
+                        orphans.append({
+                            "path":     entry.path,
+                            "name":     entry.name,
+                            "size":     size,
+                            "size_fmt": fmt_size(size),
+                        })
+        except (PermissionError, OSError):
+            pass
+
+    orphans.sort(key=lambda x: x["size"], reverse=True)
+    if log:
+        log(f"Dossiers orphelins — {len(orphans)} candidat(s) trouvé(s)")
+    return orphans
+
+
+def delete_orphan_folders(paths):
+    """Supprime les dossiers orphelins sélectionnés. Retourne (deleted, errors)."""
+    deleted, errors = 0, []
+    for p in paths:
+        try:
+            shutil.rmtree(p)
+            deleted += 1
+        except Exception as e:
+            errors.append(f"{p}: {e}")
+    return deleted, errors
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Points de restauration
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -1428,6 +1623,193 @@ def get_software_updates():
         return {"updates": [], "error": "Délai dépassé — vérifiez votre connexion"}
     except Exception as e:
         return {"updates": [], "error": str(e)}
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Nettoyage confidentialité
+# ──────────────────────────────────────────────────────────────────────────────
+
+def get_privacy_items():
+    """
+    Retourne la liste des éléments de confidentialité nettoyables avec leur taille estimée.
+    """
+    items = []
+
+    # Fichiers récents (MRU Explorateur)
+    recent = Path(os.environ.get("APPDATA", "")) / "Microsoft" / "Windows" / "Recent"
+    if recent.exists():
+        files = list(recent.glob("*.lnk"))
+        size  = sum(f.stat().st_size for f in files if f.is_file())
+        items.append({
+            "id":    "recent_files",
+            "label": "Fichiers récents",
+            "desc":  "Raccourcis vers les fichiers ouverts récemment (Explorateur Windows)",
+            "count": len(files),
+            "size":  size,
+            "size_fmt": fmt_size(size),
+        })
+
+    # Jump Lists
+    jl_dirs = [
+        Path(os.environ.get("APPDATA", "")) / "Microsoft" / "Windows" / "Recent" / "AutomaticDestinations",
+        Path(os.environ.get("APPDATA", "")) / "Microsoft" / "Windows" / "Recent" / "CustomDestinations",
+    ]
+    jl_files = []
+    jl_size  = 0
+    for d in jl_dirs:
+        if d.exists():
+            for f in d.iterdir():
+                if f.is_file():
+                    try:
+                        jl_size += f.stat().st_size
+                        jl_files.append(f)
+                    except OSError:
+                        pass
+    items.append({
+        "id":    "jump_lists",
+        "label": "Jump Lists",
+        "desc":  "Historique des fichiers récents visibles au clic droit sur la barre des tâches",
+        "count": len(jl_files),
+        "size":  jl_size,
+        "size_fmt": fmt_size(jl_size),
+    })
+
+    # Recherches récentes dans l'Explorateur
+    try:
+        import winreg
+        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER,
+                             r"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\TypedPaths",
+                             0, winreg.KEY_READ)
+        count = 0
+        i = 0
+        while True:
+            try:
+                winreg.EnumValue(key, i)
+                count += 1
+                i += 1
+            except OSError:
+                break
+        winreg.CloseKey(key)
+        items.append({
+            "id":    "explorer_searches",
+            "label": "Historique barre d'adresse",
+            "desc":  "Chemins tapés dans la barre d'adresse de l'Explorateur Windows",
+            "count": count,
+            "size":  0,
+            "size_fmt": f"{count} entrée(s)",
+        })
+    except Exception:
+        pass
+
+    # Presse-papier
+    items.append({
+        "id":    "clipboard",
+        "label": "Presse-papier",
+        "desc":  "Contenu actuellement copié dans le presse-papier",
+        "count": 1,
+        "size":  0,
+        "size_fmt": "—",
+    })
+
+    return items
+
+
+def clean_privacy_items(ids):
+    """
+    Nettoie les éléments de confidentialité sélectionnés.
+    Retourne (cleaned_count, errors).
+    """
+    cleaned, errors = 0, []
+
+    if "recent_files" in ids:
+        recent = Path(os.environ.get("APPDATA", "")) / "Microsoft" / "Windows" / "Recent"
+        for f in recent.glob("*.lnk"):
+            try:
+                f.unlink()
+                cleaned += 1
+            except Exception as e:
+                errors.append(str(e))
+
+    if "jump_lists" in ids:
+        jl_dirs = [
+            Path(os.environ.get("APPDATA", "")) / "Microsoft" / "Windows" / "Recent" / "AutomaticDestinations",
+            Path(os.environ.get("APPDATA", "")) / "Microsoft" / "Windows" / "Recent" / "CustomDestinations",
+        ]
+        for d in jl_dirs:
+            if d.exists():
+                for f in d.iterdir():
+                    if f.is_file():
+                        try:
+                            f.unlink()
+                            cleaned += 1
+                        except Exception as e:
+                            errors.append(str(e))
+
+    if "explorer_searches" in ids:
+        try:
+            import winreg
+            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER,
+                                 r"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\TypedPaths",
+                                 0, winreg.KEY_SET_VALUE)
+            i = 0
+            names = []
+            while True:
+                try:
+                    name, _, _ = winreg.EnumValue(key, i)
+                    names.append(name)
+                    i += 1
+                except OSError:
+                    break
+            for name in names:
+                try:
+                    winreg.DeleteValue(key, name)
+                    cleaned += 1
+                except Exception as e:
+                    errors.append(str(e))
+            winreg.CloseKey(key)
+        except Exception as e:
+            errors.append(f"Historique barre d'adresse : {e}")
+
+    if "clipboard" in ids:
+        try:
+            import ctypes
+            ctypes.windll.user32.OpenClipboard(0)
+            ctypes.windll.user32.EmptyClipboard()
+            ctypes.windll.user32.CloseClipboard()
+            cleaned += 1
+        except Exception as e:
+            errors.append(f"Presse-papier : {e}")
+
+    return cleaned, errors
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Fichier d'hibernation
+# ──────────────────────────────────────────────────────────────────────────────
+
+def get_hibernation_info():
+    """Retourne l'état et la taille du fichier d'hibernation."""
+    hiberfil = Path("C:/hiberfil.sys")
+    enabled  = hiberfil.exists()
+    size     = 0
+    if enabled:
+        try:
+            size = hiberfil.stat().st_size
+        except OSError:
+            pass
+    return {"enabled": enabled, "size": size, "size_fmt": fmt_size(size) if size else "—"}
+
+
+def disable_hibernation():
+    """Désactive l'hibernation via powercfg (supprime hiberfil.sys). Requiert admin."""
+    try:
+        r = subprocess.run(
+            ["powercfg", "/hibernate", "off"],
+            capture_output=True, timeout=10,
+        )
+        return r.returncode == 0, r.stderr.decode("utf-8", errors="replace").strip()
+    except Exception as e:
+        return False, str(e)
 
 
 # ──────────────────────────────────────────────────────────────────────────────

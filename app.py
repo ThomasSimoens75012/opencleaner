@@ -25,8 +25,12 @@ from cleaner import (
     get_health_data,
     scan_shortcuts, delete_shortcuts,
     find_large_files,
+    find_empty_folders, delete_empty_folders,
+    find_orphan_folders, delete_orphan_folders,
     list_restore_points, delete_restore_points,
     get_software_updates,
+    get_privacy_items, clean_privacy_items,
+    get_hibernation_info, disable_hibernation,
     is_admin,
 )
 
@@ -318,6 +322,110 @@ def _run_largefiles(job_id, folder, min_bytes):
         q.put({"type": "done", "msg": f"Erreur : {e}", "freed_bytes": 0, "freed_fmt": "0 o"})
     finally:
         job["done"] = True
+
+
+@app.route("/api/empty-folders", methods=["POST"])
+def api_empty_folders():
+    data   = request.get_json(force=True) or {}
+    folder = data.get("folder", "")
+    if not folder or not Path(folder).exists():
+        return jsonify({"error": "Dossier invalide ou introuvable."}), 400
+    job_id = _create_job()
+    threading.Thread(target=_run_empty_folders, args=(job_id, folder), daemon=True).start()
+    return jsonify({"job_id": job_id})
+
+
+@app.route("/api/empty-folders/delete", methods=["POST"])
+def api_empty_folders_delete():
+    data  = request.get_json(force=True) or {}
+    paths = data.get("paths", [])
+    if not paths:
+        return jsonify({"error": "Aucun chemin fourni."}), 400
+    deleted, errors = delete_empty_folders(paths)
+    return jsonify({"ok": deleted > 0, "deleted": deleted, "errors": errors})
+
+
+def _run_empty_folders(job_id, folder):
+    with JOBS_LOCK:
+        job = JOBS.get(job_id)
+    if not job:
+        return
+    q = job["queue"]
+    q.put({"type": "start", "msg": f"Analyse de '{folder}'…"})
+    try:
+        results = find_empty_folders(folder, log=lambda m: q.put({"type": "log", "msg": m}))
+        q.put({"type": "result", "folders": results, "count": len(results)})
+        q.put({"type": "done", "msg": f"{len(results)} dossier(s) vide(s) trouvé(s).",
+               "freed_bytes": 0, "freed_fmt": "—"})
+    except Exception as e:
+        q.put({"type": "done", "msg": f"Erreur : {e}", "freed_bytes": 0, "freed_fmt": "—"})
+    finally:
+        job["done"] = True
+
+
+@app.route("/api/orphan-folders", methods=["POST"])
+def api_orphan_folders():
+    job_id = _create_job()
+    threading.Thread(target=_run_orphan_folders, args=(job_id,), daemon=True).start()
+    return jsonify({"job_id": job_id})
+
+
+@app.route("/api/orphan-folders/delete", methods=["POST"])
+def api_orphan_folders_delete():
+    data  = request.get_json(force=True) or {}
+    paths = data.get("paths", [])
+    if not paths:
+        return jsonify({"error": "Aucun chemin fourni."}), 400
+    deleted, errors = delete_orphan_folders(paths)
+    return jsonify({"ok": deleted > 0, "deleted": deleted, "errors": errors})
+
+
+def _run_orphan_folders(job_id):
+    with JOBS_LOCK:
+        job = JOBS.get(job_id)
+    if not job:
+        return
+    q = job["queue"]
+    q.put({"type": "start", "msg": "Analyse des dossiers orphelins…"})
+    try:
+        results = find_orphan_folders(log=lambda m: q.put({"type": "log", "msg": m}))
+        total   = sum(f["size"] for f in results)
+        q.put({"type": "result", "folders": results, "count": len(results),
+               "total_fmt": fmt_size(total)})
+        q.put({"type": "done", "msg": f"{len(results)} dossier(s) orphelin(s) — {fmt_size(total)} récupérables.",
+               "freed_bytes": total, "freed_fmt": fmt_size(total)})
+    except Exception as e:
+        q.put({"type": "done", "msg": f"Erreur : {e}", "freed_bytes": 0, "freed_fmt": "—"})
+    finally:
+        job["done"] = True
+
+
+@app.route("/api/privacy")
+def api_privacy():
+    return jsonify(get_privacy_items())
+
+
+@app.route("/api/privacy/clean", methods=["POST"])
+def api_privacy_clean():
+    data = request.get_json(force=True) or {}
+    ids  = data.get("ids", [])
+    if not ids:
+        return jsonify({"error": "Aucun élément sélectionné."}), 400
+    cleaned, errors = clean_privacy_items(ids)
+    return jsonify({"ok": cleaned > 0, "cleaned": cleaned, "errors": errors})
+
+
+@app.route("/api/hibernation")
+def api_hibernation():
+    return jsonify(get_hibernation_info())
+
+
+@app.route("/api/hibernation/disable", methods=["POST"])
+def api_hibernation_disable():
+    if not is_admin():
+        return jsonify({"error": "Droits administrateur requis."}), 403
+    ok, err = disable_hibernation()
+    return jsonify({"ok": ok, "error": err if not ok else None})
 
 
 @app.route("/api/relaunch-admin", methods=["POST"])
