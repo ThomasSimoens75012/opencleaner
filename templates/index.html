@@ -1,0 +1,1206 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PC Cleaner</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ══════════════════════════════════════════
+       TOKENS LIGHT
+    ══════════════════════════════════════════ */
+    :root {
+      --bg:        #f1f5f9;
+      --bg2:       #ffffff;
+      --bg3:       #f8fafc;
+      --border:    #e2e8f0;
+      --border2:   #cbd5e1;
+      --text:      #0f172a;
+      --text-mid:  #64748b;
+      --text-dim:  #94a3b8;
+      --shadow:    0 1px 3px rgba(0,0,0,.07), 0 1px 2px rgba(0,0,0,.04);
+      --radius:    14px;
+
+      --accent:    #2563eb;
+      --accent-bg: #eff6ff;
+      --accent-bdr:#bfdbfe;
+
+      --sys:     #4f46e5;
+      --sys-bg:  #eef2ff;
+      --sys-bdr: rgba(79,70,229,.2);
+      --sys-row: rgba(79,70,229,.03);
+      --sys-ck:  rgba(79,70,229,.07);
+
+      --nav:     #0891b2;
+      --nav-bg:  #ecfeff;
+      --nav-bdr: rgba(8,145,178,.2);
+      --nav-row: rgba(8,145,178,.025);
+      --nav-ck:  rgba(8,145,178,.06);
+
+      --app:     #e11d48;
+      --app-bg:  #fff1f2;
+      --app-bdr: rgba(225,29,72,.18);
+      --app-row: rgba(225,29,72,.025);
+      --app-ck:  rgba(225,29,72,.05);
+
+      --green:  #16a34a; --green-bg:  #f0fdf4;
+      --amber:  #d97706; --amber-bg:  #fffbeb;
+      --red:    #dc2626; --red-bg:    #fef2f2;
+    }
+
+    /* ══════════════════════════════════════════
+       TOKENS DARK
+    ══════════════════════════════════════════ */
+    [data-theme="dark"] {
+      --bg:        #0f1117;
+      --bg2:       #181b24;
+      --bg3:       #1e2230;
+      --border:    rgba(255,255,255,.07);
+      --border2:   rgba(255,255,255,.13);
+      --text:      #f1f5f9;
+      --text-mid:  #94a3b8;
+      --text-dim:  #475569;
+      --shadow:    0 1px 3px rgba(0,0,0,.3);
+
+      --accent:    #60a5fa;
+      --accent-bg: rgba(96,165,250,.12);
+      --accent-bdr:rgba(96,165,250,.25);
+
+      --sys:     #818cf8;
+      --sys-bg:  rgba(129,140,248,.12);
+      --sys-bdr: rgba(129,140,248,.2);
+      --sys-row: rgba(129,140,248,.03);
+      --sys-ck:  rgba(129,140,248,.09);
+
+      --nav:     #22d3ee;
+      --nav-bg:  rgba(34,211,238,.1);
+      --nav-bdr: rgba(34,211,238,.18);
+      --nav-row: rgba(34,211,238,.025);
+      --nav-ck:  rgba(34,211,238,.07);
+
+      --app:     #fb7185;
+      --app-bg:  rgba(251,113,133,.1);
+      --app-bdr: rgba(251,113,133,.18);
+      --app-row: rgba(251,113,133,.025);
+      --app-ck:  rgba(251,113,133,.07);
+
+      --green:  #4ade80; --green-bg:  rgba(74,222,128,.12);
+      --amber:  #fbbf24; --amber-bg:  rgba(251,191,36,.12);
+      --red:    #f87171; --red-bg:    rgba(248,113,113,.1);
+    }
+
+    /* ══════════════════════════════════════════
+       BASE
+    ══════════════════════════════════════════ */
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex; flex-direction: column;
+      font-size: 14px;
+      transition: background .2s, color .2s;
+    }
+
+    /* ══════════════════════════════════════════
+       NAV
+    ══════════════════════════════════════════ */
+    nav {
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      position: sticky; top: 0; z-index: 100;
+      box-shadow: var(--shadow);
+      transition: background .2s, border-color .2s;
+    }
+    .nav-top {
+      height: 56px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .nav-logo {
+      display: flex; align-items: center; gap: 9px;
+      font-weight: 800; font-size: 16px; letter-spacing: -.4px;
+    }
+    .nav-dot {
+      width: 9px; height: 9px;
+      background: var(--accent); border-radius: 50%;
+      box-shadow: 0 0 0 3px var(--accent-bdr);
+      animation: pulse 3s ease-in-out infinite;
+      transition: background .2s, box-shadow .2s;
+    }
+    @keyframes pulse {
+      0%,100% { box-shadow: 0 0 0 3px var(--accent-bdr); }
+      50%      { box-shadow: 0 0 0 7px transparent; }
+    }
+    .nav-right { display: flex; align-items: center; gap: 8px; }
+
+    /* Bouton thème */
+    .theme-btn {
+      width: 34px; height: 34px;
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 9px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px; transition: background .15s;
+      flex-shrink: 0;
+    }
+    .theme-btn:hover { background: var(--border); }
+    .icon-moon { display: block; }
+    .icon-sun  { display: none; }
+    [data-theme="dark"] .icon-moon { display: none; }
+    [data-theme="dark"] .icon-sun  { display: block; }
+
+    /* Pills */
+    .pill { padding: 4px 11px; border-radius: 20px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+    .pill-admin { background: var(--green-bg);  color: var(--green); border: 1px solid rgba(22,163,74,.2); }
+    .pill-std   { background: var(--amber-bg);  color: var(--amber); border: 1px solid rgba(217,119,6,.2); }
+    .pill-time  { background: var(--bg3); color: var(--text-mid); border: 1px solid var(--border); }
+    [data-theme="dark"] .pill-admin { border-color: rgba(74,222,128,.2); }
+
+    /* Tab bar */
+    .tab-bar {
+      display: flex; gap: 4px;
+      border-top: 1px solid var(--border);
+    }
+    .tab-btn {
+      padding: 9px 18px;
+      font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500;
+      background: none; border: none; border-bottom: 2px solid transparent;
+      color: var(--text-mid); cursor: pointer;
+      transition: color .15s, border-color .15s;
+    }
+    .tab-btn:hover  { color: var(--text); }
+    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+
+    /* ══════════════════════════════════════════
+       PANELS
+    ══════════════════════════════════════════ */
+    .tab-panel { display: none; flex: 1; }
+    .tab-panel.active { display: flex; flex-direction: column; }
+
+    /* ══════════════════════════════════════════
+       ONGLET NETTOYAGE — LAYOUT
+    ══════════════════════════════════════════ */
+    .nett-layout {
+      display: flex;
+      max-width: 940px; margin: 0 auto; width: 100%;
+      padding: 22px 16px 40px; gap: 18px;
+      flex: 1;
+    }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: 200px; flex-shrink: 0;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .side-card {
+      border-radius: 12px; padding: 14px 15px;
+      border: 1px solid transparent;
+      cursor: default;
+      transition: border-color .18s, box-shadow .18s;
+    }
+    .side-card.s-sys { background: var(--sys-bg); border-color: var(--sys-bdr); }
+    .side-card.s-nav { background: var(--nav-bg); border-color: var(--nav-bdr); }
+    .side-card.s-app { background: var(--app-bg); border-color: var(--app-bdr); }
+
+    .sc-head { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
+    .sc-emoji { font-size: 15px; }
+    .sc-label { font-size: 12px; font-weight: 700; }
+    .s-sys .sc-label { color: var(--sys); }
+    .s-nav .sc-label { color: var(--nav); }
+    .s-app .sc-label { color: var(--app); }
+
+    .sc-size { font-size: 21px; font-weight: 800; letter-spacing: -.5px; }
+    .s-sys .sc-size { color: var(--sys); }
+    .s-nav .sc-size { color: var(--nav); }
+    .s-app .sc-size { color: var(--app); }
+    .sc-count { font-size: 11px; color: var(--text-mid); margin-top: 3px; }
+
+    .sc-bar { height: 3px; border-radius: 2px; background: var(--border); margin-top: 11px; overflow: hidden; }
+    .sc-fill { height: 100%; border-radius: 2px; transition: width .4s ease; }
+    .s-sys .sc-fill { background: var(--sys); }
+    .s-nav .sc-fill { background: var(--nav); }
+    .s-app .sc-fill { background: var(--app); }
+
+    .sidebar-spacer { flex: 1; min-height: 8px; }
+
+    .total-box {
+      background: var(--accent-bg);
+      border: 1px solid var(--accent-bdr);
+      border-radius: 12px; padding: 14px 15px;
+      transition: background .2s, border-color .2s;
+    }
+    .tb-label { font-size: 11px; font-weight: 600; color: var(--accent); margin-bottom: 4px; }
+    .tb-value { font-size: 24px; font-weight: 800; color: var(--accent); letter-spacing: -.6px; transition: color .2s; }
+
+    /* ── Contenu principal nettoyage ── */
+    .nett-content { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+
+    /* Disque */
+    .disk-card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 15px 20px;
+      box-shadow: var(--shadow);
+      display: flex; align-items: center; gap: 20px;
+      transition: background .2s, border-color .2s;
+    }
+    .disk-left .dk-label { font-size: 10px; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: .7px; }
+    .disk-left .dk-name  { font-size: 17px; font-weight: 700; letter-spacing: -.3px; }
+    .disk-left .dk-free  { font-size: 12px; color: var(--text-mid); margin-top: 2px; }
+    .disk-right { flex: 1; }
+    .bar-bg   { height: 6px; background: var(--bg3); border-radius: 3px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--accent), #93c5fd); transition: width .6s ease, background .3s; }
+    [data-theme="dark"] .bar-fill { background: linear-gradient(90deg, var(--accent), #1d4ed8); }
+    .bar-fill.warn   { background: linear-gradient(90deg, var(--amber), #fcd34d); }
+    .bar-fill.danger { background: linear-gradient(90deg, var(--red), #f87171); }
+    .bar-stats { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-dim); margin-top: 5px; }
+
+    /* Task card */
+    .task-card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: var(--radius); overflow: hidden;
+      box-shadow: var(--shadow);
+      transition: background .2s, border-color .2s;
+    }
+
+    /* En-tête de groupe */
+    .grp-head {
+      display: flex; align-items: center; gap: 10px;
+      padding: 11px 18px; border-bottom: 1px solid var(--border);
+      transition: background .2s;
+    }
+    .grp-head + .grp-head,
+    .grp-sys + .grp-head,
+    .grp-nav + .grp-head,
+    .grp-app + .grp-head { border-top: 1px solid var(--border); }
+    .grp-head.s-sys { background: var(--sys-bg); }
+    .grp-head.s-nav { background: var(--nav-bg); }
+    .grp-head.s-app { background: var(--app-bg); }
+
+    .grp-emoji { font-size: 15px; }
+    .grp-name  { font-size: 13px; font-weight: 700; }
+    .grp-head.s-sys .grp-name { color: var(--sys); }
+    .grp-head.s-nav .grp-name { color: var(--nav); }
+    .grp-head.s-app .grp-name { color: var(--app); }
+    .grp-desc { font-size: 11px; color: var(--text-dim); margin-top: 1px; }
+    .grp-total { margin-left: auto; text-align: right; flex-shrink: 0; }
+    .grp-total-val { font-size: 14px; font-weight: 800; }
+    .grp-head.s-sys .grp-total-val { color: var(--sys); }
+    .grp-head.s-nav .grp-total-val { color: var(--nav); }
+    .grp-head.s-app .grp-total-val { color: var(--app); }
+    .grp-total-sub { font-size: 10px; color: var(--text-dim); }
+
+    /* Lignes de tâches */
+    .task-item {
+      display: flex; align-items: center; gap: 13px;
+      padding: 12px 18px; border-bottom: 1px solid var(--border);
+      cursor: pointer; user-select: none;
+      transition: background .12s;
+      border-left: 3px solid transparent;
+    }
+    .task-item:last-child { border-bottom: none; }
+
+    .grp-sys .task-item              { background: var(--sys-row); border-left-color: rgba(79,70,229,.12); }
+    .grp-sys .task-item:hover        { background: var(--sys-ck); }
+    .grp-sys .task-item.on           { background: var(--sys-ck); border-left-color: var(--sys); }
+    .grp-nav .task-item              { background: var(--nav-row); border-left-color: rgba(8,145,178,.1); }
+    .grp-nav .task-item:hover        { background: var(--nav-ck); }
+    .grp-nav .task-item.on           { background: var(--nav-ck); border-left-color: var(--nav); }
+    .grp-app .task-item              { background: var(--app-row); border-left-color: rgba(225,29,72,.08); }
+    .grp-app .task-item:hover        { background: var(--app-ck); }
+    .grp-app .task-item.on           { background: var(--app-ck); border-left-color: var(--app); }
+
+    /* Toggle */
+    .toggle-track {
+      width: 38px; height: 22px;
+      background: var(--border2); border-radius: 11px;
+      position: relative; flex-shrink: 0;
+      transition: background .2s;
+    }
+    .grp-sys .task-item.on .toggle-track { background: var(--sys); }
+    .grp-nav .task-item.on .toggle-track { background: var(--nav); }
+    .grp-app .task-item.on .toggle-track { background: var(--app); }
+    .toggle-thumb {
+      position: absolute; top: 3px; left: 3px;
+      width: 16px; height: 16px;
+      background: white; border-radius: 50%;
+      box-shadow: 0 1px 4px rgba(0,0,0,.2);
+      transition: transform .25s cubic-bezier(.175,.885,.32,1.3);
+    }
+    .task-item.on .toggle-thumb { transform: translateX(16px); }
+
+    /* Info tâche */
+    .task-info { flex: 1; min-width: 0; }
+    .task-name { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .task-desc { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+
+    .badge { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 5px; }
+    .badge-safe  { background: var(--green-bg); color: var(--green); }
+    .badge-admin { background: var(--amber-bg); color: var(--amber); }
+
+    .size-wrap { text-align: right; flex-shrink: 0; min-width: 64px; }
+    .size-val  { font-size: 13px; font-weight: 700; transition: color .3s; }
+    .size-sub  { font-size: 10px; color: var(--text-dim); margin-top: 1px; }
+    .sz-big    { color: var(--red); }
+    .sz-med    { color: var(--amber); }
+    .sz-sml    { color: var(--green); }
+    .sz-zero   { color: var(--text-dim); font-weight: 400; }
+    .sz-load   { color: var(--text-dim); animation: shimmer 1.4s linear infinite; }
+    @keyframes shimmer { 0%,100%{opacity:.4} 50%{opacity:1} }
+
+    /* Actions */
+    .actions-wrap { display: flex; flex-direction: column; gap: 8px; }
+    .actions      { display: flex; gap: 8px; flex-wrap: wrap; }
+    .actions-desc { font-size: 12px; color: var(--text-dim); }
+
+    .btn-primary {
+      flex: 1; min-width: 180px; padding: 12px 20px;
+      background: var(--accent); color: white;
+      font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 700;
+      border: none; border-radius: 12px; cursor: pointer;
+      box-shadow: 0 2px 10px rgba(37,99,235,.25);
+      transition: background .3s, filter .15s, box-shadow .2s, transform .15s;
+      display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+      overflow: hidden; position: relative;
+    }
+    .btn-primary:hover:not(:disabled)  { filter: brightness(1.08); box-shadow: 0 4px 16px rgba(37,99,235,.35); }
+    .btn-primary:active:not(:disabled) { transform: scale(.98); }
+    .btn-primary:disabled { opacity: .7; cursor: not-allowed; filter: none; }
+    .btn-primary.btn-running { background: #1e40af; cursor: not-allowed; }
+    .btn-primary.btn-success { background: var(--green) !important; box-shadow: 0 2px 14px rgba(22,163,74,.3); }
+    .btn-primary.btn-error   { background: var(--red)   !important; animation: btn-shake .35s ease; }
+    [data-theme="dark"] .btn-primary { box-shadow: 0 2px 12px rgba(96,165,250,.2); }
+
+    .btn-icon { font-size: 14px; display: inline-block; flex-shrink: 0; }
+    .btn-running .btn-icon { animation: spin-icon .7s linear infinite; }
+    @keyframes spin-icon { to { transform: rotate(360deg); } }
+    @keyframes btn-shake {
+      0%,100%{transform:translateX(0)}
+      20%{transform:translateX(-5px)} 40%{transform:translateX(5px)}
+      60%{transform:translateX(-4px)} 80%{transform:translateX(4px)}
+    }
+
+    .btn-ghost {
+      padding: 10px 14px;
+      background: var(--bg2); color: var(--text-mid);
+      font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500;
+      border: 1px solid var(--border); border-radius: 10px; cursor: pointer;
+      transition: background .15s, color .15s; white-space: nowrap;
+      overflow: hidden; position: relative;
+    }
+    .btn-ghost:hover { background: var(--bg3); color: var(--text); }
+
+    /* Ripple */
+    .ripple-wave {
+      position: absolute; border-radius: 50%;
+      background: rgba(255,255,255,.28);
+      transform: scale(0);
+      animation: ripple-expand .5s ease-out forwards;
+      pointer-events: none;
+    }
+    @keyframes ripple-expand { to { transform: scale(4); opacity: 0; } }
+
+    /* Skeleton loader */
+    .skeleton-row { display: flex; gap: 12px; align-items: center; padding: 11px 18px; border-bottom: 1px solid var(--border); }
+    .skeleton-row:last-child { border-bottom: none; }
+    .skeleton-box {
+      background: linear-gradient(90deg, var(--border) 25%, var(--bg3) 50%, var(--border) 75%);
+      background-size: 200% 100%;
+      border-radius: 6px; flex-shrink: 0;
+      animation: sk-shimmer 1.4s infinite;
+    }
+    @keyframes sk-shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+    /* Tooltip */
+    .tooltip-wrap { position: relative; display: inline-flex; flex-direction: column; align-items: center; }
+    .tooltip-wrap .tip {
+      position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+      background: #1e293b; color: #f1f5f9;
+      font-size: 12px; padding: 6px 10px; border-radius: 8px;
+      white-space: nowrap; pointer-events: none; opacity: 0;
+      transition: opacity .15s; z-index: 50;
+    }
+    .tooltip-wrap .tip::after {
+      content:''; position: absolute; top:100%; left:50%; transform: translateX(-50%);
+      border: 5px solid transparent; border-top-color: #1e293b;
+    }
+    .tooltip-wrap:hover .tip { opacity: 1; }
+
+    /* Log */
+    .log-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); transition: background .2s; }
+    .log-header { display: flex; align-items: center; justify-content: space-between; padding: 11px 18px; border-bottom: 1px solid var(--border); background: var(--bg3); }
+    .log-title  { font-size: 12px; font-weight: 600; color: var(--text-mid); text-transform: uppercase; letter-spacing: .6px; }
+    .log-clear  { font-size: 12px; color: var(--text-dim); cursor: pointer; transition: color .15s; }
+    .log-clear:hover { color: var(--accent); }
+    .progress-wrap  { display: none; padding: 10px 18px 0; }
+    .progress-label { font-size: 12px; color: var(--text-mid); margin-bottom: 5px; font-weight: 500; }
+    .progress-bg    { height: 4px; background: var(--bg3); border-radius: 2px; overflow: hidden; }
+    .progress-fill  { height: 100%; background: linear-gradient(90deg, var(--accent), #93c5fd); border-radius: 2px; transition: width .4s ease; }
+    .log-body { padding: 10px 18px; max-height: 150px; overflow-y: auto; font-family: 'Consolas','Monaco',monospace; font-size: 12px; }
+    .log-entry { display: flex; gap: 14px; padding: 2px 0; }
+    .log-ts   { color: var(--text-dim); flex-shrink: 0; font-size: 11px; padding-top: 1px; }
+    .log-msg  { color: var(--text-mid); }
+    .log-ok   { color: var(--green); }
+    .log-warn { color: var(--amber); }
+
+    /* ══════════════════════════════════════════
+       ONGLETS OUTILS & PLANIFICATEUR — layout
+    ══════════════════════════════════════════ */
+    .tools-main { max-width: 800px; margin: 0 auto; padding: 24px 20px 40px; width: 100%; }
+
+    /* Cards génériques */
+    .card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; transition: background .2s; }
+    .card-header { display: flex; align-items: center; justify-content: space-between; padding: 13px 18px; border-bottom: 1px solid var(--border); background: var(--bg3); }
+    .card-title  { font-size: 12px; font-weight: 600; color: var(--text-mid); text-transform: uppercase; letter-spacing: .6px; }
+    .card-body   { padding: 16px 18px; }
+
+    .panel-stack { display: flex; flex-direction: column; gap: 18px; }
+    .section-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
+    .section-title { font-size: 16px; font-weight: 700; letter-spacing: -.3px; }
+    .section-sub   { font-size: 13px; color: var(--text-dim); margin-top: 1px; }
+
+    /* Outils */
+    .tools-section { display: flex; flex-direction: column; gap: 18px; }
+    .tool-section-title { font-size: 16px; font-weight: 700; letter-spacing: -.3px; }
+    .tool-section-sub   { font-size: 13px; color: var(--text-dim); }
+    .tool-row { display: flex; align-items: center; gap: 12px; padding: 11px 18px; border-bottom: 1px solid var(--border); }
+    .tool-row:last-child { border-bottom: none; }
+    .tool-header { background: var(--bg3); font-size: 12px; }
+    .tool-info  { flex: 1; min-width: 0; }
+    .tool-name  { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tool-sub   { font-size: 11px; color: var(--text-dim); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 320px; }
+    .tool-meta  { font-size: 12px; color: var(--text-mid); min-width: 90px; text-align: right; }
+    .tool-meta.dim { color: var(--text-dim); }
+    .tool-loading { padding: 20px; text-align: center; color: var(--text-dim); font-size: 13px; }
+    .tool-empty   { padding: 20px; text-align: center; color: var(--text-dim); font-size: 13px; }
+    .tool-error   { padding: 20px; text-align: center; color: var(--red); font-size: 13px; }
+
+    .source-badge { font-size: 10px; padding: 2px 7px; border-radius: 4px; background: var(--accent-bg); color: var(--accent); white-space: nowrap; font-weight: 600; }
+
+    .btn-uninstall {
+      padding: 5px 10px; font-family: 'Inter',sans-serif; font-size: 11px; font-weight: 500;
+      background: var(--red-bg); color: var(--red);
+      border: 1px solid rgba(220,38,38,.2); border-radius: 6px;
+      cursor: pointer; white-space: nowrap; transition: background .15s;
+      overflow: hidden; position: relative;
+    }
+    .btn-uninstall:hover { filter: brightness(.95); }
+    .btn-uninstall .ripple-wave { background: rgba(220,38,38,.15); }
+
+    .search-wrap { padding: 10px 18px; border-bottom: 1px solid var(--border); background: var(--bg3); display: flex; gap: 8px; align-items: center; }
+    .search-input { flex: 1; padding: 7px 12px; border: 1px solid var(--border); border-radius: 8px; font-family: 'Inter',sans-serif; font-size: 13px; background: var(--bg2); color: var(--text); outline: none; }
+    .search-input:focus { border-color: var(--accent); }
+    .apps-count { font-size: 12px; color: var(--text-dim); white-space: nowrap; }
+
+    /* Doublons */
+    .dupe-scan-bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .dupe-folder-input { flex: 1; min-width: 200px; padding: 9px 14px; border: 1px solid var(--border); border-radius: 10px; font-family: 'Inter',sans-serif; font-size: 13px; background: var(--bg2); color: var(--text); outline: none; }
+    .dupe-folder-input:focus { border-color: var(--accent); }
+    .dupe-size-input { width: 80px; padding: 9px 10px; border: 1px solid var(--border); border-radius: 10px; font-family: 'Inter',sans-serif; font-size: 13px; background: var(--bg2); color: var(--text); outline: none; text-align: center; }
+    .dupe-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 18px; background: var(--accent-bg); border-bottom: 1px solid var(--accent-bdr); font-size: 13px; color: var(--accent); font-weight: 500; }
+    .dupe-group { border-bottom: 1px solid var(--border); }
+    .dupe-group-title { padding: 8px 18px; font-size: 12px; font-weight: 600; color: var(--text-mid); background: var(--bg3); }
+    .dupe-row { display: flex; align-items: flex-start; gap: 10px; padding: 8px 18px; border-top: 1px solid var(--border); }
+    .dupe-row input[type=checkbox] { margin-top: 2px; flex-shrink: 0; }
+    .dupe-path { font-size: 12px; color: var(--text-mid); word-break: break-all; cursor: pointer; }
+    .dupe-size { font-weight: 600; color: var(--text); margin-right: 8px; }
+
+    /* Planificateur */
+    .sched-grid { display: flex; flex-direction: column; gap: 16px; }
+    .sched-row  { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .sched-label { font-size: 13px; font-weight: 500; color: var(--text-mid); min-width: 140px; }
+    .sched-select, .sched-time-input {
+      padding: 9px 14px; border: 1px solid var(--border); border-radius: 10px;
+      font-family: 'Inter',sans-serif; font-size: 13px; background: var(--bg2); color: var(--text); outline: none; cursor: pointer;
+    }
+    .sched-select:focus, .sched-time-input:focus { border-color: var(--accent); }
+    .sched-status { font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 12px; }
+    .sched-status.on  { background: var(--green-bg); color: var(--green); }
+    .sched-status.off { background: var(--bg3); color: var(--text-dim); }
+    .sched-info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .sched-info-box { background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+    .sched-info-lbl { font-size: 11px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
+    .sched-info-val { font-size: 14px; font-weight: 600; }
+    .sched-tasks-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+    .sched-task-item { display: flex; align-items: center; gap: 8px; padding: 9px 12px; background: var(--bg3); border: 1px solid var(--border); border-radius: 9px; cursor: pointer; transition: background .12s; }
+    .sched-task-item:hover { background: var(--accent-bg); border-color: var(--accent-bdr); }
+    .sched-task-item input { flex-shrink: 0; }
+    .sched-task-item label { font-size: 13px; cursor: pointer; }
+
+    /* Toggle pour planificateur */
+    .toggle-wrap { display: inline-flex; flex-direction: row; gap: 10px; align-items: center; }
+    .toggle-wrap .toggle-track { background: var(--border2); transition: background .2s; }
+    .toggle-wrap .toggle-track.on { background: var(--accent); }
+    .toggle-wrap .toggle-thumb { transition: transform .25s cubic-bezier(.175,.885,.32,1.3); }
+
+    /* ══════════════════════════════════════════
+       TOAST
+    ══════════════════════════════════════════ */
+    .toast {
+      position: fixed; top: 70px; right: 20px; z-index: 999;
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 12px; padding: 14px 18px;
+      box-shadow: 0 8px 32px rgba(0,0,0,.18);
+      display: flex; align-items: center; gap: 12px;
+      font-size: 14px; font-weight: 500; max-width: 340px;
+      animation: toast-in .3s cubic-bezier(.2,.8,.3,1);
+      transition: background .2s;
+    }
+    @keyframes toast-in {
+      from { transform: translateX(110%); opacity: 0; }
+      to   { transform: translateX(0);    opacity: 1; }
+    }
+    .toast-success { border-left: 3px solid var(--green); }
+    .toast-warn    { border-left: 3px solid var(--amber); }
+    .toast-error   { border-left: 3px solid var(--red);   }
+    .toast-icon    { font-size: 16px; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-weight: 700; }
+    .toast-success .toast-icon { background: var(--green-bg); color: var(--green); }
+    .toast-warn    .toast-icon { background: var(--amber-bg); color: var(--amber); }
+    .toast-error   .toast-icon { background: var(--red-bg);   color: var(--red);   }
+    .toast-body    { flex: 1; }
+    .toast-title   { font-weight: 700; font-size: 13px; }
+    .toast-sub     { font-size: 12px; color: var(--text-mid); margin-top: 1px; }
+    .toast-close   { color: var(--text-dim); cursor: pointer; font-size: 18px; line-height: 1; padding: 2px; }
+    .toast-close:hover { color: var(--text); }
+
+    /* ══════════════════════════════════════════
+       MODAL APERÇU
+    ══════════════════════════════════════════ */
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 500;
+      background: rgba(0,0,0,.45);
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px; animation: fade-in .2s ease;
+    }
+    @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+    .modal {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 16px; padding: 24px;
+      width: 100%; max-width: 440px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.25);
+      animation: modal-in .25s cubic-bezier(.2,.8,.3,1);
+      transition: background .2s;
+    }
+    @keyframes modal-in {
+      from { transform: scale(.95) translateY(12px); opacity: 0; }
+      to   { transform: scale(1)   translateY(0);    opacity: 1; }
+    }
+    .modal-title { font-size: 16px; font-weight: 700; margin-bottom: 14px; letter-spacing: -.3px; }
+    .modal-list  { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 14px; max-height: 300px; overflow-y: auto; }
+    .modal-row   { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--border); font-size: 13px; }
+    .modal-row:last-child { border-bottom: none; }
+    .modal-row-name { display: flex; align-items: center; gap: 8px; color: var(--text-mid); }
+    .modal-row-size { font-weight: 700; color: var(--accent); }
+    .modal-total { display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: 600; margin-bottom: 18px; padding: 12px 14px; background: var(--accent-bg); border: 1px solid var(--accent-bdr); border-radius: 10px; }
+    .modal-total-val { color: var(--accent); font-size: 18px; font-weight: 800; }
+    .modal-actions { display: flex; gap: 10px; }
+    .modal-actions .btn-primary { flex: 1; }
+
+    /* Historique */
+    .history-hint { font-size: 12px; color: var(--text-dim); padding: 8px 12px; background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; line-height: 1.5; }
+    .history-hint strong { color: var(--text-mid); }
+
+    /* ══════════════════════════════════════════
+       REGISTRE
+    ══════════════════════════════════════════ */
+    .reg-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 18px; background: var(--accent-bg); border-bottom: 1px solid var(--accent-bdr); font-size: 13px; color: var(--accent); font-weight: 500; }
+    .reg-category { border-bottom: 1px solid var(--border); }
+    .reg-cat-title { padding: 8px 18px; font-size: 12px; font-weight: 600; color: var(--text-mid); background: var(--bg3); display: flex; align-items: center; gap: 8px; }
+    .reg-cat-count { background: var(--accent-bg); color: var(--accent); font-size: 11px; padding: 1px 6px; border-radius: 10px; font-weight: 700; }
+
+    /* ══════════════════════════════════════════
+       EXTENSIONS
+    ══════════════════════════════════════════ */
+    .ext-browser-section { border-bottom: 1px solid var(--border); }
+    .ext-browser-title { padding: 9px 18px; font-size: 13px; font-weight: 700; background: var(--bg3); display: flex; align-items: center; gap: 8px; }
+    .ext-row { align-items: center; }
+
+    /* ══════════════════════════════════════════
+       SANTÉ
+    ══════════════════════════════════════════ */
+    .health-layout { max-width: 800px; margin: 0 auto; padding: 24px 20px 40px; width: 100%; display: flex; flex-direction: column; gap: 20px; }
+
+    .health-score-card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: var(--radius); box-shadow: var(--shadow);
+      padding: 28px 32px; display: flex; align-items: center; gap: 32px;
+      transition: background .2s;
+    }
+    .health-ring-wrap { flex-shrink: 0; position: relative; width: 130px; height: 130px; }
+    .health-ring-wrap svg { transform: rotate(-90deg); }
+    .health-ring-bg   { fill: none; stroke: var(--border); stroke-width: 8; }
+    .health-ring-fill { fill: none; stroke: var(--green); stroke-width: 8; stroke-linecap: round; transition: stroke-dashoffset .8s ease, stroke .4s; }
+    .health-score-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .health-score-val { font-size: 26px; font-weight: 800; letter-spacing: -.8px; }
+    .health-score-label { font-size: 11px; font-weight: 600; margin-top: 2px; }
+
+    .health-score-info { flex: 1; }
+    .health-score-title { font-size: 20px; font-weight: 800; letter-spacing: -.4px; margin-bottom: 6px; }
+    .health-score-desc  { font-size: 13px; color: var(--text-mid); line-height: 1.5; }
+
+    .health-metrics { display: flex; flex-direction: column; gap: 0; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+
+    .health-metric-card {
+      display: flex; align-items: center; gap: 14px;
+      padding: 14px 20px; border-bottom: 1px solid var(--border);
+      transition: background .12s;
+    }
+    .health-metric-card:last-child { border-bottom: none; }
+    .health-metric-card:hover { background: var(--bg3); }
+    .hm-icon  { font-size: 20px; flex-shrink: 0; width: 32px; text-align: center; }
+    .hm-info  { flex: 1; min-width: 0; }
+    .hm-label  { font-size: 13px; font-weight: 600; }
+    .hm-detail { font-size: 11px; color: var(--text-mid); margin-top: 2px; }
+    .hm-fix-btn { padding: 4px 10px; font-size: 11px; margin-bottom: 6px; width: 100%; }
+    .hm-bar-wrap { flex-shrink: 0; width: 100px; text-align: right; }
+    .hm-bar-bg   { height: 4px; background: var(--bg3); border-radius: 2px; overflow: hidden; margin-bottom: 4px; }
+    .hm-bar-fill { height: 100%; border-radius: 2px; transition: width .6s ease; }
+    /* Couleur du texte (score %) */
+    .hm-good { color: var(--green); }
+    .hm-warn { color: var(--amber); }
+    .hm-bad  { color: var(--red);   }
+    /* Couleur de la barre de remplissage */
+    .hm-bar-fill.hm-good { background: var(--green); }
+    .hm-bar-fill.hm-warn { background: var(--amber); }
+    .hm-bar-fill.hm-bad  { background: var(--red);   }
+    .hm-pct  { font-size: 12px; font-weight: 700; }
+
+    /* ══════════════════════════════════════════
+       FOOTER
+    ══════════════════════════════════════════ */
+    footer {
+      text-align: center; padding: 16px; font-size: 12px;
+      color: var(--text-dim); background: var(--bg2);
+      border-top: 1px solid var(--border); margin-top: auto;
+      transition: background .2s;
+    }
+    footer span { color: var(--green); font-weight: 500; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+    .dim { color: var(--text-dim); }
+  </style>
+</head>
+<body>
+
+<!-- ── Nav ── -->
+<nav>
+  <div class="nav-top">
+    <div class="nav-logo">
+      <div class="nav-dot"></div>
+      PC Cleaner
+    </div>
+    <div class="nav-right">
+      {% if is_admin %}
+        <span class="pill pill-admin">Administrateur</span>
+      {% else %}
+        <span class="pill pill-std">Mode standard</span>
+      {% endif %}
+      <span class="pill pill-time" id="clock">--:--</span>
+      <button class="theme-btn" onclick="toggleTheme()" title="Changer le thème">
+        <span class="icon-moon">🌙</span>
+        <span class="icon-sun">☀️</span>
+      </button>
+    </div>
+  </div>
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('nettoyage', this)">🧹 Nettoyage</button>
+    <button class="tab-btn" onclick="switchTab('outils', this)">🔧 Outils</button>
+    <button class="tab-btn" onclick="switchTab('sante', this)">❤️ Santé <span id="health-badge" style="font-size:11px;font-weight:700;opacity:.8"></span></button>
+    <button class="tab-btn" onclick="switchTab('planificateur', this)">🕐 Planificateur</button>
+  </div>
+</nav>
+
+<!-- ══════════════════ ONGLET NETTOYAGE ══════════════════ -->
+<div id="tab-nettoyage" class="tab-panel active">
+  <div class="nett-layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+
+      <div class="side-card s-sys">
+        <div class="sc-head"><span class="sc-emoji">🖥</span><span class="sc-label">Système</span></div>
+        <div class="sc-size" id="side-size-sys">…</div>
+        <div class="sc-count" id="side-count-sys">Calcul…</div>
+        <div class="sc-bar"><div class="sc-fill" id="side-fill-sys" style="width:0%"></div></div>
+      </div>
+
+      <div class="side-card s-nav">
+        <div class="sc-head"><span class="sc-emoji">🌐</span><span class="sc-label">Navigateurs</span></div>
+        <div class="sc-size" id="side-size-nav">…</div>
+        <div class="sc-count" id="side-count-nav">Calcul…</div>
+        <div class="sc-bar"><div class="sc-fill" id="side-fill-nav" style="width:0%"></div></div>
+      </div>
+
+      <div class="side-card s-app">
+        <div class="sc-head"><span class="sc-emoji">📦</span><span class="sc-label">Applications</span></div>
+        <div class="sc-size" id="side-size-app">…</div>
+        <div class="sc-count" id="side-count-app">Calcul…</div>
+        <div class="sc-bar"><div class="sc-fill" id="side-fill-app" style="width:0%"></div></div>
+      </div>
+
+      <div class="sidebar-spacer"></div>
+
+      <div id="history-hint" class="history-hint" style="display:none"></div>
+
+      <div class="total-box">
+        <div class="tb-label">Total libérable</div>
+        <div class="tb-value" id="total-val">Calcul…</div>
+      </div>
+
+    </aside>
+
+    <!-- Contenu -->
+    <div class="nett-content">
+
+      <!-- Disque -->
+      <div id="disk-container">
+        <div class="disk-card">
+          <div class="disk-left">
+            <div class="dk-label">Disque</div>
+            <div class="dk-name">Chargement…</div>
+            <div class="dk-free">—</div>
+          </div>
+          <div class="disk-right">
+            <div class="bar-bg"><div class="bar-fill" style="width:0%"></div></div>
+            <div class="bar-stats"><span>—</span><span>—</span><span>—</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tâches -->
+      <div class="task-card" id="task-list"></div>
+
+      <!-- Actions -->
+      <div class="actions-wrap">
+        <div class="actions">
+          <div class="tooltip-wrap" style="flex:1;min-width:180px;">
+            <button class="btn-primary" id="btn-clean" onclick="startClean()" style="width:100%">Nettoyer maintenant</button>
+            <span class="tip">Lance le nettoyage des catégories cochées. Les fichiers supprimés sont irrécupérables.</span>
+          </div>
+          <div class="tooltip-wrap">
+            <button class="btn-ghost" onclick="checkAll()">Tout cocher</button>
+            <span class="tip">Active toutes les catégories</span>
+          </div>
+          <div class="tooltip-wrap">
+            <button class="btn-ghost" onclick="uncheckAll()">Tout décocher</button>
+            <span class="tip">Désactive toutes les catégories</span>
+          </div>
+          <div class="tooltip-wrap">
+            <button class="btn-ghost" id="btn-refresh" onclick="loadSizes()">↻ Réanalyser</button>
+            <span class="tip">Recalcule les tailles libérables</span>
+          </div>
+        </div>
+        <div class="actions-desc">
+          <strong style="color:var(--green)">Sécurisé</strong> = mots de passe et cookies préservés &nbsp;·&nbsp;
+          <strong style="color:var(--amber)">Admin requis</strong> = lancez en administrateur
+        </div>
+      </div>
+
+      <!-- Log -->
+      <div class="log-card">
+        <div class="log-header">
+          <span class="log-title">Journal en temps réel</span>
+          <span class="log-clear" onclick="clearLog()">Effacer</span>
+        </div>
+        <div class="progress-wrap" id="progress-wrap">
+          <div class="progress-label" id="progress-label">En cours…</div>
+          <div class="progress-bg"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+        </div>
+        <div class="log-body" id="log-body">
+          <div class="log-entry">
+            <span class="log-ts">--:--:--</span>
+            <span class="log-msg">PC Cleaner prêt.</span>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /nett-content -->
+  </div><!-- /nett-layout -->
+</div>
+
+<!-- ══════════════════ ONGLET OUTILS ══════════════════ -->
+<div id="tab-outils" class="tab-panel">
+<div class="tools-main">
+<div class="tools-section">
+
+  <!-- Mises à jour logicielles -->
+  <div>
+    <div class="section-head">
+      <div>
+        <div class="tool-section-title">Mises à jour logicielles</div>
+        <div class="tool-section-sub">Logiciels installés avec une version plus récente disponible</div>
+      </div>
+      <button class="btn-primary" id="btn-check-updates" onclick="loadUpdates()" style="min-width:auto;flex:none;padding:9px 18px">Vérifier</button>
+    </div>
+    <div class="card">
+      <div id="updates-container"><div class="tool-empty">Cliquez sur « Vérifier » pour rechercher les mises à jour disponibles.</div></div>
+    </div>
+  </div>
+
+  <!-- Démarrage -->
+  <div>
+    <div class="section-head">
+      <div>
+        <div class="tool-section-title">Programmes au démarrage</div>
+        <div class="tool-section-sub">Activez ou désactivez les programmes qui se lancent avec Windows</div>
+      </div>
+      <button class="btn-ghost" onclick="loadStartup()">↻ Actualiser</button>
+    </div>
+    <div class="card">
+      <div id="startup-list" class="tool-loading">Chargement…</div>
+    </div>
+  </div>
+
+  <!-- Applications -->
+  <div>
+    <div class="section-head">
+      <div>
+        <div class="tool-section-title">Applications installées</div>
+        <div class="tool-section-sub">Liste des logiciels installés sur votre système</div>
+      </div>
+      <span id="apps-count" class="dim" style="font-size:13px"></span>
+    </div>
+    <div class="card">
+      <div class="search-wrap">
+        <input class="search-input" id="apps-search" placeholder="Rechercher une application…" oninput="filterApps()">
+      </div>
+      <div id="apps-list" style="max-height:360px;overflow-y:auto;">
+        <div class="tool-loading">Chargement…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Doublons -->
+  <div>
+    <div class="section-head">
+      <div>
+        <div class="tool-section-title">Recherche de doublons</div>
+        <div class="tool-section-sub">Trouve les fichiers identiques pour libérer de l'espace</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-body">
+        <div class="dupe-scan-bar">
+          <input class="dupe-folder-input" id="dupe-folder" placeholder="Ex: C:\Users\thoma\Documents" value="C:\Users\thoma\Downloads">
+          <input class="dupe-size-input" id="dupe-minsize" type="number" value="100" title="Taille minimale en Ko">
+          <span style="font-size:12px;color:var(--text-dim);white-space:nowrap">Ko min.</span>
+          <button class="btn-primary" id="btn-scan-dupes" onclick="startDuplicateScan()" style="min-width:auto;flex:none;padding:9px 18px">Analyser</button>
+        </div>
+      </div>
+      <div class="log-body" id="dupe-log" style="border-top:1px solid var(--border);max-height:100px;"></div>
+      <div id="dupe-results" style="max-height:360px;overflow-y:auto;border-top:1px solid var(--border);"></div>
+    </div>
+  </div>
+
+  <!-- Registre -->
+  <div>
+    <div class="section-head">
+      <div>
+        <div class="tool-section-title">Nettoyage du registre</div>
+        <div class="tool-section-sub">Détecte et supprime les entrées obsolètes du registre Windows</div>
+      </div>
+      <button class="btn-primary" id="btn-scan-reg" onclick="startRegistryScan()" style="min-width:auto;flex:none;padding:9px 18px">Analyser le registre</button>
+    </div>
+    <div class="card" style="margin-bottom:8px">
+      <div class="card-body" style="padding:12px 16px;display:flex;gap:10px;align-items:flex-start;background:rgba(var(--amber-rgb,250,189,0),.07);border-radius:8px">
+        <span style="font-size:18px;line-height:1.3">ℹ️</span>
+        <div style="font-size:12px;color:var(--text-mid);line-height:1.6">
+          <strong style="color:var(--text)">Que sont ces entrées ?</strong><br>
+          Le registre contient des références à des applications ou fichiers <em>qui ont été désinstallés</em> mais dont les traces n'ont pas été supprimées.
+          Elles ne causent aucun dommage mais encombrent inutilement le registre. La suppression est sans risque.
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="log-body" id="reg-log" style="max-height:80px;"></div>
+      <div id="reg-results" style="max-height:360px;overflow-y:auto;"></div>
+    </div>
+  </div>
+
+  <!-- Extensions navigateurs -->
+  <div>
+    <div class="section-head">
+      <div>
+        <div class="tool-section-title">Extensions de navigateurs</div>
+        <div class="tool-section-sub">Gérez les extensions installées dans Chrome, Edge, Brave et Firefox</div>
+      </div>
+      <button class="btn-ghost" onclick="loadExtensions()">↻ Actualiser</button>
+    </div>
+    <div class="card">
+      <div id="ext-container">
+        <div class="tool-loading">Chargement…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Raccourcis cassés -->
+  <div>
+    <div class="section-head">
+      <div>
+        <div class="tool-section-title">Raccourcis cassés</div>
+        <div class="tool-section-sub">Raccourcis du Bureau et du Menu Démarrer pointant vers des programmes supprimés</div>
+      </div>
+      <button class="btn-primary" id="btn-scan-shortcuts" onclick="loadShortcuts()" style="min-width:auto;flex:none;padding:9px 18px">Scanner</button>
+    </div>
+    <div class="card">
+      <div id="shortcuts-results"><div class="tool-empty">Cliquez sur « Scanner » pour analyser vos raccourcis.</div></div>
+    </div>
+  </div>
+
+  <!-- Grands fichiers -->
+  <div>
+    <div class="section-head">
+      <div>
+        <div class="tool-section-title">Grands fichiers</div>
+        <div class="tool-section-sub">Repérez les fichiers volumineux qui occupent inutilement de l'espace</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-body">
+        <div class="dupe-scan-bar">
+          <input class="dupe-folder-input" id="lf-folder" placeholder="Ex: C:\" value="C:\">
+          <input class="dupe-size-input" id="lf-minsize" type="number" value="0.5" step="0.1" min="0.1" title="Taille minimale en Go">
+          <span style="font-size:12px;color:var(--text-dim);white-space:nowrap">Go min.</span>
+          <button class="btn-primary" id="btn-scan-lf" onclick="startLargeFileScan()" style="min-width:auto;flex:none;padding:9px 18px">Analyser</button>
+        </div>
+      </div>
+      <div class="log-body" id="lf-log" style="border-top:1px solid var(--border);max-height:60px;"></div>
+      <div id="lf-results" style="max-height:360px;overflow-y:auto;border-top:1px solid var(--border);"></div>
+    </div>
+  </div>
+
+  <!-- Points de restauration -->
+  <div>
+    <div class="section-head">
+      <div>
+        <div class="tool-section-title">Points de restauration</div>
+        <div class="tool-section-sub">Supprimez les anciens points de restauration Windows pour libérer de l'espace</div>
+      </div>
+      <button class="btn-ghost" id="btn-refresh-rp" onclick="loadRestorePoints()">↻ Actualiser</button>
+    </div>
+    <div class="card">
+      <div id="rp-results"><div class="tool-loading">Chargement…</div></div>
+    </div>
+  </div>
+
+</div>
+</div>
+</div>
+
+<!-- ══════════════════ ONGLET SANTÉ ══════════════════ -->
+<div id="tab-sante" class="tab-panel">
+<div class="health-layout">
+
+  <!-- Score global -->
+  <div class="health-score-card">
+    <div class="health-ring-wrap">
+      <svg width="130" height="130" viewBox="0 0 130 130">
+        <circle class="health-ring-bg"   cx="65" cy="65" r="54"/>
+        <circle class="health-ring-fill" cx="65" cy="65" r="54" id="health-ring-fill"
+          style="stroke-dasharray:339;stroke-dashoffset:339"/>
+      </svg>
+      <div class="health-score-center">
+        <div class="health-score-val" id="health-score-val">…</div>
+        <div class="health-score-label" id="health-score-label"></div>
+      </div>
+    </div>
+    <div class="health-score-info">
+      <div class="health-score-title">Score de santé système</div>
+      <div class="health-score-desc">
+        Analyse 6 indicateurs clés pour évaluer l'état général de votre PC :
+        espace disque, fichiers temporaires, cache navigateur, démarrage, corbeille et cache applicatif.
+      </div>
+      <div style="margin-top:14px;display:flex;gap:10px;">
+        <button class="btn-primary" onclick="loadHealth()" style="min-width:auto;padding:9px 18px;font-size:13px">↻ Réanalyser</button>
+        <button class="btn-ghost" onclick="switchTab('nettoyage', document.querySelector('.tab-btn'))" style="font-size:13px">Nettoyer maintenant</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Métriques -->
+  <div class="health-metrics" id="health-metrics">
+    <div class="tool-loading">Chargement…</div>
+  </div>
+
+</div>
+</div>
+
+<!-- ══════════════════ ONGLET PLANIFICATEUR ══════════════════ -->
+<div id="tab-planificateur" class="tab-panel">
+<div class="tools-main">
+<div class="panel-stack">
+
+  <!-- Statut -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Statut du planificateur</span>
+      <span class="sched-status off" id="sched-status-label">Inactif</span>
+    </div>
+    <div class="card-body">
+      <div class="sched-info-grid">
+        <div class="sched-info-box">
+          <div class="sched-info-lbl">Prochaine exécution</div>
+          <div class="sched-info-val" id="sched-next-run">—</div>
+        </div>
+        <div class="sched-info-box">
+          <div class="sched-info-lbl">Dernière exécution</div>
+          <div class="sched-info-val" id="sched-last-run">Jamais</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Configuration -->
+  <div class="card">
+    <div class="card-header"><span class="card-title">Configuration</span></div>
+    <div class="card-body">
+      <div class="sched-grid">
+
+        <div class="sched-row">
+          <span class="sched-label">Activé</span>
+          <label class="toggle-wrap">
+            <div class="toggle-track" id="sched-enabled-track">
+              <div class="toggle-thumb"></div>
+            </div>
+            <input type="checkbox" id="sched-enabled" style="display:none"
+              onchange="document.getElementById('sched-enabled-track').classList.toggle('on',this.checked);updateScheduleUI(this.checked)">
+          </label>
+        </div>
+
+        <div id="sched-body" style="opacity:0.5;display:flex;flex-direction:column;gap:16px;">
+          <div class="sched-row">
+            <span class="sched-label">Fréquence</span>
+            <select class="sched-select" id="sched-interval">
+              <option value="hourly">Toutes les heures</option>
+              <option value="daily" selected>Chaque jour</option>
+              <option value="weekly">Chaque semaine</option>
+            </select>
+          </div>
+          <div class="sched-row">
+            <span class="sched-label">Heure</span>
+            <input type="time" class="sched-time-input" id="sched-time" value="02:00">
+          </div>
+          <div>
+            <div class="sched-label" style="margin-bottom:10px;">Tâches à exécuter</div>
+            <div class="sched-tasks-grid" id="sched-tasks"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:10px;">
+    <button class="btn-primary" id="btn-save-schedule" onclick="saveSchedule()">Sauvegarder</button>
+    <button class="btn-ghost" onclick="loadSchedule()">↻ Actualiser</button>
+  </div>
+
+</div>
+</div>
+</div>
+
+<!-- ── Modal confirmation générique ── -->
+<div id="confirm-overlay" class="modal-overlay" style="display:none" onclick="if(event.target===this)_closeConfirm()">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-title" id="confirm-title"></div>
+    <div id="confirm-body" style="font-size:13px;color:var(--text-mid);margin-bottom:18px;line-height:1.5"></div>
+    <div class="modal-actions">
+      <button class="btn-primary" id="confirm-ok">Confirmer</button>
+      <button class="btn-ghost" onclick="_closeConfirm()">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal aperçu nettoyage ── -->
+<div id="modal-overlay" class="modal-overlay" style="display:none" onclick="if(event.target===this)closePreview()">
+  <div class="modal">
+    <div class="modal-title">Aperçu du nettoyage</div>
+    <div class="modal-list" id="modal-list"></div>
+    <div class="modal-total">
+      <span>Total estimé</span>
+      <span class="modal-total-val" id="modal-total-val">0 o</span>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-primary" onclick="confirmClean()">Nettoyer maintenant</button>
+      <button class="btn-ghost" onclick="closePreview()">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Footer ── -->
+<footer>
+  PC Cleaner &nbsp;·&nbsp; <span>Mots de passe et cookies jamais supprimés</span>
+  {% if not is_admin %}
+  &nbsp;·&nbsp; Lancez en administrateur pour toutes les fonctionnalités
+  {% endif %}
+</footer>
+
+<script>
+  var TASKS = {{ tasks_json | safe }};
+  // Restaurer l'état sauvegardé, sinon utiliser les valeurs par défaut
+  (function() {
+    try {
+      const saved = JSON.parse(localStorage.getItem("pcc-tasks") || "[]");
+      const map = Object.fromEntries(saved.map(s => [s.id, s.checked]));
+      TASKS.forEach(t => { t.checked = (t.id in map) ? map[t.id] : t.default; });
+    } catch (e) {
+      TASKS.forEach(t => { t.checked = t.default; });
+    }
+  })();
+</script>
+<script src="/static/app.js"></script>
+<script src="/static/tools.js"></script>
+<script src="/static/scheduler.js"></script>
+<script src="/static/health.js"></script>
+<script>
+  // ── Thème ────────────────────────────────────────────────────────────────
+  function toggleTheme() {
+    const html = document.documentElement;
+    const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    html.setAttribute('data-theme', next);
+    localStorage.setItem('pcc-theme', next);
+  }
+  (function() {
+    const saved = localStorage.getItem('pcc-theme');
+    if (saved) document.documentElement.setAttribute('data-theme', saved);
+  })();
+
+  // ── Onglets ──────────────────────────────────────────────────────────────
+  function switchTab(name, btn) {
+    document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+    document.getElementById("tab-" + name).classList.add("active");
+    btn.classList.add("active");
+    if (name === "outils")        initTools();
+    if (name === "sante")         initHealth();
+    if (name === "planificateur") initScheduler();
+  }
+
+  // ── Toggle planificateur ─────────────────────────────────────────────────
+  const schedEnabledEl = document.getElementById("sched-enabled");
+  const schedTrackEl   = document.getElementById("sched-enabled-track");
+  schedTrackEl.addEventListener("click", () => {
+    schedEnabledEl.checked = !schedEnabledEl.checked;
+    schedEnabledEl.dispatchEvent(new Event("change"));
+  });
+
+  // ── Cases à cocher du planificateur ──────────────────────────────────────
+  (function buildSchedTasks() {
+    const el = document.getElementById("sched-tasks");
+    TASKS.forEach(t => {
+      const item = document.createElement("label");
+      item.className = "sched-task-item";
+      item.innerHTML = `<input type="checkbox" class="sched-task-cb" data-id="${t.id}"><span>${t.label}</span>`;
+      el.appendChild(item);
+    });
+  })();
+</script>
+</body>
+</html>
