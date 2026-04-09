@@ -30,6 +30,20 @@ jobs:
       - name: Build with PyInstaller
         run: pyinstaller opencleaner.spec
 
+      - name: Smoke test
+        run: |
+          $proc = Start-Process `
+            -FilePath "dist\OpenCleaner\OpenCleaner.exe" `
+            -ArgumentList "--smoke-test" `
+            -PassThru -Wait -NoNewWindow `
+            -RedirectStandardOutput smoke_stdout.txt `
+            -RedirectStandardError  smoke_stderr.txt
+          Get-Content smoke_stdout.txt, smoke_stderr.txt
+          if ($proc.ExitCode -ne 0) {
+            Write-Error "Smoke test échoué (exit code $($proc.ExitCode))"
+            exit 1
+          }
+
       - name: Install Inno Setup
         run: |
           choco install innosetup --no-progress -y
