@@ -3,93 +3,114 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PC Cleaner</title>
+  <title>OpenCleaner</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     /* ══════════════════════════════════════════
-       TOKENS LIGHT
+       TOKENS LIGHT — Notion
     ══════════════════════════════════════════ */
     :root {
-      --bg:        #f1f5f9;
-      --bg2:       #ffffff;
-      --bg3:       #f8fafc;
-      --border:    #e2e8f0;
-      --border2:   #cbd5e1;
-      --text:      #0f172a;
-      --text-mid:  #64748b;
-      --text-dim:  #94a3b8;
-      --shadow:    0 1px 3px rgba(0,0,0,.07), 0 1px 2px rgba(0,0,0,.04);
-      --radius:    14px;
+      --bg:        #ffffff;
+      --bg2:       #f7f6f3;
+      --bg3:       #f1f1ef;
+      --hover:     rgba(55, 53, 47, 0.06);
+      --border:    rgba(55, 53, 47, 0.09);
+      --border2:   rgba(55, 53, 47, 0.16);
+      --text:      rgb(55, 53, 47);
+      --text-mid:  rgba(55, 53, 47, 0.65);
+      --text-dim:  rgba(55, 53, 47, 0.4);
+      --shadow:    none;
+      --radius:    6px;
 
-      --accent:    #2563eb;
-      --accent-bg: #eff6ff;
-      --accent-bdr:#bfdbfe;
+      /* Accent monochrome — couleur du texte */
+      --accent:    rgb(55, 53, 47);
+      --accent-bg: rgba(55, 53, 47, 0.06);
+      --accent-bdr:rgba(55, 53, 47, 0.16);
 
-      --sys:     #4f46e5;
-      --sys-bg:  #eef2ff;
-      --sys-bdr: rgba(79,70,229,.2);
-      --sys-row: rgba(79,70,229,.03);
-      --sys-ck:  rgba(79,70,229,.07);
+      /* Couleurs de groupe — neutralisées */
+      --sys:     var(--text);    --sys-bg: var(--bg2);
+      --sys-bdr: var(--border);  --sys-row: transparent; --sys-ck: var(--hover);
+      --nav:     var(--text);    --nav-bg: var(--bg2);
+      --nav-bdr: var(--border);  --nav-row: transparent; --nav-ck: var(--hover);
+      --app:     var(--text);    --app-bg: var(--bg2);
+      --app-bdr: var(--border);  --app-row: transparent; --app-ck: var(--hover);
 
-      --nav:     #0891b2;
-      --nav-bg:  #ecfeff;
-      --nav-bdr: rgba(8,145,178,.2);
-      --nav-row: rgba(8,145,178,.025);
-      --nav-ck:  rgba(8,145,178,.06);
+      /* Statuts neutralisés en gris */
+      --green: var(--text-mid); --green-bg: var(--hover);
+      --amber: var(--text-mid); --amber-bg: var(--hover);
+      --red:   var(--text-mid); --red-bg:   var(--hover);
 
-      --app:     #e11d48;
-      --app-bg:  #fff1f2;
-      --app-bdr: rgba(225,29,72,.18);
-      --app-row: rgba(225,29,72,.025);
-      --app-ck:  rgba(225,29,72,.05);
+      --hover-strong: rgb(235, 235, 233);
 
-      --green:  #16a34a; --green-bg:  #f0fdf4;
-      --amber:  #d97706; --amber-bg:  #fffbeb;
-      --red:    #dc2626; --red-bg:    #fef2f2;
+      /* Callouts — toutes les variantes sont en gris */
+      --cal-blue-bg:    var(--bg2);
+      --cal-blue-text:  var(--text);
+      --cal-blue-icon:  var(--text-mid);
+      --cal-green-bg:   var(--bg2);
+      --cal-green-text: var(--text);
+      --cal-green-icon: var(--text-mid);
+      --cal-yellow-bg:  var(--bg2);
+      --cal-yellow-text:var(--text);
+      --cal-yellow-icon:var(--text-mid);
+      --cal-red-bg:     var(--bg2);
+      --cal-red-text:   var(--text);
+      --cal-red-icon:   var(--text-mid);
+      --cal-gray-bg:    var(--bg2);
+      --cal-gray-text:  var(--text);
+      --cal-gray-icon:  var(--text-mid);
     }
 
     /* ══════════════════════════════════════════
-       TOKENS DARK
+       TOKENS DARK — Notion
     ══════════════════════════════════════════ */
     [data-theme="dark"] {
-      --bg:        #0f1117;
-      --bg2:       #181b24;
-      --bg3:       #1e2230;
-      --border:    rgba(255,255,255,.07);
-      --border2:   rgba(255,255,255,.13);
-      --text:      #f1f5f9;
-      --text-mid:  #94a3b8;
-      --text-dim:  #475569;
-      --shadow:    0 1px 3px rgba(0,0,0,.3);
+      --bg:        #191919;
+      --bg2:       #202020;
+      --bg3:       #2a2a2a;
+      --hover:     rgba(255, 255, 255, 0.055);
+      --border:    rgba(255, 255, 255, 0.094);
+      --border2:   rgba(255, 255, 255, 0.16);
+      --text:      rgba(255, 255, 255, 0.9);
+      --text-mid:  rgba(255, 255, 255, 0.5);
+      --text-dim:  rgba(255, 255, 255, 0.32);
+      --shadow:    none;
 
-      --accent:    #60a5fa;
-      --accent-bg: rgba(96,165,250,.12);
-      --accent-bdr:rgba(96,165,250,.25);
+      --accent:    rgba(255, 255, 255, 0.9);
+      --accent-bg: rgba(255, 255, 255, 0.08);
+      --accent-bdr:rgba(255, 255, 255, 0.16);
 
-      --sys:     #818cf8;
-      --sys-bg:  rgba(129,140,248,.12);
-      --sys-bdr: rgba(129,140,248,.2);
-      --sys-row: rgba(129,140,248,.03);
-      --sys-ck:  rgba(129,140,248,.09);
+      --sys:     var(--text);    --sys-bg: var(--bg2);
+      --sys-bdr: var(--border);  --sys-row: transparent; --sys-ck: var(--hover);
+      --nav:     var(--text);    --nav-bg: var(--bg2);
+      --nav-bdr: var(--border);  --nav-row: transparent; --nav-ck: var(--hover);
+      --app:     var(--text);    --app-bg: var(--bg2);
+      --app-bdr: var(--border);  --app-row: transparent; --app-ck: var(--hover);
 
-      --nav:     #22d3ee;
-      --nav-bg:  rgba(34,211,238,.1);
-      --nav-bdr: rgba(34,211,238,.18);
-      --nav-row: rgba(34,211,238,.025);
-      --nav-ck:  rgba(34,211,238,.07);
+      --green: var(--text-mid); --green-bg: var(--hover);
+      --amber: var(--text-mid); --amber-bg: var(--hover);
+      --red:   var(--text-mid); --red-bg:   var(--hover);
 
-      --app:     #fb7185;
-      --app-bg:  rgba(251,113,133,.1);
-      --app-bdr: rgba(251,113,133,.18);
-      --app-row: rgba(251,113,133,.025);
-      --app-ck:  rgba(251,113,133,.07);
+      --hover-strong: rgba(255, 255, 255, 0.09);
 
-      --green:  #4ade80; --green-bg:  rgba(74,222,128,.12);
-      --amber:  #fbbf24; --amber-bg:  rgba(251,191,36,.12);
-      --red:    #f87171; --red-bg:    rgba(248,113,113,.1);
+      --cal-blue-bg:    var(--bg2);
+      --cal-blue-text:  var(--text);
+      --cal-blue-icon:  var(--text-mid);
+      --cal-green-bg:   var(--bg2);
+      --cal-green-text: var(--text);
+      --cal-green-icon: var(--text-mid);
+      --cal-yellow-bg:  var(--bg2);
+      --cal-yellow-text:var(--text);
+      --cal-yellow-icon:var(--text-mid);
+      --cal-red-bg:     var(--bg2);
+      --cal-red-text:   var(--text);
+      --cal-red-icon:   var(--text-mid);
+      --cal-gray-bg:    var(--bg2);
+      --cal-gray-text:  var(--text);
+      --cal-gray-icon:  var(--text-mid);
     }
 
     /* ══════════════════════════════════════════
@@ -97,83 +118,225 @@
     ══════════════════════════════════════════ */
     html { scroll-behavior: smooth; }
     body {
-      font-family: 'Inter', sans-serif;
+      font-family: 'IBM Plex Sans', -apple-system, sans-serif;
       background: var(--bg);
       color: var(--text);
-      min-height: 100vh;
-      display: flex; flex-direction: column;
-      font-size: 14px;
+      height: 100vh;
+      overflow: hidden;
+      display: flex; flex-direction: row;
+      font-size: 15px;
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+      font-feature-settings: "ss01", "cv11";
       transition: background .2s, color .2s;
     }
 
     /* ══════════════════════════════════════════
-       NAV
+       LAYOUT — Sidebar + Main column
     ══════════════════════════════════════════ */
-    nav {
-      background: var(--bg2);
-      border-bottom: 1px solid var(--border);
-      padding: 0 24px;
-      position: sticky; top: 0; z-index: 100;
-      box-shadow: var(--shadow);
-      transition: background .2s, border-color .2s;
+    .sidebar {
+      width: 244px; flex-shrink: 0;
+      background: var(--bg3);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      padding: 12px 8px;
+      font-size: 14px;
+      height: 100vh;
+      overflow-y: auto;
     }
-    .nav-top {
-      height: 56px;
-      display: flex; align-items: center; justify-content: space-between;
+    .sb-brand {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 8px 14px;
+      font-weight: 600; font-size: 14px;
+      color: var(--text);
     }
-    .nav-logo {
-      display: flex; align-items: center; gap: 9px;
-      font-weight: 800; font-size: 16px; letter-spacing: -.4px;
+    .sb-brand .icon { color: var(--text-mid); }
+    .sb-section-title {
+      font-size: 11px; font-weight: 600;
+      color: var(--text-dim);
+      text-transform: uppercase; letter-spacing: 0.04em;
+      padding: 14px 8px 4px;
     }
-    .nav-dot {
-      width: 9px; height: 9px;
-      background: var(--accent); border-radius: 50%;
-      box-shadow: 0 0 0 3px var(--accent-bdr);
-      animation: pulse 3s ease-in-out infinite;
-      transition: background .2s, box-shadow .2s;
+    .sb-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 5px 8px; border-radius: 4px;
+      cursor: pointer; color: var(--text-mid);
+      transition: background .08s, color .08s;
+      background: none; border: none; width: 100%;
+      font-family: inherit; font-size: 14px; text-align: left;
     }
-    @keyframes pulse {
-      0%,100% { box-shadow: 0 0 0 3px var(--accent-bdr); }
-      50%      { box-shadow: 0 0 0 7px transparent; }
+    .sb-item:hover { background: var(--hover); color: var(--text); }
+    .sb-item.active { background: var(--hover-strong); color: var(--text); font-weight: 500; }
+    .sb-item .icon { color: currentColor; opacity: .7; flex-shrink: 0; }
+    .sb-item .badge {
+      margin-left: auto; font-size: 11px; color: var(--text-dim);
+      font-variant-numeric: tabular-nums;
     }
-    .nav-right { display: flex; align-items: center; gap: 8px; }
+    .sb-spacer { flex: 1; min-height: 12px; }
+    .sb-bottom { padding-top: 12px; border-top: 1px solid var(--border); }
+    .sb-bottom .sb-item { font-size: 13px; }
 
-    /* Bouton thème */
-    .theme-btn {
-      width: 34px; height: 34px;
-      background: var(--bg3); border: 1px solid var(--border);
-      border-radius: 9px; cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 15px; transition: background .15s;
-      flex-shrink: 0;
+    .main {
+      flex: 1; min-width: 0;
+      display: flex; flex-direction: column;
+      height: 100vh;
+      overflow-y: auto;
     }
-    .theme-btn:hover { background: var(--border); }
+
+    .main-topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 60px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+      position: sticky; top: 0; z-index: 50;
+    }
+    .crumbs {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 13px; color: var(--text-mid);
+    }
+    .crumbs .sep { opacity: .4; display: inline-flex; }
+    .crumbs .here { color: var(--text); font-weight: 500; }
+    .main-topbar-right { display: flex; align-items: center; gap: 4px; }
+
+    .pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 10px; border-radius: 4px;
+      font-size: 12px; font-weight: 500;
+      color: var(--text-mid);
+    }
+    .pill-time { font-variant-numeric: tabular-nums; }
+
+    /* Icon button (header actions) */
+    .icon-btn {
+      width: 28px; height: 28px;
+      background: transparent; border: none; cursor: pointer;
+      border-radius: 4px; display: grid; place-items: center;
+      color: var(--text-mid); transition: background .08s;
+      font-family: inherit;
+    }
+    .icon-btn:hover { background: var(--hover); color: var(--text); }
+
+    /* Compatibilité ancien bouton thème */
+    .theme-btn {
+      width: 28px; height: 28px;
+      background: transparent; border: none; cursor: pointer;
+      border-radius: 4px; display: grid; place-items: center;
+      color: var(--text-mid); transition: background .08s;
+      font-family: inherit; font-size: 14px;
+    }
+    .theme-btn:hover { background: var(--hover); color: var(--text); }
     .icon-moon { display: block; }
     .icon-sun  { display: none; }
     [data-theme="dark"] .icon-moon { display: none; }
     [data-theme="dark"] .icon-sun  { display: block; }
 
-    /* Pills */
-    .pill { padding: 4px 11px; border-radius: 20px; font-size: 11px; font-weight: 600; white-space: nowrap; }
-    .pill-admin { background: var(--green-bg);  color: var(--green); border: 1px solid rgba(22,163,74,.2); }
-    .pill-std   { background: var(--amber-bg);  color: var(--amber); border: 1px solid rgba(217,119,6,.2); }
-    .pill-time  { background: var(--bg3); color: var(--text-mid); border: 1px solid var(--border); }
-    [data-theme="dark"] .pill-admin { border-color: rgba(74,222,128,.2); }
+    /* ══════════════════════════════════════════
+       LINE ICONS (Lucide-style, currentColor)
+    ══════════════════════════════════════════ */
+    .icon {
+      width: 16px; height: 16px;
+      stroke: currentColor; stroke-width: 2;
+      stroke-linecap: round; stroke-linejoin: round;
+      fill: none; flex-shrink: 0; vertical-align: middle;
+    }
+    .icon-lg { width: 20px; height: 20px; }
+    .icon-xl { width: 28px; height: 28px; stroke-width: 1.75; }
+    .icon-2xl { width: 48px; height: 48px; stroke-width: 1.5; }
 
-    /* Tab bar */
-    .tab-bar {
-      display: flex; gap: 4px;
-      border-top: 1px solid var(--border);
+    /* ══════════════════════════════════════════
+       PAGE PROPERTIES (sous le titre)
+    ══════════════════════════════════════════ */
+    .page-icon { display: inline-block; margin-bottom: 16px; color: var(--text); }
+    .page-properties {
+      display: flex; gap: 18px; margin-top: 16px; flex-wrap: wrap;
+      font-size: 13px; color: var(--text-mid);
     }
-    .tab-btn {
-      padding: 9px 18px;
-      font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500;
-      background: none; border: none; border-bottom: 2px solid transparent;
-      color: var(--text-mid); cursor: pointer;
-      transition: color .15s, border-color .15s;
+    .prop { display: flex; align-items: center; gap: 6px; }
+    .prop .icon { color: var(--text-dim); }
+    .prop strong { color: var(--text); font-weight: 500; }
+
+    /* ══════════════════════════════════════════
+       CALLOUTS (5 variantes)
+    ══════════════════════════════════════════ */
+    .callout {
+      display: flex; gap: 14px; align-items: flex-start;
+      padding: 16px 18px; margin: 14px 0;
+      border-radius: 6px;
+      font-size: 14px; line-height: 1.55;
+      border: 1px solid var(--border);
     }
-    .tab-btn:hover  { color: var(--text); }
-    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+    .callout-icon { flex-shrink: 0; padding-top: 1px; }
+    .callout-content { flex: 1; min-width: 0; }
+    .callout strong { font-weight: 600; }
+    .callout-blue   { background: var(--cal-blue-bg);   color: var(--cal-blue-text); }
+    .callout-blue   .callout-icon { color: var(--cal-blue-icon); }
+    .callout-green  { background: var(--cal-green-bg);  color: var(--cal-green-text); }
+    .callout-green  .callout-icon { color: var(--cal-green-icon); }
+    .callout-yellow { background: var(--cal-yellow-bg); color: var(--cal-yellow-text); }
+    .callout-yellow .callout-icon { color: var(--cal-yellow-icon); }
+    .callout-red    { background: var(--cal-red-bg);    color: var(--cal-red-text); }
+    .callout-red    .callout-icon { color: var(--cal-red-icon); }
+    .callout-gray   { background: var(--cal-gray-bg);   color: var(--cal-gray-text); }
+    .callout-gray   .callout-icon { color: var(--cal-gray-icon); }
+    .callout-action { align-items: center; }
+    .callout-action .callout-content { flex: 1; }
+    .callout-action .callout-title { font-size: 15px; font-weight: 600; }
+    .callout-action .callout-sub { font-size: 13px; opacity: .8; margin-top: 2px; }
+    .callout-action .btn-primary { padding: 9px 18px; font-size: 14px; flex-shrink: 0; }
+
+    /* ══════════════════════════════════════════
+       TOGGLE BLOCK (collapsible)
+    ══════════════════════════════════════════ */
+    .toggle-block { margin: 8px 0; }
+    .toggle-head {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 6px 6px 0;
+      cursor: pointer; user-select: none;
+      font-size: 14px; font-weight: 500;
+      margin: 0 -6px;
+      border-radius: 4px; transition: background .08s;
+    }
+    .toggle-head:hover { background: var(--hover); }
+    .toggle-head .chev { display: inline-block; transition: transform .15s; color: var(--text-mid); }
+    .toggle-block.open .toggle-head .chev { transform: rotate(90deg); }
+    .toggle-body {
+      display: none;
+      padding: 4px 0 4px 22px;
+      font-size: 13px; color: var(--text-mid);
+      line-height: 1.6;
+    }
+    .toggle-block.open .toggle-body { display: block; }
+
+    /* ══════════════════════════════════════════
+       EMPTY STATE
+    ══════════════════════════════════════════ */
+    .empty {
+      padding: 48px 24px;
+      display: flex; flex-direction: column; align-items: center;
+      text-align: center;
+      color: var(--text-mid);
+    }
+    .empty-icon {
+      width: 56px; height: 56px;
+      border-radius: 50%;
+      background: var(--hover);
+      display: grid; place-items: center;
+      color: var(--text-mid);
+      margin-bottom: 16px;
+    }
+    .empty-title { font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+    .empty-desc { font-size: 13px; max-width: 360px; margin-bottom: 16px; line-height: 1.55; }
+
+    /* ══════════════════════════════════════════
+       DIVIDER
+    ══════════════════════════════════════════ */
+    .divider {
+      display: flex; align-items: center; justify-content: center;
+      padding: 28px 0 12px;
+      color: var(--text-dim);
+      font-size: 14px; letter-spacing: 0.5em;
+      user-select: none;
+    }
 
     /* ══════════════════════════════════════════
        PANELS
@@ -182,213 +345,288 @@
     .tab-panel.active { display: flex; flex-direction: column; }
 
     /* ══════════════════════════════════════════
-       ONGLET NETTOYAGE — LAYOUT
+       ONGLET NETTOYAGE — Notion
     ══════════════════════════════════════════ */
     .nett-layout {
-      display: flex;
-      max-width: 940px; margin: 0 auto; width: 100%;
-      padding: 22px 16px 40px; gap: 18px;
+      max-width: 920px; margin: 0 auto; width: 100%;
+      padding: 50px 60px 80px;
       flex: 1;
     }
 
-    /* ── Sidebar ── */
-    .sidebar {
-      width: 200px; flex-shrink: 0;
-      display: flex; flex-direction: column; gap: 8px;
+    /* En-tête de page */
+    .page-head { margin-bottom: 36px; }
+    .page-emoji { font-size: 48px; line-height: 1; margin-bottom: 12px; }
+    .page-title {
+      font-size: 40px; font-weight: 700;
+      letter-spacing: -0.022em; line-height: 1.2;
     }
-    .side-card {
-      border-radius: 12px; padding: 14px 15px;
-      border: 1px solid transparent;
-      cursor: default;
-      transition: border-color .18s, box-shadow .18s;
+    .page-sub {
+      font-size: 15px; color: var(--text-mid);
+      margin-top: 8px; max-width: 600px;
     }
-    .side-card.s-sys { background: var(--sys-bg); border-color: var(--sys-bdr); }
-    .side-card.s-nav { background: var(--nav-bg); border-color: var(--nav-bdr); }
-    .side-card.s-app { background: var(--app-bg); border-color: var(--app-bdr); }
 
-    .sc-head { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
-    .sc-emoji { font-size: 15px; }
-    .sc-label { font-size: 12px; font-weight: 700; }
-    .s-sys .sc-label { color: var(--sys); }
-    .s-nav .sc-label { color: var(--nav); }
-    .s-app .sc-label { color: var(--app); }
-
-    .sc-size { font-size: 21px; font-weight: 800; letter-spacing: -.5px; }
-    .s-sys .sc-size { color: var(--sys); }
-    .s-nav .sc-size { color: var(--nav); }
-    .s-app .sc-size { color: var(--app); }
-    .sc-count { font-size: 11px; color: var(--text-mid); margin-top: 3px; }
-
-    .sc-bar { height: 3px; border-radius: 2px; background: var(--border); margin-top: 11px; overflow: hidden; }
-    .sc-fill { height: 100%; border-radius: 2px; transition: width .4s ease; }
-    .s-sys .sc-fill { background: var(--sys); }
-    .s-nav .sc-fill { background: var(--nav); }
-    .s-app .sc-fill { background: var(--app); }
-
-    .sidebar-spacer { flex: 1; min-height: 8px; }
-
-    .total-box {
-      background: var(--accent-bg);
-      border: 1px solid var(--accent-bdr);
-      border-radius: 12px; padding: 14px 15px;
-      transition: background .2s, border-color .2s;
+    /* Grille de stats (3 cellules) */
+    .stat-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px;
+      background: var(--border); margin-bottom: 36px;
+      border-radius: 6px; overflow: hidden;
+      border: 1px solid var(--border);
     }
-    .tb-label { font-size: 11px; font-weight: 600; color: var(--accent); margin-bottom: 4px; }
-    .tb-value { font-size: 24px; font-weight: 800; color: var(--accent); letter-spacing: -.6px; transition: color .2s; }
+    .stat { padding: 18px 22px; background: var(--bg); }
+    .stat-label { font-size: 12px; font-weight: 500; color: var(--text-mid); }
+    .stat-value {
+      font-size: 30px; font-weight: 700; letter-spacing: -0.018em;
+      margin-top: 8px; font-variant-numeric: tabular-nums;
+    }
+    .stat-value .unit { font-size: 16px; color: var(--text-mid); font-weight: 500; margin-left: 2px; }
+    .stat-value.dim { color: var(--text-dim); font-weight: 500; font-size: 22px; }
+    .stat-meta { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
 
-    /* ── Contenu principal nettoyage ── */
-    .nett-content { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+    /* Sections H2 / sous-titres H3 */
+    .nett-section { margin-bottom: 40px; }
+    h2.nett-section-title {
+      font-size: 22px; font-weight: 700; letter-spacing: -0.012em;
+      margin-bottom: 14px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    h2.nett-section-title .icon { font-size: 22px; }
+    h3.nett-subtitle {
+      font-size: 12px; font-weight: 600; color: var(--text-mid);
+      text-transform: uppercase; letter-spacing: 0.05em;
+      margin: 24px 0 4px;
+    }
 
-    /* Disque */
+    /* Disques — blocs bordés simples */
+    #disk-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 12px;
+    }
     .disk-card {
-      background: var(--bg2); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 15px 20px;
-      box-shadow: var(--shadow);
-      display: flex; align-items: center; gap: 20px;
-      transition: background .2s, border-color .2s;
+      padding: 18px 22px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg);
+      display: flex; flex-direction: column; gap: 0;
+      box-shadow: none;
     }
-    .disk-left .dk-label { font-size: 10px; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: .7px; }
-    .disk-left .dk-name  { font-size: 17px; font-weight: 700; letter-spacing: -.3px; }
-    .disk-left .dk-free  { font-size: 12px; color: var(--text-mid); margin-top: 2px; }
-    .disk-right { flex: 1; }
-    .bar-bg   { height: 6px; background: var(--bg3); border-radius: 3px; overflow: hidden; }
-    .bar-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--accent), #93c5fd); transition: width .6s ease, background .3s; }
-    [data-theme="dark"] .bar-fill { background: linear-gradient(90deg, var(--accent), #1d4ed8); }
-    .bar-fill.warn   { background: linear-gradient(90deg, var(--amber), #fcd34d); }
-    .bar-fill.danger { background: linear-gradient(90deg, var(--red), #f87171); }
-    .bar-stats { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-dim); margin-top: 5px; }
+    .disk-card .disk-left { display: flex; justify-content: space-between; align-items: baseline; flex-direction: row; }
+    .disk-card .dk-label { display: none; }
+    .disk-card .dk-name { font-weight: 600; font-size: 16px; color: var(--text); letter-spacing: -0.01em; }
+    .disk-card .dk-free { font-size: 13px; color: var(--text-mid); font-variant-numeric: tabular-nums; margin-top: 0; }
+    .disk-card .disk-right { margin-top: 14px; flex: none; }
+    .bar-bg { height: 8px; background: var(--bg3); border-radius: 4px; overflow: hidden; }
+    .bar-fill {
+      height: 100%; border-radius: 4px;
+      background: var(--accent);
+      transition: width .6s ease, background .3s;
+    }
+    .bar-fill.warn   { background: var(--amber); }
+    .bar-fill.danger { background: var(--red); }
+    .bar-stats { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-dim); margin-top: 6px; }
 
-    /* Task card */
+    /* Liste de tâches */
     .task-card {
-      background: var(--bg2); border: 1px solid var(--border);
-      border-radius: var(--radius); overflow: hidden;
-      box-shadow: var(--shadow);
-      transition: background .2s, border-color .2s;
+      background: transparent; border: none;
+      border-radius: 0; box-shadow: none;
+      overflow: visible;
+      margin: 0 -6px;
     }
 
-    /* En-tête de groupe */
+    /* En-tête de groupe = sous-titre Notion */
     .grp-head {
       display: flex; align-items: center; gap: 10px;
-      padding: 11px 18px; border-bottom: 1px solid var(--border);
-      transition: background .2s;
+      padding: 18px 0 4px;
+      border-bottom: none !important;
+      background: transparent !important;
     }
-    .grp-head + .grp-head,
-    .grp-sys + .grp-head,
-    .grp-nav + .grp-head,
-    .grp-app + .grp-head { border-top: 1px solid var(--border); }
-    .grp-head.s-sys { background: var(--sys-bg); }
-    .grp-head.s-nav { background: var(--nav-bg); }
-    .grp-head.s-app { background: var(--app-bg); }
-
-    .grp-emoji { font-size: 15px; }
-    .grp-name  { font-size: 13px; font-weight: 700; }
-    .grp-head.s-sys .grp-name { color: var(--sys); }
-    .grp-head.s-nav .grp-name { color: var(--nav); }
-    .grp-head.s-app .grp-name { color: var(--app); }
-    .grp-desc { font-size: 11px; color: var(--text-dim); margin-top: 1px; }
-    .grp-total { margin-left: auto; text-align: right; flex-shrink: 0; }
-    .grp-total-val { font-size: 14px; font-weight: 800; }
-    .grp-head.s-sys .grp-total-val { color: var(--sys); }
-    .grp-head.s-nav .grp-total-val { color: var(--nav); }
-    .grp-head.s-app .grp-total-val { color: var(--app); }
-    .grp-total-sub { font-size: 10px; color: var(--text-dim); }
+    .grp-head:first-child { padding-top: 8px; }
+    .grp-emoji { font-size: 14px; }
+    .grp-name {
+      font-size: 12px; font-weight: 600;
+      color: var(--text-mid) !important;
+      text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    .grp-desc { display: none; }
+    .grp-total { margin-left: auto; }
+    .grp-total-val {
+      font-size: 12px; font-weight: 500;
+      color: var(--text-mid) !important;
+      font-variant-numeric: tabular-nums;
+    }
+    .grp-total-sub { display: none; }
 
     /* Lignes de tâches */
     .task-item {
-      display: flex; align-items: center; gap: 13px;
-      padding: 12px 18px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 12px;
+      padding: 8px 6px;
+      border-radius: 4px;
       cursor: pointer; user-select: none;
+      border: none !important; border-left: none !important;
+      background: transparent !important;
+      margin: 1px 0;
       transition: background .12s;
-      border-left: 3px solid transparent;
     }
-    .task-item:last-child { border-bottom: none; }
+    .task-item:hover { background: var(--hover) !important; }
 
-    .grp-sys .task-item              { background: var(--sys-row); border-left-color: rgba(79,70,229,.12); }
-    .grp-sys .task-item:hover        { background: var(--sys-ck); }
-    .grp-sys .task-item.on           { background: var(--sys-ck); border-left-color: var(--sys); }
-    .grp-nav .task-item              { background: var(--nav-row); border-left-color: rgba(8,145,178,.1); }
-    .grp-nav .task-item:hover        { background: var(--nav-ck); }
-    .grp-nav .task-item.on           { background: var(--nav-ck); border-left-color: var(--nav); }
-    .grp-app .task-item              { background: var(--app-row); border-left-color: rgba(225,29,72,.08); }
-    .grp-app .task-item:hover        { background: var(--app-ck); }
-    .grp-app .task-item.on           { background: var(--app-ck); border-left-color: var(--app); }
-
-    /* Toggle */
+    /* Toggle = checkbox Notion */
     .toggle-track {
-      width: 38px; height: 22px;
-      background: var(--border2); border-radius: 11px;
-      position: relative; flex-shrink: 0;
-      transition: background .2s;
-    }
-    .grp-sys .task-item.on .toggle-track { background: var(--sys); }
-    .grp-nav .task-item.on .toggle-track { background: var(--nav); }
-    .grp-app .task-item.on .toggle-track { background: var(--app); }
-    .toggle-thumb {
-      position: absolute; top: 3px; left: 3px;
       width: 16px; height: 16px;
-      background: white; border-radius: 50%;
-      box-shadow: 0 1px 4px rgba(0,0,0,.2);
-      transition: transform .25s cubic-bezier(.175,.885,.32,1.3);
+      border: 1.5px solid var(--border2);
+      border-radius: 3px;
+      background: transparent;
+      flex-shrink: 0;
+      display: grid; place-items: center;
+      transition: background .15s, border-color .15s;
+      position: static;
     }
-    .task-item.on .toggle-thumb { transform: translateX(16px); }
+    .toggle-thumb {
+      position: static; width: 0; height: 0;
+      box-shadow: none; background: transparent;
+      transform: none !important;
+    }
+    .task-item.on .toggle-track {
+      background: var(--text); border-color: var(--text);
+    }
+    .task-item.on .toggle-track::after {
+      content: '✓'; font-size: 11px; line-height: 1;
+      color: var(--bg); font-weight: 700;
+    }
 
-    /* Info tâche */
     .task-info { flex: 1; min-width: 0; }
-    .task-name { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-    .task-desc { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+    .task-name {
+      font-size: 15px; font-weight: 500;
+      display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+      color: var(--text);
+    }
+    .task-desc { font-size: 13px; color: var(--text-mid); margin-top: 1px; }
 
-    .badge { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 5px; }
+    .badge {
+      font-size: 11px; font-weight: 500;
+      padding: 1px 8px; border-radius: 3px;
+    }
     .badge-safe  { background: var(--green-bg); color: var(--green); }
     .badge-admin { background: var(--amber-bg); color: var(--amber); }
 
-    /* Task verrouillée sans admin */
     .task-item.locked { opacity: .45; cursor: not-allowed; pointer-events: none; }
-    .task-item.locked .toggle-track { background: var(--border2) !important; }
+    .task-item.locked .toggle-track {
+      background: transparent !important;
+      border-color: var(--border2) !important;
+    }
 
-    /* Section outil verrouillée */
+    /* Switch iOS pour les toggles (startup, etc.) */
+    .switch {
+      position: relative;
+      width: 34px; height: 20px;
+      background: var(--border2);
+      border-radius: 10px;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background .2s;
+    }
+    .switch::after {
+      content: '';
+      position: absolute;
+      top: 2px; left: 2px;
+      width: 16px; height: 16px;
+      background: var(--bg);
+      border-radius: 50%;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+      transition: transform .2s;
+    }
+    .switch.on { background: var(--accent); }
+    .switch.on::after { transform: translateX(14px); }
+    .switch[data-busy] { opacity: 0.5; pointer-events: none; }
+
+    .tool-section-locked .tool-section-title { display: inline-flex; align-items: center; gap: 8px; }
     .tool-section-locked .tool-section-title::after {
-      content: " 🔒"; font-size: 13px;
+      content: ''; display: inline-block; width: 14px; height: 14px;
+      background: currentColor;
+      -webkit-mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>') center/contain no-repeat;
+      mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>') center/contain no-repeat;
+      opacity: .6;
     }
-    .tool-section-locked .btn-primary {
-      opacity: .5; cursor: not-allowed; pointer-events: none;
-    }
+    .tool-section-locked .btn-primary { opacity: .5; cursor: not-allowed; pointer-events: none; }
 
     .size-wrap { text-align: right; flex-shrink: 0; min-width: 64px; }
-    .size-val  { font-size: 13px; font-weight: 700; transition: color .3s; }
-    .size-sub  { font-size: 10px; color: var(--text-dim); margin-top: 1px; }
-    .sz-big    { color: var(--red); }
-    .sz-med    { color: var(--amber); }
-    .sz-sml    { color: var(--green); }
-    .sz-zero   { color: var(--text-dim); font-weight: 400; }
-    .sz-load   { color: var(--text-dim); animation: shimmer 1.4s linear infinite; }
+    .size-val {
+      font-size: 13px; font-weight: 500; color: var(--text-mid);
+      font-variant-numeric: tabular-nums; transition: color .3s;
+    }
+    .size-sub { font-size: 11px; color: var(--text-dim); margin-top: 1px; }
+    .sz-big { color: var(--text); font-weight: 600; }
+    .sz-med { color: var(--text); }
+    .sz-sml { color: var(--text-mid); }
+    .sz-zero { color: var(--text-dim); font-weight: 400; }
+    .sz-load { color: var(--text-dim); animation: shimmer 1.4s linear infinite; }
     @keyframes shimmer { 0%,100%{opacity:.4} 50%{opacity:1} }
 
-    /* Actions */
-    .actions-wrap { display: flex; flex-direction: column; gap: 8px; }
-    .actions      { display: flex; gap: 8px; flex-wrap: wrap; }
-    .actions-desc { font-size: 12px; color: var(--text-dim); }
-
-    .btn-primary {
-      flex: 1; min-width: 180px; padding: 12px 20px;
-      background: var(--accent); color: white;
-      font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 700;
-      border: none; border-radius: 12px; cursor: pointer;
-      box-shadow: 0 2px 10px rgba(37,99,235,.25);
-      transition: background .3s, filter .15s, box-shadow .2s, transform .15s;
-      display: inline-flex; align-items: center; justify-content: center; gap: 7px;
-      overflow: hidden; position: relative;
+    /* Callout d'action */
+    .callout {
+      display: flex; align-items: center; gap: 16px;
+      padding: 18px 20px; margin-top: 32px;
+      background: var(--accent-bg);
+      border-radius: 6px;
+      border-left: 3px solid var(--accent);
     }
-    .btn-primary:hover:not(:disabled)  { filter: brightness(1.08); box-shadow: 0 4px 16px rgba(37,99,235,.35); }
+    .callout-icon { font-size: 22px; line-height: 1; flex-shrink: 0; }
+    .callout-content { flex: 1; min-width: 0; }
+    .callout-title { font-size: 14px; font-weight: 600; color: var(--text); }
+    .callout-desc { font-size: 13px; color: var(--text-mid); margin-top: 2px; }
+    .callout .btn-primary { flex-shrink: 0; padding: 10px 18px; }
+
+    /* Actions secondaires */
+    .nett-actions-secondary {
+      display: flex; gap: 4px; margin-top: 14px; flex-wrap: wrap;
+      align-items: center;
+    }
+    .nett-actions-secondary .actions-desc {
+      font-size: 12px; color: var(--text-dim);
+      margin-left: auto;
+    }
+
+    /* Hint historique */
+    .history-hint {
+      font-size: 13px; color: var(--text-mid);
+      padding: 12px 16px; background: var(--bg2);
+      border: 1px solid var(--border); border-radius: 6px;
+      line-height: 1.5; margin-top: 14px;
+    }
+    .history-hint strong { color: var(--text); font-weight: 600; }
+
+    /* ── Boutons ────────────────────────────── */
+    .btn-primary {
+      padding: 8px 14px;
+      background: var(--accent); color: var(--bg);
+      font-family: 'IBM Plex Sans', -apple-system, sans-serif; font-size: 14px; font-weight: 500;
+      border: none; border-radius: 4px; cursor: pointer;
+      box-shadow: none;
+      transition: filter .12s, transform .1s, background .2s;
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      overflow: hidden; position: relative;
+      white-space: nowrap;
+    }
+    .btn-primary:hover:not(:disabled)  { filter: brightness(0.92); }
     .btn-primary:active:not(:disabled) { transform: scale(.98); }
-    .btn-primary:disabled { opacity: .7; cursor: not-allowed; filter: none; }
-    .btn-primary.btn-running { background: #1e40af; cursor: not-allowed; }
-    .btn-primary.btn-success { background: var(--green) !important; box-shadow: 0 2px 14px rgba(22,163,74,.3); }
-    .btn-primary.btn-error   { background: var(--red)   !important; animation: btn-shake .35s ease; }
-    [data-theme="dark"] .btn-primary { box-shadow: 0 2px 12px rgba(96,165,250,.2); }
+    .btn-primary:disabled { opacity: .55; cursor: not-allowed; filter: none; }
+    .btn-primary.btn-running { background: var(--accent); cursor: not-allowed; opacity: .85; }
+    .btn-primary.btn-success { background: var(--green) !important; }
+    .btn-primary.btn-error   { background: var(--red) !important; animation: btn-shake .35s ease; }
+    .btn-primary.btn-found   { background: var(--accent) !important; }
 
     .btn-icon { font-size: 14px; display: inline-block; flex-shrink: 0; }
     .btn-running .btn-icon { animation: spin-icon .7s linear infinite; }
     @keyframes spin-icon { to { transform: rotate(360deg); } }
+
+    .btn-cancel {
+      padding: 7px 13px; background: transparent; color: var(--red);
+      border: 1px solid var(--border2); border-radius: 4px;
+      font-size: 13px; font-weight: 500; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 6px;
+      transition: background .12s, color .12s, border-color .12s;
+    }
+    .btn-cancel:hover { background: var(--red-bg); border-color: var(--red); }
+    .btn-ghost.btn-running { background: var(--accent-bg); color: var(--accent); }
     @keyframes btn-shake {
       0%,100%{transform:translateX(0)}
       20%{transform:translateX(-5px)} 40%{transform:translateX(5px)}
@@ -396,14 +634,14 @@
     }
 
     .btn-ghost {
-      padding: 10px 14px;
-      background: var(--bg2); color: var(--text-mid);
-      font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500;
-      border: 1px solid var(--border); border-radius: 10px; cursor: pointer;
-      transition: background .15s, color .15s; white-space: nowrap;
+      padding: 7px 12px;
+      background: transparent; color: var(--text);
+      font-family: 'IBM Plex Sans', -apple-system, sans-serif; font-size: 14px; font-weight: 500;
+      border: 1px solid transparent; border-radius: 4px; cursor: pointer;
+      transition: background .12s; white-space: nowrap;
       overflow: hidden; position: relative;
     }
-    .btn-ghost:hover { background: var(--bg3); color: var(--text); }
+    .btn-ghost:hover { background: var(--hover); }
 
     /* Ripple */
     .ripple-wave {
@@ -416,12 +654,12 @@
     @keyframes ripple-expand { to { transform: scale(4); opacity: 0; } }
 
     /* Skeleton loader */
-    .skeleton-row { display: flex; gap: 12px; align-items: center; padding: 11px 18px; border-bottom: 1px solid var(--border); }
+    .skeleton-row { display: flex; gap: 12px; align-items: center; padding: 8px 6px; }
     .skeleton-row:last-child { border-bottom: none; }
     .skeleton-box {
       background: linear-gradient(90deg, var(--border) 25%, var(--bg3) 50%, var(--border) 75%);
       background-size: 200% 100%;
-      border-radius: 6px; flex-shrink: 0;
+      border-radius: 4px; flex-shrink: 0;
       animation: sk-shimmer 1.4s infinite;
     }
     @keyframes sk-shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
@@ -429,152 +667,259 @@
     /* Tooltip */
     .tooltip-wrap { position: relative; display: inline-flex; flex-direction: column; align-items: center; }
     .tooltip-wrap .tip {
-      position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
-      background: #1e293b; color: #f1f5f9;
-      font-size: 12px; padding: 6px 10px; border-radius: 8px;
+      position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+      background: var(--text); color: var(--bg);
+      font-size: 12px; padding: 5px 9px; border-radius: 4px;
       white-space: nowrap; pointer-events: none; opacity: 0;
-      transition: opacity .15s; z-index: 50;
+      transition: opacity .12s; z-index: 50;
     }
     .tooltip-wrap .tip::after {
       content:''; position: absolute; top:100%; left:50%; transform: translateX(-50%);
-      border: 5px solid transparent; border-top-color: #1e293b;
+      border: 4px solid transparent; border-top-color: var(--text);
     }
     .tooltip-wrap:hover .tip { opacity: 1; }
 
-    /* Log */
-    .log-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); transition: background .2s; }
-    .log-header { display: flex; align-items: center; justify-content: space-between; padding: 11px 18px; border-bottom: 1px solid var(--border); background: var(--bg3); }
-    .log-title  { font-size: 12px; font-weight: 600; color: var(--text-mid); text-transform: uppercase; letter-spacing: .6px; }
-    .log-clear  { font-size: 12px; color: var(--text-dim); cursor: pointer; transition: color .15s; }
-    .log-clear:hover { color: var(--accent); }
-    .progress-wrap  { display: none; padding: 10px 18px 0; }
-    .progress-label { font-size: 12px; color: var(--text-mid); margin-bottom: 5px; font-weight: 500; }
+    /* Log — bloc code Notion */
+    .log-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+      margin-top: 18px;
+      box-shadow: none;
+    }
+    .log-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--border);
+      background: transparent;
+    }
+    .log-title { font-size: 12px; font-weight: 500; color: var(--text-mid); text-transform: none; letter-spacing: 0; }
+    .log-clear { font-size: 12px; color: var(--text-dim); cursor: pointer; transition: color .12s; }
+    .log-clear:hover { color: var(--text); }
+    .progress-wrap  { display: none; padding: 10px 14px 0; }
+    .progress-label { font-size: 12px; color: var(--text-mid); margin-bottom: 5px; }
     .progress-bg    { height: 4px; background: var(--bg3); border-radius: 2px; overflow: hidden; }
-    .progress-fill  { height: 100%; background: linear-gradient(90deg, var(--accent), #93c5fd); border-radius: 2px; transition: width .4s ease; }
-    .log-body { padding: 10px 18px; max-height: 150px; overflow-y: auto; font-family: 'Consolas','Monaco',monospace; font-size: 12px; }
-    .log-entry { display: flex; gap: 14px; padding: 2px 0; }
+    .progress-fill  { height: 100%; background: var(--accent); border-radius: 2px; transition: width .4s ease; }
+    .log-body { padding: 10px 14px; max-height: 150px; overflow-y: auto; font-family: 'IBM Plex Mono', 'SFMono-Regular', 'Menlo', monospace; font-size: 12px; line-height: 1.7; }
+    .log-entry { display: flex; gap: 12px; padding: 1px 0; }
     .log-ts   { color: var(--text-dim); flex-shrink: 0; font-size: 11px; padding-top: 1px; }
     .log-msg  { color: var(--text-mid); }
     .log-ok   { color: var(--green); }
     .log-warn { color: var(--amber); }
 
     /* ══════════════════════════════════════════
-       ONGLETS OUTILS & PLANIFICATEUR — layout
+       ONGLET OUTILS — Notion
     ══════════════════════════════════════════ */
-    .tools-main { max-width: 800px; margin: 0 auto; padding: 24px 20px 40px; width: 100%; }
+    .tools-main {
+      max-width: 920px; margin: 0 auto;
+      padding: 50px 60px 80px; width: 100%;
+    }
 
-    /* Cards génériques */
-    .card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; transition: background .2s; }
-    .card-header { display: flex; align-items: center; justify-content: space-between; padding: 13px 18px; border-bottom: 1px solid var(--border); background: var(--bg3); }
-    .card-title  { font-size: 12px; font-weight: 600; color: var(--text-mid); text-transform: uppercase; letter-spacing: .6px; }
-    .card-body   { padding: 16px 18px; }
+    /* Cards transparentes Notion */
+    .card {
+      background: transparent; border: none;
+      border-radius: 0; box-shadow: none;
+      overflow: visible;
+    }
+    .card-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: none; background: transparent;
+    }
+    .card-title {
+      font-size: 12px; font-weight: 500; color: var(--text-mid);
+      text-transform: none; letter-spacing: 0;
+    }
+    .card-body { padding: 4px 0 8px; }
 
-    .panel-stack { display: flex; flex-direction: column; gap: 18px; }
-    .section-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
-    .section-title { font-size: 16px; font-weight: 700; letter-spacing: -.3px; }
-    .section-sub   { font-size: 13px; color: var(--text-dim); margin-top: 1px; }
+    .panel-stack { display: flex; flex-direction: column; gap: 0; }
 
-    /* Outils */
-    .tools-section { display: flex; flex-direction: column; gap: 18px; }
-    .tool-section-title { font-size: 16px; font-weight: 700; letter-spacing: -.3px; }
-    .tool-section-sub   { font-size: 13px; color: var(--text-dim); }
-    .tool-row { display: flex; align-items: center; gap: 12px; padding: 11px 18px; border-bottom: 1px solid var(--border); }
+    /* Section head Notion : titre h2 + sous-titre + bouton à droite */
+    .section-head {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      gap: 16px;
+      padding: 28px 0 14px;
+      border-top: 1px solid var(--border);
+      margin-top: 0;
+    }
+    .section-title, .tool-section-title {
+      font-size: 22px; font-weight: 700; letter-spacing: -0.012em;
+    }
+    .section-sub, .tool-section-sub {
+      font-size: 13px; color: var(--text-mid); margin-top: 4px;
+    }
+
+    .tools-section { display: flex; flex-direction: column; gap: 0; }
+
+    /* Headers de groupe (Espace disque, Logiciels, Système, Confidentialité) */
+    .tools-group-header {
+      display: block;
+      padding: 56px 0 6px;
+      border-left: none; background: transparent !important;
+      border-radius: 0; margin-top: 0;
+      border-top: 2px solid var(--text);
+      margin-top: 36px;
+    }
+    .tools-group-header:first-child {
+      padding-top: 16px;
+      border-top: none;
+      margin-top: 0;
+    }
+    .tools-group-title {
+      font-size: 18px; font-weight: 700;
+      color: var(--text) !important;
+      text-transform: none; letter-spacing: -0.012em;
+      display: flex; align-items: center; gap: 10px;
+      margin-top: 8px;
+    }
+    .tools-group-title .icon { color: var(--text-mid); }
+    .tools-group-desc {
+      font-size: 13px; color: var(--text-mid);
+      line-height: 1.5; margin-top: 4px;
+    }
+    /* La première section après un group-header n'a pas de border-top */
+    .tools-group-header + div .section-head { border-top: none; padding-top: 18px; }
+
+    /* Lignes d'outils génériques */
+    .tool-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 9px 6px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
     .tool-row:last-child { border-bottom: none; }
-    .tool-header { background: var(--bg3); font-size: 12px; }
+    .tool-row:hover { background: var(--hover); }
+    .tool-header {
+      background: transparent; font-size: 12px;
+      padding: 8px 6px; color: var(--text-mid);
+      text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;
+    }
     .tool-info  { flex: 1; min-width: 0; }
-    .tool-name  { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .tool-sub   { font-size: 11px; color: var(--text-dim); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 320px; }
-    .tool-meta  { font-size: 12px; color: var(--text-mid); min-width: 90px; text-align: right; }
+    .tool-name  { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tool-sub   { font-size: 12px; color: var(--text-mid); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 380px; }
+    .tool-meta  { font-size: 13px; color: var(--text-mid); min-width: 90px; text-align: right; font-variant-numeric: tabular-nums; }
     .tool-meta.dim { color: var(--text-dim); }
-    .tool-loading { padding: 20px; text-align: center; color: var(--text-dim); font-size: 13px; }
-    .tool-empty   { padding: 20px; text-align: center; color: var(--text-dim); font-size: 13px; }
-    .tool-error   { padding: 20px; text-align: center; color: var(--red); font-size: 13px; }
+    .tool-loading { padding: 24px 6px; text-align: center; color: var(--text-dim); font-size: 13px; }
+    .tool-empty   { padding: 24px 6px; text-align: center; color: var(--text-dim); font-size: 13px; }
+    .tool-error   { padding: 24px 6px; text-align: center; color: var(--red); font-size: 13px; }
 
-    .source-badge { font-size: 10px; padding: 2px 7px; border-radius: 4px; background: var(--accent-bg); color: var(--accent); white-space: nowrap; font-weight: 600; }
+    .source-badge {
+      font-size: 11px; padding: 2px 7px; border-radius: 3px;
+      background: transparent; color: var(--text-mid);
+      border: 1px solid var(--border);
+      white-space: nowrap; font-weight: 500;
+    }
 
     .btn-uninstall {
-      padding: 5px 10px; font-family: 'Inter',sans-serif; font-size: 11px; font-weight: 500;
-      background: var(--red-bg); color: var(--red);
-      border: 1px solid rgba(220,38,38,.2); border-radius: 6px;
-      cursor: pointer; white-space: nowrap; transition: background .15s;
+      padding: 4px 10px;
+      font-family: 'IBM Plex Sans', -apple-system, sans-serif; font-size: 12px; font-weight: 500;
+      background: transparent; color: var(--red);
+      border: 1px solid var(--border2); border-radius: 4px;
+      cursor: pointer; white-space: nowrap;
+      transition: background .12s, border-color .12s;
       overflow: hidden; position: relative;
     }
-    .btn-uninstall:hover { filter: brightness(.95); }
-    .btn-uninstall .ripple-wave { background: rgba(220,38,38,.15); }
+    .btn-uninstall:hover { background: var(--red-bg); border-color: var(--red); }
+    .btn-uninstall .ripple-wave { background: rgba(224,62,62,.18); }
 
-    .search-wrap { padding: 10px 18px; border-bottom: 1px solid var(--border); background: var(--bg3); display: flex; gap: 8px; align-items: center; }
-    .search-input { flex: 1; padding: 7px 12px; border: 1px solid var(--border); border-radius: 8px; font-family: 'Inter',sans-serif; font-size: 13px; background: var(--bg2); color: var(--text); outline: none; }
-    .search-input:focus { border-color: var(--accent); }
+    /* Recherche apps */
+    .search-wrap {
+      padding: 8px 0; border-bottom: 1px solid var(--border);
+      background: transparent; display: flex; gap: 8px; align-items: center;
+    }
+    .search-input {
+      flex: 1; padding: 7px 12px;
+      border: 1px solid var(--border); border-radius: 4px;
+      font-family: 'IBM Plex Sans', -apple-system, sans-serif; font-size: 13px;
+      background: var(--bg2); color: var(--text); outline: none;
+    }
+    .search-input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-bg); }
     .apps-count { font-size: 12px; color: var(--text-dim); white-space: nowrap; }
 
-    /* Doublons */
-    .dupe-scan-bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-    .dupe-folder-input { flex: 1; min-width: 200px; padding: 9px 14px; border: 1px solid var(--border); border-radius: 10px; font-family: 'Inter',sans-serif; font-size: 13px; background: var(--bg2); color: var(--text); outline: none; }
-    .dupe-folder-input:focus { border-color: var(--accent); }
-    .dupe-size-input { width: 80px; padding: 9px 10px; border: 1px solid var(--border); border-radius: 10px; font-family: 'Inter',sans-serif; font-size: 13px; background: var(--bg2); color: var(--text); outline: none; text-align: center; }
-    .dupe-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 18px; background: var(--accent-bg); border-bottom: 1px solid var(--accent-bdr); font-size: 13px; color: var(--accent); font-weight: 500; }
+    /* Scan bars (doublons, gros fichiers, installeurs, etc.) */
+    .dupe-scan-bar {
+      display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    }
+    .dupe-folder-input {
+      flex: 1; min-width: 200px; padding: 7px 12px;
+      border: 1px solid var(--border); border-radius: 4px;
+      font-family: 'IBM Plex Sans', -apple-system, sans-serif; font-size: 13px;
+      background: var(--bg2); color: var(--text); outline: none;
+    }
+    .dupe-folder-input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-bg); }
+    .dupe-size-input {
+      width: 70px; padding: 7px 8px;
+      border: 1px solid var(--border); border-radius: 4px;
+      font-family: 'IBM Plex Sans', -apple-system, sans-serif; font-size: 13px;
+      background: var(--bg2); color: var(--text); outline: none; text-align: center;
+    }
+    .dupe-size-input:focus { border-color: var(--accent); }
+
+    /* Headers de listes (avec sel-all + tri + bouton suppr) */
+    .dupe-header {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 10px; padding: 10px 6px;
+      background: transparent;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px; color: var(--text-mid);
+      font-weight: 500;
+    }
+
+    /* Groupes de doublons */
     .dupe-group { border-bottom: 1px solid var(--border); }
-    .dupe-group-title { padding: 8px 18px; font-size: 12px; font-weight: 600; color: var(--text-mid); background: var(--bg3); }
-    .dupe-row { display: flex; align-items: flex-start; gap: 10px; padding: 8px 18px; border-top: 1px solid var(--border); }
-    .dupe-row input[type=checkbox] { margin-top: 2px; flex-shrink: 0; }
+    .dupe-group:last-child { border-bottom: none; }
+    .dupe-group-title {
+      padding: 10px 6px; font-size: 13px; font-weight: 600;
+      color: var(--text); background: transparent;
+    }
+    .dupe-row {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 8px 6px 8px 26px;
+      border-top: 1px solid var(--border);
+      font-size: 13px;
+    }
+    .dupe-row:hover { background: var(--hover); }
+    .dupe-row input[type=checkbox] { margin-top: 3px; flex-shrink: 0; accent-color: var(--accent); }
     .dupe-path { font-size: 12px; color: var(--text-mid); word-break: break-all; cursor: pointer; }
-    .dupe-size { font-weight: 600; color: var(--text); margin-right: 8px; }
+    .dupe-size { font-weight: 500; color: var(--text); margin-right: 8px; font-variant-numeric: tabular-nums; }
 
     /* Analyse disque */
-    .da-row { display:flex; align-items:center; gap:12px; padding:10px 16px; border-bottom:1px solid var(--border); cursor:default; transition:background .15s; }
-    .da-row:last-child { border-bottom:none; }
-    .da-row.da-dir { cursor:pointer; }
-    .da-row.da-dir:hover { background:var(--hover); }
-    .da-row.da-dir:hover .da-name { color:var(--accent); }
-    .da-icon { font-size:16px; width:20px; text-align:center; flex-shrink:0; }
-    .da-name { font-size:13px; font-weight:600; color:var(--text); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .da-bar-wrap { width:160px; flex-shrink:0; height:6px; background:var(--border); border-radius:3px; overflow:hidden; }
-    .da-bar { height:100%; background:var(--accent); border-radius:3px; transition:width .4s ease; }
-    .da-size { font-size:12px; color:var(--text-dim); width:60px; text-align:right; flex-shrink:0; }
-    .da-pct  { font-size:11px; color:var(--text-dim); width:38px; text-align:right; flex-shrink:0; }
-    .da-loading { display:flex; align-items:center; gap:12px; padding:10px 16px; border-bottom:1px solid var(--border); opacity:.5; }
-    .da-loading .da-bar { animation:shimmer 1.4s infinite; background:linear-gradient(90deg,var(--border) 25%,var(--bg3,#ddd) 50%,var(--border) 75%); background-size:200%; }
-
-    /* Planificateur */
-    .sched-grid { display: flex; flex-direction: column; gap: 16px; }
-    .sched-row  { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-    .sched-label { font-size: 13px; font-weight: 500; color: var(--text-mid); min-width: 140px; }
-    .sched-select, .sched-time-input {
-      padding: 9px 14px; border: 1px solid var(--border); border-radius: 10px;
-      font-family: 'Inter',sans-serif; font-size: 13px; background: var(--bg2); color: var(--text); outline: none; cursor: pointer;
+    .da-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 8px 6px;
+      border-bottom: 1px solid var(--border);
+      cursor: default; transition: background .12s;
+      font-size: 13px;
     }
-    .sched-select:focus, .sched-time-input:focus { border-color: var(--accent); }
-    .sched-status { font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 12px; }
-    .sched-status.on  { background: var(--green-bg); color: var(--green); }
-    .sched-status.off { background: var(--bg3); color: var(--text-dim); }
-    .sched-info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .sched-info-box { background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
-    .sched-info-lbl { font-size: 11px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
-    .sched-info-val { font-size: 14px; font-weight: 600; }
-    .sched-tasks-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
-    .sched-task-item { display: flex; align-items: center; gap: 8px; padding: 9px 12px; background: var(--bg3); border: 1px solid var(--border); border-radius: 9px; cursor: pointer; transition: background .12s; }
-    .sched-task-item:hover { background: var(--accent-bg); border-color: var(--accent-bdr); }
-    .sched-task-item input { flex-shrink: 0; }
-    .sched-task-item label { font-size: 13px; cursor: pointer; }
+    .da-row:last-child { border-bottom: none; }
+    .da-row.da-dir { cursor: pointer; }
+    .da-row.da-dir:hover { background: var(--hover); }
+    .da-row.da-dir:hover .da-name { color: var(--accent); }
+    .da-icon { font-size: 16px; width: 20px; text-align: center; flex-shrink: 0; }
+    .da-name { font-size: 13px; font-weight: 500; color: var(--text); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .da-bar-wrap { width: 160px; flex-shrink: 0; height: 6px; background: var(--bg3); border-radius: 3px; overflow: hidden; }
+    .da-bar { height: 100%; background: var(--accent); border-radius: 3px; transition: width .4s ease; }
+    .da-size { font-size: 13px; color: var(--text-mid); width: 70px; text-align: right; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+    .da-pct  { font-size: 12px; color: var(--text-dim); width: 38px; text-align: right; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+    .da-loading { display: flex; align-items: center; gap: 12px; padding: 8px 6px; border-bottom: 1px solid var(--border); opacity: .5; }
+    .da-loading .da-bar { animation: shimmer 1.4s infinite; background: linear-gradient(90deg, var(--border) 25%, var(--bg3) 50%, var(--border) 75%); background-size: 200%; }
 
-    /* Toggle pour planificateur */
-    .toggle-wrap { display: inline-flex; flex-direction: row; gap: 10px; align-items: center; }
-    .toggle-wrap .toggle-track { background: var(--border2); transition: background .2s; }
-    .toggle-wrap .toggle-track.on { background: var(--accent); }
-    .toggle-wrap .toggle-thumb { transition: transform .25s cubic-bezier(.175,.885,.32,1.3); }
 
     /* ══════════════════════════════════════════
-       TOAST
+       TOAST — Notion
     ══════════════════════════════════════════ */
     .toast {
       position: fixed; top: 70px; right: 20px; z-index: 999;
-      background: var(--bg2); border: 1px solid var(--border);
-      border-radius: 12px; padding: 14px 18px;
-      box-shadow: 0 8px 32px rgba(0,0,0,.18);
+      background: var(--bg);
+      border: 1px solid var(--border2);
+      border-radius: 6px; padding: 12px 16px;
+      box-shadow: rgba(15, 15, 15, 0.05) 0px 0px 0px 1px,
+                  rgba(15, 15, 15, 0.1) 0px 5px 10px,
+                  rgba(15, 15, 15, 0.2) 0px 15px 40px;
       display: flex; align-items: center; gap: 12px;
-      font-size: 14px; font-weight: 500; max-width: 340px;
+      font-size: 14px; max-width: 360px;
       animation: toast-in .3s cubic-bezier(.2,.8,.3,1);
-      transition: background .2s;
     }
     @keyframes toast-in {
       from { transform: translateX(110%); opacity: 0; }
@@ -583,282 +928,435 @@
     .toast-success { border-left: 3px solid var(--green); }
     .toast-warn    { border-left: 3px solid var(--amber); }
     .toast-error   { border-left: 3px solid var(--red);   }
-    .toast-icon    { font-size: 16px; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-weight: 700; }
+    .toast-icon { font-size: 14px; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-weight: 600; }
     .toast-success .toast-icon { background: var(--green-bg); color: var(--green); }
     .toast-warn    .toast-icon { background: var(--amber-bg); color: var(--amber); }
     .toast-error   .toast-icon { background: var(--red-bg);   color: var(--red);   }
-    .toast-body    { flex: 1; }
-    .toast-title   { font-weight: 700; font-size: 13px; }
-    .toast-sub     { font-size: 12px; color: var(--text-mid); margin-top: 1px; }
-    .toast-close   { color: var(--text-dim); cursor: pointer; font-size: 18px; line-height: 1; padding: 2px; }
+    .toast-body  { flex: 1; }
+    .toast-title { font-weight: 600; font-size: 14px; color: var(--text); }
+    .toast-sub   { font-size: 12px; color: var(--text-mid); margin-top: 1px; }
+    .toast-close { color: var(--text-dim); cursor: pointer; font-size: 18px; line-height: 1; padding: 2px; }
     .toast-close:hover { color: var(--text); }
 
     /* ══════════════════════════════════════════
-       MODAL APERÇU
+       MODAL — Notion
     ══════════════════════════════════════════ */
     .modal-overlay {
       position: fixed; inset: 0; z-index: 500;
-      background: rgba(0,0,0,.45);
+      background: rgba(15, 15, 15, 0.4);
+      backdrop-filter: blur(2px);
       display: flex; align-items: center; justify-content: center;
       padding: 20px; animation: fade-in .2s ease;
     }
     @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
     .modal {
-      background: var(--bg2); border: 1px solid var(--border);
-      border-radius: 16px; padding: 24px;
-      width: 100%; max-width: 440px;
-      box-shadow: 0 20px 60px rgba(0,0,0,.25);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px; padding: 28px;
+      width: 100%; max-width: 460px;
+      box-shadow: rgba(15, 15, 15, 0.05) 0px 0px 0px 1px,
+                  rgba(15, 15, 15, 0.1) 0px 5px 10px,
+                  rgba(15, 15, 15, 0.2) 0px 15px 40px;
       animation: modal-in .25s cubic-bezier(.2,.8,.3,1);
-      transition: background .2s;
     }
     @keyframes modal-in {
-      from { transform: scale(.95) translateY(12px); opacity: 0; }
+      from { transform: scale(.97) translateY(8px); opacity: 0; }
       to   { transform: scale(1)   translateY(0);    opacity: 1; }
     }
-    .modal-title { font-size: 16px; font-weight: 700; margin-bottom: 14px; letter-spacing: -.3px; }
-    .modal-list  { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 14px; max-height: 300px; overflow-y: auto; }
-    .modal-row   { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--border); font-size: 13px; }
+    .modal-title { font-size: 18px; font-weight: 700; margin-bottom: 14px; letter-spacing: -0.012em; }
+    .modal-list {
+      border: 1px solid var(--border); border-radius: 4px;
+      overflow: hidden; margin-bottom: 14px; max-height: 300px; overflow-y: auto;
+    }
+    .modal-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 14px; border-bottom: 1px solid var(--border); font-size: 13px;
+    }
     .modal-row:last-child { border-bottom: none; }
     .modal-row-name { display: flex; align-items: center; gap: 8px; color: var(--text-mid); }
-    .modal-row-size { font-weight: 700; color: var(--accent); }
-    .modal-total { display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: 600; margin-bottom: 18px; padding: 12px 14px; background: var(--accent-bg); border: 1px solid var(--accent-bdr); border-radius: 10px; }
-    .modal-total-val { color: var(--accent); font-size: 18px; font-weight: 800; }
-    .modal-actions { display: flex; gap: 10px; }
-    .modal-actions .btn-primary { flex: 1; }
+    .modal-row-size { font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+    .modal-total {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 14px; font-weight: 500; margin-bottom: 18px;
+      padding: 12px 16px;
+      background: var(--accent-bg);
+      border-left: 3px solid var(--accent);
+      border-radius: 4px;
+      color: var(--text);
+    }
+    .modal-total-val { color: var(--text); font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+    .modal-actions .btn-primary { flex: none; padding: 8px 18px; }
+    .modal-actions .btn-ghost { padding: 8px 14px; border: 1px solid var(--border2); }
 
     /* Historique */
-    .history-hint { font-size: 12px; color: var(--text-dim); padding: 8px 12px; background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; line-height: 1.5; }
-    .history-hint strong { color: var(--text-mid); }
+    .history-hint {
+      font-size: 13px; color: var(--text-mid);
+      padding: 12px 16px; background: var(--bg2);
+      border: 1px solid var(--border); border-radius: 6px;
+      line-height: 1.5;
+    }
+    .history-hint strong { color: var(--text); font-weight: 600; }
 
     /* ══════════════════════════════════════════
-       REGISTRE
+       REGISTRE — Notion
     ══════════════════════════════════════════ */
-    .reg-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 18px; background: var(--accent-bg); border-bottom: 1px solid var(--accent-bdr); font-size: 13px; color: var(--accent); font-weight: 500; }
+    .reg-header {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 10px; padding: 10px 6px;
+      background: transparent;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px; color: var(--text-mid); font-weight: 500;
+    }
+    .list-header { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+    .sel-all { cursor: pointer; width: 15px; height: 15px; accent-color: var(--accent); flex-shrink: 0; }
+    .sort-pill {
+      cursor: pointer; font-size: 12px; padding: 3px 8px;
+      border-radius: 3px; color: var(--text-mid);
+      white-space: nowrap; transition: background .12s, color .12s;
+      font-weight: 500;
+    }
+    .sort-pill:hover  { background: var(--hover); color: var(--text); }
+    .sort-pill.active { background: var(--text); color: var(--bg); }
+
     .reg-category { border-bottom: 1px solid var(--border); }
-    .reg-cat-title { padding: 8px 18px; font-size: 12px; font-weight: 600; color: var(--text-mid); background: var(--bg3); display: flex; align-items: center; gap: 8px; }
-    .reg-cat-count { background: var(--accent-bg); color: var(--accent); font-size: 11px; padding: 1px 6px; border-radius: 10px; font-weight: 700; }
+    .reg-category:last-child { border-bottom: none; }
+    .reg-cat-title {
+      padding: 12px 6px 6px; font-size: 12px; font-weight: 600;
+      color: var(--text-mid); background: transparent;
+      text-transform: uppercase; letter-spacing: 0.05em;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .reg-cat-count {
+      background: transparent; color: var(--text-mid);
+      font-size: 11px; padding: 1px 6px; border-radius: 3px;
+      font-weight: 500; border: 1px solid var(--border);
+    }
 
     /* ══════════════════════════════════════════
-       EXTENSIONS
+       EXTENSIONS — Notion
     ══════════════════════════════════════════ */
     .ext-browser-section { border-bottom: 1px solid var(--border); }
-    .ext-browser-title { padding: 9px 18px; font-size: 13px; font-weight: 700; background: var(--bg3); display: flex; align-items: center; gap: 8px; }
+    .ext-browser-section:last-child { border-bottom: none; }
+    .ext-browser-title {
+      padding: 14px 6px 6px; font-size: 14px; font-weight: 600;
+      color: var(--text); background: transparent;
+      display: flex; align-items: center; gap: 4px;
+    }
+    .ext-browser-title .icon { color: var(--text-mid); }
     .ext-row { align-items: center; }
 
     /* ══════════════════════════════════════════
-       SANTÉ
+       SANTÉ — Notion
     ══════════════════════════════════════════ */
-    .health-layout { max-width: 800px; margin: 0 auto; padding: 24px 20px 40px; width: 100%; display: flex; flex-direction: column; gap: 20px; }
+    .health-layout {
+      max-width: 920px; margin: 0 auto;
+      padding: 50px 60px 80px;
+      width: 100%;
+      display: flex; flex-direction: column; gap: 0;
+    }
 
     .health-score-card {
-      background: var(--bg2); border: 1px solid var(--border);
-      border-radius: var(--radius); box-shadow: var(--shadow);
-      padding: 28px 32px; display: flex; align-items: center; gap: 32px;
-      transition: background .2s;
+      background: transparent; border: none;
+      border-radius: 0; box-shadow: none;
+      padding: 0 0 32px;
+      display: flex; align-items: center; gap: 32px;
     }
     .health-ring-wrap { flex-shrink: 0; position: relative; width: 130px; height: 130px; }
     .health-ring-wrap svg { transform: rotate(-90deg); }
-    .health-ring-bg   { fill: none; stroke: var(--border); stroke-width: 8; }
-    .health-ring-fill { fill: none; stroke: var(--green); stroke-width: 8; stroke-linecap: round; transition: stroke-dashoffset .8s ease, stroke .4s; }
+    .health-ring-bg   { fill: none; stroke: var(--border); stroke-width: 6; }
+    .health-ring-fill { fill: none; stroke: var(--green); stroke-width: 6; stroke-linecap: round; transition: stroke-dashoffset .8s ease, stroke .4s; }
     .health-score-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-    .health-score-val { font-size: 26px; font-weight: 800; letter-spacing: -.8px; }
-    .health-score-label { font-size: 11px; font-weight: 600; margin-top: 2px; }
+    .health-score-val { font-size: 32px; font-weight: 700; letter-spacing: -0.02em; }
+    .health-score-label { font-size: 11px; font-weight: 500; color: var(--text-mid); margin-top: 2px; }
 
     .health-score-info { flex: 1; }
-    .health-score-title { font-size: 20px; font-weight: 800; letter-spacing: -.4px; margin-bottom: 6px; }
-    .health-score-desc  { font-size: 13px; color: var(--text-mid); line-height: 1.5; }
+    .health-score-title {
+      font-size: 28px; font-weight: 700; letter-spacing: -0.02em;
+      margin-bottom: 8px;
+    }
+    .health-score-desc { font-size: 14px; color: var(--text-mid); line-height: 1.5; }
 
-    .health-metrics { display: flex; flex-direction: column; gap: 0; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
-
+    /* Liste de métriques (sans card chrome) */
+    .health-metrics {
+      display: flex; flex-direction: column; gap: 0;
+      background: transparent; border: none;
+      border-radius: 0; box-shadow: none;
+      border-top: 1px solid var(--border);
+    }
     .health-metric-card {
       display: flex; align-items: center; gap: 14px;
-      padding: 14px 20px; border-bottom: 1px solid var(--border);
+      padding: 14px 6px;
+      border-bottom: 1px solid var(--border);
       transition: background .12s;
     }
     .health-metric-card:last-child { border-bottom: none; }
-    .health-metric-card:hover { background: var(--bg3); }
-    .hm-icon  { font-size: 20px; flex-shrink: 0; width: 32px; text-align: center; }
+    .health-metric-card:hover { background: var(--hover); }
+    .hm-icon  { font-size: 18px; flex-shrink: 0; width: 28px; text-align: center; }
     .hm-info  { flex: 1; min-width: 0; }
-    .hm-label  { font-size: 13px; font-weight: 600; }
-    .hm-detail { font-size: 11px; color: var(--text-mid); margin-top: 2px; }
+    .hm-label { font-size: 14px; font-weight: 500; }
+    .hm-detail { font-size: 12px; color: var(--text-mid); margin-top: 2px; }
     .hm-fix-btn { padding: 4px 10px; font-size: 11px; margin-bottom: 6px; width: 100%; }
     .hm-bar-wrap { flex-shrink: 0; width: 100px; text-align: right; }
-    .hm-bar-bg   { height: 4px; background: var(--bg3); border-radius: 2px; overflow: hidden; margin-bottom: 4px; }
+    .hm-bar-bg { height: 4px; background: var(--bg3); border-radius: 2px; overflow: hidden; margin-bottom: 4px; }
     .hm-bar-fill { height: 100%; border-radius: 2px; transition: width .6s ease; }
-    /* Couleur du texte (score %) */
     .hm-good { color: var(--green); }
     .hm-warn { color: var(--amber); }
-    .hm-bad  { color: var(--red);   }
-    /* Couleur de la barre de remplissage */
+    .hm-bad  { color: var(--red); }
     .hm-bar-fill.hm-good { background: var(--green); }
     .hm-bar-fill.hm-warn { background: var(--amber); }
-    .hm-bar-fill.hm-bad  { background: var(--red);   }
-    .hm-pct  { font-size: 12px; font-weight: 700; }
+    .hm-bar-fill.hm-bad  { background: var(--red); }
+    .hm-pct { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
 
     /* ══════════════════════════════════════════
-       BANNIÈRE ADMIN
+       BANNIÈRE ADMIN — Notion
     ══════════════════════════════════════════ */
     .admin-banner {
-      background: var(--amber-bg); border-bottom: 1px solid var(--amber-bdr, #fde68a);
-      padding: 9px 24px; display: flex; align-items: center; gap: 12px;
-      font-size: 12px; color: var(--amber);
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 60px;
+      display: flex; align-items: center; gap: 10px;
+      font-size: 13px; color: var(--text-mid);
     }
-    .admin-banner-icon { font-size: 14px; flex-shrink: 0; }
-    .admin-banner-text { flex: 1; font-weight: 500; }
+    .admin-banner-icon { color: var(--text-mid); flex-shrink: 0; }
+    .admin-banner-text { flex: 1; }
     .admin-banner-btn {
-      padding: 5px 14px; background: var(--amber); color: white;
-      border: none; border-radius: 8px; font-size: 12px; font-weight: 700;
-      cursor: pointer; white-space: nowrap; font-family: 'Inter', sans-serif;
-      transition: filter .15s; flex-shrink: 0; overflow: hidden; position: relative;
+      padding: 5px 12px; background: var(--accent); color: var(--bg);
+      border: none; border-radius: 4px; font-size: 12px; font-weight: 500;
+      cursor: pointer; white-space: nowrap; font-family: 'IBM Plex Sans', -apple-system, sans-serif;
+      transition: filter .12s; flex-shrink: 0; overflow: hidden; position: relative;
     }
-    .admin-banner-btn:hover { filter: brightness(1.1); }
+    .admin-banner-btn:hover { filter: brightness(0.85); }
 
     /* ══════════════════════════════════════════
-       FOOTER
+       FOOTER — Notion
     ══════════════════════════════════════════ */
     footer {
-      text-align: center; padding: 16px; font-size: 12px;
-      color: var(--text-dim); background: var(--bg2);
+      text-align: center; padding: 20px; font-size: 12px;
+      color: var(--text-dim); background: transparent;
       border-top: 1px solid var(--border); margin-top: auto;
-      transition: background .2s;
     }
     footer span { color: var(--green); font-weight: 500; }
 
-    /* Scrollbar */
-    ::-webkit-scrollbar { width: 5px; }
+    /* Scrollbar — fine et discrète */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
 
     .dim { color: var(--text-dim); }
   </style>
 </head>
 <body>
 
-<!-- ── Nav ── -->
-<nav>
-  <div class="nav-top">
-    <div class="nav-logo">
-      <div class="nav-dot"></div>
-      PC Cleaner
-    </div>
-    <div class="nav-right">
-      {% if is_admin %}
-        <span class="pill pill-admin">Administrateur</span>
-      {% else %}
-        <span class="pill pill-std">Mode standard</span>
-      {% endif %}
-      <span class="pill pill-time" id="clock">--:--</span>
-      <button class="theme-btn" onclick="toggleTheme()" title="Changer le thème">
-        <span class="icon-moon">🌙</span>
-        <span class="icon-sun">☀️</span>
-      </button>
-    </div>
+<script>
+  var IS_ADMIN = {{ 'true' if is_admin else 'false' }};
+</script>
+
+<!-- ════════════════════ SIDEBAR GAUCHE ════════════════════ -->
+<aside class="sidebar">
+  <div class="sb-brand">
+    <svg class="icon" viewBox="0 0 24 24"><path d="m9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>
+    OpenCleaner
   </div>
-  <div class="tab-bar">
-    <button class="tab-btn active" onclick="switchTab('nettoyage', this)">🧹 Nettoyage</button>
-    <button class="tab-btn" onclick="switchTab('outils', this)">🔧 Outils</button>
-    <button class="tab-btn" onclick="switchTab('sante', this)">❤️ Santé <span id="health-badge" style="font-size:11px;font-weight:700;opacity:.8"></span></button>
-    <button class="tab-btn" onclick="switchTab('planificateur', this)">🕐 Planificateur</button>
+
+  <div class="sb-section-title">Espace de travail</div>
+  <button class="sb-item active" data-tab="nettoyage" onclick="switchTab('nettoyage', this)">
+    <svg class="icon" viewBox="0 0 24 24"><path d="m9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>
+    Nettoyage
+  </button>
+  <button class="sb-item" data-tab="outils" onclick="switchTab('outils', this)">
+    <svg class="icon" viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+    Outils
+  </button>
+  <button class="sb-item" data-tab="sante" onclick="switchTab('sante', this)">
+    <svg class="icon" viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/><path d="M3.22 12H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27"/></svg>
+    Santé
+    <span class="badge" id="health-badge"></span>
+  </button>
+
+  <div class="sb-section-title">Récents</div>
+  <button class="sb-item" onclick="openHistory()">
+    <svg class="icon" viewBox="0 0 24 24"><line x1="22" y1="12" x2="2" y2="12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+    Dernier scan
+    <span class="badge" id="sb-last-scan">…</span>
+  </button>
+  <button class="sb-item" onclick="openHistory()">
+    <svg class="icon" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    Historique
+  </button>
+
+  <div class="sb-spacer"></div>
+
+  <div class="sb-bottom">
+    <div class="sb-item" style="cursor:default">
+      <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      <span id="clock">--:--</span>
+    </div>
+    <button class="sb-item" onclick="openHelp()">
+      <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      Aide
+    </button>
   </div>
-</nav>
+</aside>
+
+<!-- ════════════════════ MAIN COLUMN ════════════════════ -->
+<div class="main">
 
 {% if not is_admin %}
 <div class="admin-banner" id="admin-banner">
-  <span class="admin-banner-icon">🔒</span>
+  <svg class="icon admin-banner-icon" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
   <span class="admin-banner-text">Mode standard — registre, points de restauration et certaines tâches système nécessitent les droits administrateur</span>
   <button class="admin-banner-btn" onclick="relancerAdmin()">Relancer en administrateur</button>
 </div>
 {% endif %}
 
-<script>
-  const IS_ADMIN = {{ 'true' if is_admin else 'false' }};
-</script>
+<div class="main-topbar">
+  <div class="crumbs">
+    <span>Espace de travail</span>
+    <svg class="icon sep" viewBox="0 0 24 24" style="width:14px;height:14px"><polyline points="9 18 15 12 9 6"/></svg>
+    <span class="here" id="crumb-current">Nettoyage</span>
+  </div>
+  <div class="main-topbar-right">
+    <button class="icon-btn" onclick="toggleTheme()" title="Changer le thème">
+      <svg class="icon icon-moon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+      <svg class="icon icon-sun"  viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+    </button>
+    <button class="icon-btn" onclick="quitApp()" title="Quitter OpenCleaner">
+      <svg class="icon" viewBox="0 0 24 24"><path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.77.04"/></svg>
+    </button>
+  </div>
+</div>
 
 <!-- ══════════════════ ONGLET NETTOYAGE ══════════════════ -->
 <div id="tab-nettoyage" class="tab-panel active">
   <div class="nett-layout">
 
-    <!-- Sidebar -->
-    <aside class="sidebar">
-
-      <div class="side-card s-sys">
-        <div class="sc-head"><span class="sc-emoji">🖥</span><span class="sc-label">Système</span></div>
-        <div class="sc-size" id="side-size-sys">…</div>
-        <div class="sc-count" id="side-count-sys">Calcul…</div>
-        <div class="sc-bar"><div class="sc-fill" id="side-fill-sys" style="width:0%"></div></div>
+    <!-- En-tête de page (Notion style) -->
+    <div class="page-head">
+      <div class="page-icon">
+        <svg class="icon icon-2xl" viewBox="0 0 24 24"><path d="m9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>
       </div>
-
-      <div class="side-card s-nav">
-        <div class="sc-head"><span class="sc-emoji">🌐</span><span class="sc-label">Navigateurs</span></div>
-        <div class="sc-size" id="side-size-nav">…</div>
-        <div class="sc-count" id="side-count-nav">Calcul…</div>
-        <div class="sc-bar"><div class="sc-fill" id="side-fill-nav" style="width:0%"></div></div>
-      </div>
-
-      <div class="side-card s-app">
-        <div class="sc-head"><span class="sc-emoji">📦</span><span class="sc-label">Applications</span></div>
-        <div class="sc-size" id="side-size-app">…</div>
-        <div class="sc-count" id="side-count-app">Calcul…</div>
-        <div class="sc-bar"><div class="sc-fill" id="side-fill-app" style="width:0%"></div></div>
-      </div>
-
-      <div class="sidebar-spacer"></div>
-
-      <div id="history-hint" class="history-hint" style="display:none"></div>
-
-      <div class="total-box">
-        <div class="tb-label">Total libérable</div>
-        <div class="tb-value" id="total-val">Calcul…</div>
-      </div>
-
-    </aside>
-
-    <!-- Contenu -->
-    <div class="nett-content">
-
-      <!-- Disque -->
-      <div id="disk-container">
-        <div class="disk-card">
-          <div class="disk-left">
-            <div class="dk-label">Disque</div>
-            <div class="dk-name">Chargement…</div>
-            <div class="dk-free">—</div>
-          </div>
-          <div class="disk-right">
-            <div class="bar-bg"><div class="bar-fill" style="width:0%"></div></div>
-            <div class="bar-stats"><span>—</span><span>—</span><span>—</span></div>
-          </div>
+      <div class="page-title">Nettoyage</div>
+      <div class="page-properties">
+        <div class="prop">
+          <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Dernier scan <strong id="prop-last-scan">…</strong>
+        </div>
+        <div class="prop">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 12 15 16 10"/></svg>
+          Mode <strong>{% if is_admin %}Administrateur{% else %}Standard{% endif %}</strong>
+        </div>
+        <div class="prop">
+          <svg class="icon" viewBox="0 0 24 24"><line x1="22" y1="12" x2="2" y2="12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+          <strong id="prop-disks-count">…</strong> disques détectés
         </div>
       </div>
+    </div>
 
-      <!-- Tâches -->
+    <!-- Statistiques -->
+    <div class="stat-grid">
+      <div class="stat">
+        <div class="stat-label">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 12v5h5v-5z"/><path d="M14 7v10h5V7z"/></svg>
+          Espace récupérable
+        </div>
+        <div class="stat-value dim" id="stat-total">…</div>
+        <div class="stat-meta" id="stat-total-meta">Calcul…</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">
+          <svg class="icon" viewBox="0 0 24 24"><line x1="22" y1="12" x2="2" y2="12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+          Disque principal
+        </div>
+        <div class="stat-value dim" id="stat-disk">—</div>
+        <div class="stat-meta" id="stat-disk-meta">—</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">
+          <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Dernier nettoyage
+        </div>
+        <div class="stat-value dim" id="stat-history">—</div>
+        <div class="stat-meta" id="stat-history-meta">Aucun historique</div>
+      </div>
+    </div>
+
+    <!-- Callout de réassurance (sous les stats) -->
+    <div class="callout callout-blue" style="margin-top:24px">
+      <div class="callout-icon">
+        <svg class="icon icon-lg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      </div>
+      <div class="callout-content">
+        <strong>OpenCleaner ne touche jamais</strong> à vos mots de passe enregistrés ni à vos cookies de session. Vous resterez connecté à tous vos sites après le nettoyage.
+      </div>
+    </div>
+
+    <!-- Disques -->
+    <div class="nett-section">
+      <h2 class="nett-section-title">
+        <svg class="icon icon-lg" viewBox="0 0 24 24"><line x1="22" y1="12" x2="2" y2="12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/><line x1="6" y1="16" x2="6.01" y2="16"/><line x1="10" y1="16" x2="10.01" y2="16"/></svg>
+        Disques
+      </h2>
+      <div id="disk-container"></div>
+    </div>
+
+    <!-- Tâches -->
+    <div class="nett-section">
+      <h2 class="nett-section-title">
+        <svg class="icon icon-lg" viewBox="0 0 24 24"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        Tâches de nettoyage
+      </h2>
+
       <div class="task-card" id="task-list"></div>
 
-      <!-- Actions -->
-      <div class="actions-wrap">
-        <div class="actions">
-          <div class="tooltip-wrap" style="flex:1;min-width:180px;">
-            <button class="btn-primary" id="btn-clean" onclick="startClean()" style="width:100%">Nettoyer maintenant</button>
-            <span class="tip">Lance le nettoyage des catégories cochées. Les fichiers supprimés sont irrécupérables.</span>
-          </div>
-          <div class="tooltip-wrap">
-            <button class="btn-ghost" onclick="checkAll()">Tout cocher</button>
-            <span class="tip">Active toutes les catégories</span>
-          </div>
-          <div class="tooltip-wrap">
-            <button class="btn-ghost" onclick="uncheckAll()">Tout décocher</button>
-            <span class="tip">Désactive toutes les catégories</span>
-          </div>
-          <div class="tooltip-wrap">
-            <button class="btn-ghost" id="btn-refresh" onclick="loadSizes()">↻ Réanalyser</button>
-            <span class="tip">Recalcule les tailles libérables</span>
-          </div>
+      <!-- Callout d'action principale (Notion style) -->
+      <div class="callout callout-blue callout-action">
+        <div class="callout-icon">
+          <svg class="icon icon-xl" viewBox="0 0 24 24"><path d="m9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>
         </div>
-        <div class="actions-desc">
-          <strong style="color:var(--green)">Sécurisé</strong> = mots de passe et cookies préservés &nbsp;·&nbsp;
-          <strong style="color:var(--amber)">Admin requis</strong> = lancez en administrateur
+        <div class="callout-content">
+          <div class="callout-title" id="callout-title">Calcul de l'espace récupérable…</div>
+          <div class="callout-sub" id="callout-desc">Patientez quelques instants</div>
+        </div>
+        <div class="tooltip-wrap">
+          <button class="btn-primary btn-clean" id="btn-clean" onclick="startClean()">
+            Lancer le nettoyage
+            <svg class="icon" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          </button>
+          <span class="tip">Lance le nettoyage des catégories cochées. Les fichiers supprimés sont irrécupérables.</span>
         </div>
       </div>
+
+      <!-- Actions secondaires (text-only Notion) -->
+      <div class="nett-actions-secondary">
+        <button class="btn-ghost" onclick="checkAll()">
+          <svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+          Tout cocher
+        </button>
+        <button class="btn-ghost" onclick="uncheckAll()">
+          <svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          Tout décocher
+        </button>
+        <button class="btn-ghost" id="btn-refresh" onclick="loadSizes()">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+          Réanalyser
+        </button>
+      </div>
+
+      <!-- Toggle block "Pourquoi admin" -->
+      <div class="toggle-block" onclick="this.classList.toggle('open')">
+        <div class="toggle-head">
+          <svg class="icon chev" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+          Pourquoi certaines tâches nécessitent les droits administrateur ?
+        </div>
+        <div class="toggle-body">
+          Le fichier d'hibernation, les anciens points de restauration et le nettoyage du registre touchent à des composants protégés de Windows.
+          Pour les utiliser, vous devez relancer OpenCleaner en mode administrateur (clic-droit sur l'application → « Exécuter en tant qu'administrateur »).
+        </div>
+      </div>
+
+      <div id="history-hint" class="history-hint" style="display:none"></div>
 
       <!-- Log -->
       <div class="log-card">
@@ -873,19 +1371,50 @@
         <div class="log-body" id="log-body">
           <div class="log-entry">
             <span class="log-ts">--:--:--</span>
-            <span class="log-msg">PC Cleaner prêt.</span>
+            <span class="log-msg">OpenCleaner prêt.</span>
           </div>
         </div>
       </div>
+    </div>
 
-    </div><!-- /nett-content -->
-  </div><!-- /nett-layout -->
+  </div>
 </div>
 
 <!-- ══════════════════ ONGLET OUTILS ══════════════════ -->
 <div id="tab-outils" class="tab-panel">
 <div class="tools-main">
+
+<div class="page-head">
+  <div class="page-icon">
+    <svg class="icon icon-2xl" viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+  </div>
+  <div class="page-title">Outils</div>
+  <div class="page-properties">
+    <div class="prop">
+      <svg class="icon" viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+      <strong>13</strong> outils disponibles
+    </div>
+    <div class="prop">
+      <svg class="icon" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 12 15 16 10"/></svg>
+      Mode <strong>{% if is_admin %}Administrateur{% else %}Standard{% endif %}</strong>
+    </div>
+    <div class="prop">
+      <svg class="icon" viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+      4 catégories
+    </div>
+  </div>
+</div>
+
 <div class="tools-section">
+
+  <!-- ── GROUPE : Espace disque ── -->
+  <div class="tools-group-header">
+    <div class="tools-group-title">
+      <svg class="icon icon-lg" viewBox="0 0 24 24"><line x1="22" y1="12" x2="2" y2="12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/><line x1="6" y1="16" x2="6.01" y2="16"/><line x1="10" y1="16" x2="10.01" y2="16"/></svg>
+      Espace disque
+    </div>
+    <div class="tools-group-desc">Identifiez ce qui prend de la place et récupérez de l'espace sur votre disque.</div>
+  </div>
 
   <!-- Analyse de l'espace disque -->
   <div>
@@ -896,13 +1425,147 @@
       </div>
     </div>
     <div class="card">
-      <div class="card-body" style="display:flex;gap:10px;align-items:center">
-        <input class="dupe-folder-input" id="da-folder" value="C:\" style="flex:1">
-        <button class="btn-primary" id="btn-scan-da" onclick="startDiskAnalysis()" style="min-width:auto;flex:none;padding:9px 18px">Analyser</button>
+      <div class="card-body">
+        <div class="dupe-scan-bar">
+          <input class="dupe-folder-input" id="da-folder" value="C:\">
+          <button class="btn-ghost" onclick="browseFolder('da-folder')">Parcourir…</button>
+          <button class="btn-primary" id="btn-scan-da" onclick="startDiskAnalysis()">Analyser</button>
+        </div>
       </div>
-      <div id="da-breadcrumb" style="padding:0 16px 8px;font-size:12px;color:var(--text-dim);display:none"></div>
-      <div id="da-results" style="border-top:1px solid var(--border)"></div>
+      <div id="da-breadcrumb" style="font-size:12px;color:var(--text-dim);display:none;padding:8px 0"></div>
+      <div id="da-results"></div>
     </div>
+  </div>
+
+  <!-- Grands fichiers -->
+  <div>
+    <div class="section-head">
+      <div>
+        <div class="tool-section-title">Grands fichiers</div>
+        <div class="tool-section-sub">Repérez les fichiers volumineux qui occupent inutilement de l'espace</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-body">
+        <div class="dupe-scan-bar">
+          <input class="dupe-folder-input" id="lf-folder" placeholder="Ex: C:\" value="C:\">
+          <button class="btn-ghost" onclick="browseFolder('lf-folder')">Parcourir…</button>
+          <input class="dupe-size-input" id="lf-minsize" type="number" value="0.5" step="0.1" min="0.1" title="Taille minimale en Go">
+          <span style="font-size:12px;color:var(--text-dim);white-space:nowrap">Go min.</span>
+          <button class="btn-primary" id="btn-scan-lf" onclick="startLargeFileScan()">Analyser</button>
+        </div>
+      </div>
+      <div class="log-body" id="lf-log" style="max-height:60px"></div>
+      <div id="lf-results" style="max-height:360px;overflow-y:auto"></div>
+    </div>
+  </div>
+
+  <!-- Doublons -->
+  <div>
+    <div class="section-head">
+      <div>
+        <div class="tool-section-title">Recherche de doublons</div>
+        <div class="tool-section-sub">Trouve les fichiers identiques pour libérer de l'espace</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-body">
+        <div class="dupe-scan-bar">
+          <input class="dupe-folder-input" id="dupe-folder" placeholder="Ex: C:\Users\thoma\Documents" value="C:\Users\thoma\Downloads">
+          <button class="btn-ghost" onclick="browseFolder('dupe-folder')">Parcourir…</button>
+          <input class="dupe-size-input" id="dupe-minsize" type="number" value="100" title="Taille minimale en Ko">
+          <span style="font-size:12px;color:var(--text-dim);white-space:nowrap">Ko min.</span>
+          <button class="btn-primary" id="btn-scan-dupes" onclick="startDuplicateScan()">Analyser</button>
+        </div>
+      </div>
+      <div class="log-body" id="dupe-log" style="max-height:100px"></div>
+      <div id="dupe-results" style="max-height:360px;overflow-y:auto"></div>
+    </div>
+  </div>
+
+  <!-- Anciens installers -->
+  <div>
+    <div class="section-head">
+      <div>
+        <div class="tool-section-title">Anciens installers</div>
+        <div class="tool-section-sub">Fichiers .exe, .msi, .zip, .iso non utilisés depuis longtemps</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-body">
+        <div class="dupe-scan-bar">
+          <input class="dupe-folder-input" id="inst-folder" placeholder="Dossier à analyser" value="{{ downloads_folder }}">
+          <button class="btn-ghost" onclick="browseFolder('inst-folder')">Parcourir…</button>
+          <input class="dupe-size-input" id="inst-age" type="number" value="90" min="7" title="Âge minimum en jours">
+          <span style="font-size:12px;color:var(--text-dim);white-space:nowrap">jours min.</span>
+          <button class="btn-primary" id="btn-scan-inst" onclick="startInstallerScan()">Analyser</button>
+        </div>
+      </div>
+      <div id="inst-results" style="max-height:360px;overflow-y:auto"></div>
+    </div>
+  </div>
+
+  <!-- Dossiers vides -->
+  <div>
+    <div class="section-head">
+      <div>
+        <div class="tool-section-title">Dossiers vides</div>
+        <div class="tool-section-sub">Dossiers sans aucun fichier laissés par des désinstallations</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-body">
+        <div class="dupe-scan-bar">
+          <input class="dupe-folder-input" id="ef-folder" placeholder="Ex: C:\Users" value="C:\Users">
+          <button class="btn-ghost" onclick="browseFolder('ef-folder')">Parcourir…</button>
+          <button class="btn-primary" id="btn-scan-ef" onclick="startEmptyFolderScan()">Analyser</button>
+        </div>
+      </div>
+      <div class="log-body" id="ef-log" style="max-height:60px"></div>
+      <div id="ef-results" style="max-height:320px;overflow-y:auto"></div>
+    </div>
+  </div>
+
+  <!-- Dossiers orphelins -->
+  <div>
+    <div class="section-head">
+      <div>
+        <div class="tool-section-title">Dossiers orphelins</div>
+        <div class="tool-section-sub">Dossiers dans Program Files sans entrée registre correspondante</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-body">
+        <div class="dupe-scan-bar">
+          <span style="font-size:12px;color:var(--text-mid);flex:1">Program Files &amp; Program Files (x86)</span>
+          <button class="btn-primary" id="btn-scan-orphan" onclick="startOrphanScan()">Analyser</button>
+        </div>
+      </div>
+      <div class="log-body" id="orphan-log" style="max-height:60px"></div>
+      <div id="orphan-results"><div class="tool-empty">Cliquez sur « Analyser » pour détecter les dossiers orphelins.</div></div>
+    </div>
+  </div>
+
+  <!-- Windows.old -->
+  <div{% if not is_admin %} class="tool-section-locked"{% endif %}>
+    <div class="section-head">
+      <div>
+        <div class="tool-section-title">Windows.old</div>
+        <div class="tool-section-sub">Ancien système Windows conservé après une mise à jour majeure</div>
+      </div>
+    </div>
+    <div class="card">
+      <div id="windows-old-info"><div class="tool-loading">Chargement…</div></div>
+    </div>
+  </div>
+
+  <!-- ── GROUPE : Logiciels ── -->
+  <div class="tools-group-header">
+    <div class="tools-group-title">
+      <svg class="icon icon-lg" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+      Logiciels
+    </div>
+    <div class="tools-group-desc">Gérez vos applications, mises à jour, extensions de navigateur et programmes au démarrage.</div>
   </div>
 
   <!-- Mises à jour logicielles -->
@@ -912,24 +1575,10 @@
         <div class="tool-section-title">Mises à jour logicielles</div>
         <div class="tool-section-sub">Logiciels installés avec une version plus récente disponible</div>
       </div>
-      <button class="btn-primary" id="btn-check-updates" onclick="loadUpdates()" style="min-width:auto;flex:none;padding:9px 18px">Vérifier</button>
+      <button class="btn-primary" id="btn-check-updates" onclick="loadUpdates()">Analyser</button>
     </div>
     <div class="card">
       <div id="updates-container"><div class="tool-empty">Cliquez sur « Vérifier » pour rechercher les mises à jour disponibles.</div></div>
-    </div>
-  </div>
-
-  <!-- Démarrage -->
-  <div>
-    <div class="section-head">
-      <div>
-        <div class="tool-section-title">Programmes au démarrage</div>
-        <div class="tool-section-sub">Activez ou désactivez les programmes qui se lancent avec Windows</div>
-      </div>
-      <button class="btn-ghost" onclick="loadStartup()">↻ Actualiser</button>
-    </div>
-    <div class="card">
-      <div id="startup-list" class="tool-loading">Chargement…</div>
     </div>
   </div>
 
@@ -952,53 +1601,6 @@
     </div>
   </div>
 
-  <!-- Doublons -->
-  <div>
-    <div class="section-head">
-      <div>
-        <div class="tool-section-title">Recherche de doublons</div>
-        <div class="tool-section-sub">Trouve les fichiers identiques pour libérer de l'espace</div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-body">
-        <div class="dupe-scan-bar">
-          <input class="dupe-folder-input" id="dupe-folder" placeholder="Ex: C:\Users\thoma\Documents" value="C:\Users\thoma\Downloads">
-          <input class="dupe-size-input" id="dupe-minsize" type="number" value="100" title="Taille minimale en Ko">
-          <span style="font-size:12px;color:var(--text-dim);white-space:nowrap">Ko min.</span>
-          <button class="btn-primary" id="btn-scan-dupes" onclick="startDuplicateScan()" style="min-width:auto;flex:none;padding:9px 18px">Analyser</button>
-        </div>
-      </div>
-      <div class="log-body" id="dupe-log" style="border-top:1px solid var(--border);max-height:100px;"></div>
-      <div id="dupe-results" style="max-height:360px;overflow-y:auto;border-top:1px solid var(--border);"></div>
-    </div>
-  </div>
-
-  <!-- Registre -->
-  <div{% if not is_admin %} class="tool-section-locked"{% endif %}>
-    <div class="section-head">
-      <div>
-        <div class="tool-section-title">Nettoyage du registre</div>
-        <div class="tool-section-sub">Détecte et supprime les entrées obsolètes du registre Windows</div>
-      </div>
-      <button class="btn-primary" id="btn-scan-reg" onclick="startRegistryScan()" style="min-width:auto;flex:none;padding:9px 18px">Analyser le registre</button>
-    </div>
-    <div class="card" style="margin-bottom:8px">
-      <div class="card-body" style="padding:12px 16px;display:flex;gap:10px;align-items:flex-start;background:rgba(var(--amber-rgb,250,189,0),.07);border-radius:8px">
-        <span style="font-size:18px;line-height:1.3">ℹ️</span>
-        <div style="font-size:12px;color:var(--text-mid);line-height:1.6">
-          <strong style="color:var(--text)">Que sont ces entrées ?</strong><br>
-          Le registre contient des références à des applications ou fichiers <em>qui ont été désinstallés</em> mais dont les traces n'ont pas été supprimées.
-          Elles ne causent aucun dommage mais encombrent inutilement le registre. La suppression est sans risque.
-        </div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="log-body" id="reg-log" style="max-height:80px;"></div>
-      <div id="reg-results" style="max-height:360px;overflow-y:auto;"></div>
-    </div>
-  </div>
-
   <!-- Extensions navigateurs -->
   <div>
     <div class="section-head">
@@ -1015,6 +1617,52 @@
     </div>
   </div>
 
+  <!-- Démarrage -->
+  <div>
+    <div class="section-head">
+      <div>
+        <div class="tool-section-title">Programmes au démarrage</div>
+        <div class="tool-section-sub">Activez ou désactivez les programmes qui se lancent avec Windows</div>
+      </div>
+      <button class="btn-ghost" onclick="loadStartup()">↻ Actualiser</button>
+    </div>
+    <div class="card">
+      <div id="startup-list" class="tool-loading">Chargement…</div>
+    </div>
+  </div>
+
+  <!-- ── GROUPE : Système ── -->
+  <div class="tools-group-header">
+    <div class="tools-group-title">
+      <svg class="icon icon-lg" viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+      Système
+    </div>
+    <div class="tools-group-desc">Nettoyage et maintenance des composants Windows : registre, raccourcis, hibernation et points de restauration.</div>
+  </div>
+
+  <!-- Registre -->
+  <div{% if not is_admin %} class="tool-section-locked"{% endif %}>
+    <div class="section-head">
+      <div>
+        <div class="tool-section-title">Nettoyage du registre</div>
+        <div class="tool-section-sub">Détecte et supprime les entrées obsolètes du registre Windows</div>
+      </div>
+      <button class="btn-primary" id="btn-scan-reg" onclick="startRegistryScan()">Analyser le registre</button>
+    </div>
+    <div class="callout callout-yellow">
+      <div class="callout-icon">
+        <svg class="icon icon-lg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      </div>
+      <div class="callout-content">
+        <strong>Que sont ces entrées ?</strong> Le registre contient des références à des applications ou fichiers qui ont été désinstallés mais dont les traces n'ont pas été supprimées. Elles ne causent aucun dommage mais encombrent inutilement le registre. La suppression est sans risque.
+      </div>
+    </div>
+    <div class="card">
+      <div class="log-body" id="reg-log" style="max-height:80px;"></div>
+      <div id="reg-results" style="max-height:360px;overflow-y:auto;"></div>
+    </div>
+  </div>
+
   <!-- Raccourcis cassés -->
   <div>
     <div class="section-head">
@@ -1022,80 +1670,10 @@
         <div class="tool-section-title">Raccourcis cassés</div>
         <div class="tool-section-sub">Raccourcis du Bureau et du Menu Démarrer pointant vers des programmes supprimés</div>
       </div>
-      <button class="btn-primary" id="btn-scan-shortcuts" onclick="loadShortcuts()" style="min-width:auto;flex:none;padding:9px 18px">Scanner</button>
+      <button class="btn-primary" id="btn-scan-shortcuts" onclick="loadShortcuts()">Scanner</button>
     </div>
     <div class="card">
       <div id="shortcuts-results"><div class="tool-empty">Cliquez sur « Scanner » pour analyser vos raccourcis.</div></div>
-    </div>
-  </div>
-
-  <!-- Grands fichiers -->
-  <div>
-    <div class="section-head">
-      <div>
-        <div class="tool-section-title">Grands fichiers</div>
-        <div class="tool-section-sub">Repérez les fichiers volumineux qui occupent inutilement de l'espace</div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-body">
-        <div class="dupe-scan-bar">
-          <input class="dupe-folder-input" id="lf-folder" placeholder="Ex: C:\" value="C:\">
-          <input class="dupe-size-input" id="lf-minsize" type="number" value="0.5" step="0.1" min="0.1" title="Taille minimale en Go">
-          <span style="font-size:12px;color:var(--text-dim);white-space:nowrap">Go min.</span>
-          <button class="btn-primary" id="btn-scan-lf" onclick="startLargeFileScan()" style="min-width:auto;flex:none;padding:9px 18px">Analyser</button>
-        </div>
-      </div>
-      <div class="log-body" id="lf-log" style="border-top:1px solid var(--border);max-height:60px;"></div>
-      <div id="lf-results" style="max-height:360px;overflow-y:auto;border-top:1px solid var(--border);"></div>
-    </div>
-  </div>
-
-  <!-- Windows.old -->
-  <div{% if not is_admin %} class="tool-section-locked"{% endif %}>
-    <div class="section-head">
-      <div>
-        <div class="tool-section-title">Windows.old</div>
-        <div class="tool-section-sub">Ancien système Windows conservé après une mise à jour majeure</div>
-      </div>
-    </div>
-    <div class="card">
-      <div id="windows-old-info"><div class="tool-loading">Chargement…</div></div>
-    </div>
-  </div>
-
-  <!-- Anciens installers -->
-  <div>
-    <div class="section-head">
-      <div>
-        <div class="tool-section-title">Anciens installers</div>
-        <div class="tool-section-sub">Fichiers .exe, .msi, .zip, .iso non utilisés depuis longtemps</div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-body">
-        <div class="dupe-scan-bar">
-          <input class="dupe-folder-input" id="inst-folder" placeholder="Dossier à analyser" value="{{ downloads_folder }}">
-          <input class="dupe-size-input" id="inst-age" type="number" value="90" min="7" title="Âge minimum en jours">
-          <span style="font-size:12px;color:var(--text-dim);white-space:nowrap">jours min.</span>
-          <button class="btn-primary" id="btn-scan-inst" onclick="startInstallerScan()" style="min-width:auto;flex:none;padding:9px 18px">Analyser</button>
-        </div>
-      </div>
-      <div id="inst-results" style="max-height:360px;overflow-y:auto;border-top:1px solid var(--border);"></div>
-    </div>
-  </div>
-
-  <!-- Confidentialité -->
-  <div>
-    <div class="section-head">
-      <div>
-        <div class="tool-section-title">Confidentialité</div>
-        <div class="tool-section-sub">Fichiers récents, historique de navigation, presse-papier</div>
-      </div>
-      <button class="btn-ghost" id="btn-refresh-privacy" onclick="loadPrivacy()">↻ Actualiser</button>
-    </div>
-    <div class="card">
-      <div id="privacy-results"><div class="tool-loading">Chargement…</div></div>
     </div>
   </div>
 
@@ -1109,41 +1687,6 @@
     </div>
     <div class="card">
       <div id="hiberfil-info"><div class="tool-loading">Chargement…</div></div>
-    </div>
-  </div>
-
-  <!-- Dossiers vides -->
-  <div>
-    <div class="section-head">
-      <div>
-        <div class="tool-section-title">Dossiers vides</div>
-        <div class="tool-section-sub">Dossiers sans aucun fichier laissés par des désinstallations</div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-body">
-        <div class="dupe-scan-bar">
-          <input class="dupe-folder-input" id="ef-folder" placeholder="Ex: C:\Users" value="C:\Users">
-          <button class="btn-primary" id="btn-scan-ef" onclick="startEmptyFolderScan()" style="min-width:auto;flex:none;padding:9px 18px">Analyser</button>
-        </div>
-      </div>
-      <div class="log-body" id="ef-log" style="border-top:1px solid var(--border);max-height:60px;"></div>
-      <div id="ef-results" style="max-height:320px;overflow-y:auto;border-top:1px solid var(--border);"></div>
-    </div>
-  </div>
-
-  <!-- Dossiers orphelins -->
-  <div>
-    <div class="section-head">
-      <div>
-        <div class="tool-section-title">Dossiers orphelins</div>
-        <div class="tool-section-sub">Dossiers dans Program Files sans entrée registre correspondante</div>
-      </div>
-      <button class="btn-primary" id="btn-scan-orphan" onclick="startOrphanScan()" style="min-width:auto;flex:none;padding:9px 18px">Analyser</button>
-    </div>
-    <div class="card">
-      <div class="log-body" id="orphan-log" style="max-height:60px;"></div>
-      <div id="orphan-results"><div class="tool-empty">Cliquez sur « Analyser » pour détecter les dossiers orphelins.</div></div>
     </div>
   </div>
 
@@ -1161,6 +1704,29 @@
     </div>
   </div>
 
+  <!-- ── GROUPE : Confidentialité ── -->
+  <div class="tools-group-header">
+    <div class="tools-group-title">
+      <svg class="icon icon-lg" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      Confidentialité
+    </div>
+    <div class="tools-group-desc">Effacez les traces de votre activité laissées sur ce PC : fichiers récents, historique, presse-papier.</div>
+  </div>
+
+  <!-- Confidentialité -->
+  <div>
+    <div class="section-head">
+      <div>
+        <div class="tool-section-title">Nettoyage de confidentialité</div>
+        <div class="tool-section-sub">Fichiers récents, historique de la barre d'adresse, jump lists, presse-papier</div>
+      </div>
+      <button class="btn-ghost" id="btn-refresh-privacy" onclick="loadPrivacy()">↻ Actualiser</button>
+    </div>
+    <div class="card">
+      <div id="privacy-results"><div class="tool-loading">Chargement…</div></div>
+    </div>
+  </div>
+
 </div>
 </div>
 </div>
@@ -1168,6 +1734,27 @@
 <!-- ══════════════════ ONGLET SANTÉ ══════════════════ -->
 <div id="tab-sante" class="tab-panel">
 <div class="health-layout">
+
+  <div class="page-head">
+    <div class="page-icon">
+      <svg class="icon icon-2xl" viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/><path d="M3.22 12H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27"/></svg>
+    </div>
+    <div class="page-title">Santé</div>
+    <div class="page-properties">
+      <div class="prop">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/><path d="M3.22 12H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27"/></svg>
+        Score <strong id="prop-health-score">…</strong>
+      </div>
+      <div class="prop">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 12v5h5v-5z"/><path d="M14 7v10h5V7z"/></svg>
+        <strong>6</strong> indicateurs analysés
+      </div>
+      <div class="prop">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 12 15 16 10"/></svg>
+        Mode <strong>{% if is_admin %}Administrateur{% else %}Standard{% endif %}</strong>
+      </div>
+    </div>
+  </div>
 
   <!-- Score global -->
   <div class="health-score-card">
@@ -1183,19 +1770,25 @@
       </div>
     </div>
     <div class="health-score-info">
-      <div class="health-score-title">Score de santé système</div>
       <div class="health-score-desc">
         Analyse 6 indicateurs clés pour évaluer l'état général de votre PC :
         espace disque, fichiers temporaires, cache navigateur, démarrage, corbeille et cache applicatif.
       </div>
-      <div style="margin-top:14px;display:flex;gap:10px;">
-        <button class="btn-primary" onclick="loadHealth()" style="min-width:auto;padding:9px 18px;font-size:13px">↻ Réanalyser</button>
-        <button class="btn-ghost" onclick="switchTab('nettoyage', document.querySelector('.tab-btn'))" style="font-size:13px">Nettoyer maintenant</button>
+      <div style="margin-top:14px;display:flex;gap:6px;">
+        <button class="btn-primary" onclick="loadHealth()">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+          Réanalyser
+        </button>
+        <button class="btn-ghost" onclick="switchTab('nettoyage')">Nettoyer maintenant</button>
       </div>
     </div>
   </div>
 
   <!-- Métriques -->
+  <h2 class="nett-section-title" style="margin-top:32px">
+    <svg class="icon icon-lg" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 12v5h5v-5z"/><path d="M14 7v10h5V7z"/></svg>
+    Indicateurs détaillés
+  </h2>
   <div class="health-metrics" id="health-metrics">
     <div class="tool-loading">Chargement…</div>
   </div>
@@ -1203,79 +1796,6 @@
 </div>
 </div>
 
-<!-- ══════════════════ ONGLET PLANIFICATEUR ══════════════════ -->
-<div id="tab-planificateur" class="tab-panel">
-<div class="tools-main">
-<div class="panel-stack">
-
-  <!-- Statut -->
-  <div class="card">
-    <div class="card-header">
-      <span class="card-title">Statut du planificateur</span>
-      <span class="sched-status off" id="sched-status-label">Inactif</span>
-    </div>
-    <div class="card-body">
-      <div class="sched-info-grid">
-        <div class="sched-info-box">
-          <div class="sched-info-lbl">Prochaine exécution</div>
-          <div class="sched-info-val" id="sched-next-run">—</div>
-        </div>
-        <div class="sched-info-box">
-          <div class="sched-info-lbl">Dernière exécution</div>
-          <div class="sched-info-val" id="sched-last-run">Jamais</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Configuration -->
-  <div class="card">
-    <div class="card-header"><span class="card-title">Configuration</span></div>
-    <div class="card-body">
-      <div class="sched-grid">
-
-        <div class="sched-row">
-          <span class="sched-label">Activé</span>
-          <label class="toggle-wrap">
-            <div class="toggle-track" id="sched-enabled-track">
-              <div class="toggle-thumb"></div>
-            </div>
-            <input type="checkbox" id="sched-enabled" style="display:none"
-              onchange="document.getElementById('sched-enabled-track').classList.toggle('on',this.checked);updateScheduleUI(this.checked)">
-          </label>
-        </div>
-
-        <div id="sched-body" style="opacity:0.5;display:flex;flex-direction:column;gap:16px;">
-          <div class="sched-row">
-            <span class="sched-label">Fréquence</span>
-            <select class="sched-select" id="sched-interval">
-              <option value="hourly">Toutes les heures</option>
-              <option value="daily" selected>Chaque jour</option>
-              <option value="weekly">Chaque semaine</option>
-            </select>
-          </div>
-          <div class="sched-row">
-            <span class="sched-label">Heure</span>
-            <input type="time" class="sched-time-input" id="sched-time" value="02:00">
-          </div>
-          <div>
-            <div class="sched-label" style="margin-bottom:10px;">Tâches à exécuter</div>
-            <div class="sched-tasks-grid" id="sched-tasks"></div>
-          </div>
-        </div>
-
-      </div>
-    </div>
-  </div>
-
-  <div style="display:flex;gap:10px;">
-    <button class="btn-primary" id="btn-save-schedule" onclick="saveSchedule()">Sauvegarder</button>
-    <button class="btn-ghost" onclick="loadSchedule()">↻ Actualiser</button>
-  </div>
-
-</div>
-</div>
-</div>
 
 <!-- ── Modal confirmation générique ── -->
 <div id="confirm-overlay" class="modal-overlay" style="display:none" onclick="if(event.target===this)_closeConfirm()">
@@ -1285,6 +1805,36 @@
     <div class="modal-actions">
       <button class="btn-primary" id="confirm-ok">Confirmer</button>
       <button class="btn-ghost" onclick="_closeConfirm()">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal Aide ── -->
+<div id="help-overlay" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeHelp()">
+  <div class="modal" style="max-width:540px">
+    <div class="modal-title">À propos d'OpenCleaner</div>
+    <div style="font-size:14px;color:var(--text-mid);line-height:1.6">
+      <p style="margin-bottom:14px">OpenCleaner est un nettoyeur de PC local qui ne touche jamais à vos mots de passe ni à vos cookies de session. Tout fonctionne hors-ligne, sur votre machine.</p>
+      <div class="h3" style="margin:18px 0 6px">Les 3 onglets</div>
+      <div style="margin-bottom:8px"><strong style="color:var(--text)">Nettoyage</strong> — Supprime les fichiers inutiles : caches, fichiers temporaires, miniatures. Cliquez sur les tâches pour les sélectionner puis « Lancer le nettoyage ».</div>
+      <div style="margin-bottom:8px"><strong style="color:var(--text)">Outils</strong> — Détection avancée : doublons, gros fichiers, anciens installeurs, registre, raccourcis cassés, points de restauration et plus.</div>
+      <div style="margin-bottom:14px"><strong style="color:var(--text)">Santé</strong> — Évalue l'état général de votre PC sur 6 indicateurs et propose des actions correctives.</div>
+      <div class="h3" style="margin:18px 0 6px">Mode administrateur</div>
+      <p style="margin-bottom:14px">Certaines tâches (registre, hibernation, points de restauration) nécessitent les droits administrateur. Cliquez sur « Relancer en administrateur » dans la bannière jaune en haut de la page pour les débloquer.</p>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-primary" onclick="closeHelp()">Compris</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal Historique ── -->
+<div id="history-overlay" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeHistory()">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-title">Historique des nettoyages</div>
+    <div id="history-list" style="max-height:400px;overflow-y:auto"></div>
+    <div class="modal-actions" style="margin-top:14px">
+      <button class="btn-primary" onclick="closeHistory()">Fermer</button>
     </div>
   </div>
 </div>
@@ -1307,8 +1857,10 @@
 
 <!-- ── Footer ── -->
 <footer>
-  PC Cleaner &nbsp;·&nbsp; <span>Mots de passe et cookies jamais supprimés</span>
+  OpenCleaner &nbsp;·&nbsp; <span>Mots de passe et cookies jamais supprimés</span>
 </footer>
+
+</div><!-- /.main -->
 
 <script>
   var TASKS = {{ tasks_json | safe }};
@@ -1325,9 +1877,70 @@
 </script>
 <script src="/static/app.js"></script>
 <script src="/static/tools.js"></script>
-<script src="/static/scheduler.js"></script>
 <script src="/static/health.js"></script>
 <script>
+  // ── Aide ─────────────────────────────────────────────────────────────────
+  function openHelp() {
+    document.getElementById("help-overlay").style.display = "flex";
+  }
+  function closeHelp() {
+    document.getElementById("help-overlay").style.display = "none";
+  }
+
+  // ── Historique ───────────────────────────────────────────────────────────
+  async function openHistory() {
+    const overlay = document.getElementById("history-overlay");
+    const list    = document.getElementById("history-list");
+    overlay.style.display = "flex";
+    list.innerHTML = '<div class="tool-loading">Chargement…</div>';
+    try {
+      const res  = await fetch("/api/history");
+      const data = await res.json();
+      if (!data || !data.length) {
+        list.innerHTML = `
+          <div class="empty">
+            <div class="empty-icon">
+              <svg class="icon icon-lg" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            </div>
+            <div class="empty-title">Aucun historique</div>
+            <div class="empty-desc">Vos futures sessions de nettoyage apparaîtront ici.</div>
+          </div>`;
+        return;
+      }
+      list.innerHTML = data.map(entry => {
+        const d = new Date(entry.date);
+        const dateStr = d.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+        const timeStr = d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+        const taskCount = (entry.tasks || []).length;
+        return `
+          <div style="padding:14px 0;border-bottom:1px solid var(--border)">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px">
+              <div style="font-weight:600;font-size:14px">${dateStr} à ${timeStr}</div>
+              <div style="font-size:14px;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums">${entry.freed_fmt || "0 o"}</div>
+            </div>
+            <div style="font-size:12px;color:var(--text-mid);margin-top:2px">${taskCount} tâche${taskCount > 1 ? "s" : ""} · ${(entry.tasks || []).join(", ") || "—"}</div>
+          </div>`;
+      }).join("");
+    } catch (e) {
+      list.innerHTML = '<div class="tool-error">Erreur de chargement de l\'historique.</div>';
+    }
+  }
+  function closeHistory() {
+    document.getElementById("history-overlay").style.display = "none";
+  }
+
+  // ── Quitter l'application ────────────────────────────────────────────────
+  function quitApp() {
+    showConfirm(
+      "Quitter OpenCleaner ?",
+      "Le serveur local sera arrêté. Vous pourrez relancer l'application à tout moment.",
+      async () => {
+        try { await fetch("/api/quit", { method: "POST" }); } catch (e) {}
+        document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:Inter,sans-serif;color:rgba(55,53,47,.5);font-size:14px">OpenCleaner arrêté. Vous pouvez fermer cet onglet.</div>';
+      }
+    );
+  }
+
   // ── Thème ────────────────────────────────────────────────────────────────
   function toggleTheme() {
     const html = document.documentElement;
@@ -1336,39 +1949,27 @@
     localStorage.setItem('pcc-theme', next);
   }
   (function() {
-    const saved = localStorage.getItem('pcc-theme');
-    if (saved) document.documentElement.setAttribute('data-theme', saved);
+    const saved = localStorage.getItem('pcc-theme') || 'light';
+    document.documentElement.setAttribute('data-theme', saved);
   })();
 
   // ── Onglets ──────────────────────────────────────────────────────────────
-  function switchTab(name, btn) {
+  const TAB_LABELS = { nettoyage: "Nettoyage", outils: "Outils", sante: "Santé" };
+  function switchTab(name, el) {
     document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
-    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
-    document.getElementById("tab-" + name).classList.add("active");
-    btn.classList.add("active");
-    if (name === "outils")        initTools();
-    if (name === "sante")         initHealth();
-    if (name === "planificateur") initScheduler();
+    document.querySelectorAll(".sb-item[data-tab]").forEach(b => b.classList.remove("active"));
+    const panel = document.getElementById("tab-" + name);
+    if (panel) panel.classList.add("active");
+    const item = el && el.classList && el.classList.contains("sb-item")
+      ? el
+      : document.querySelector(`.sb-item[data-tab="${name}"]`);
+    if (item) item.classList.add("active");
+    const crumb = document.getElementById("crumb-current");
+    if (crumb && TAB_LABELS[name]) crumb.textContent = TAB_LABELS[name];
+    if (name === "outils") initTools();
+    if (name === "sante")  initHealth();
   }
 
-  // ── Toggle planificateur ─────────────────────────────────────────────────
-  const schedEnabledEl = document.getElementById("sched-enabled");
-  const schedTrackEl   = document.getElementById("sched-enabled-track");
-  schedTrackEl.addEventListener("click", () => {
-    schedEnabledEl.checked = !schedEnabledEl.checked;
-    schedEnabledEl.dispatchEvent(new Event("change"));
-  });
-
-  // ── Cases à cocher du planificateur ──────────────────────────────────────
-  (function buildSchedTasks() {
-    const el = document.getElementById("sched-tasks");
-    TASKS.forEach(t => {
-      const item = document.createElement("label");
-      item.className = "sched-task-item";
-      item.innerHTML = `<input type="checkbox" class="sched-task-cb" data-id="${t.id}"><span>${t.label}</span>`;
-      el.appendChild(item);
-    });
-  })();
 </script>
 </body>
 </html>

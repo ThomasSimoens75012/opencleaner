@@ -129,12 +129,12 @@ def _sqlite_clean(db_path, queries, log):
     except OSError as e:
         winerr = getattr(e, "winerror", 0)
         if isinstance(e, PermissionError) or winerr in (5, 1224):
-            log(f"⚠️  {db_path.name} verrouillé — fermez le navigateur et réessayez")
+            log(f"{db_path.name} verrouillé — fermez le navigateur et réessayez")
         else:
-            log(f"⚠️  {db_path.name} : {e}")
+            log(f"{db_path.name} : {e}")
         return 0
     except Exception as e:
-        log(f"⚠️  {db_path.name} : {e}")
+        log(f"{db_path.name} : {e}")
         return 0
     finally:
         try:
@@ -304,9 +304,9 @@ def task_temp(log):
             freed, _ = delete_folder_contents(resolved)
             total += freed
     if total > 0:
-        log(f"🗑️  Fichiers temporaires — {fmt_size(total)} libérés")
+        log(f"Fichiers temporaires — {fmt_size(total)} libérés")
     else:
-        log("🗑️  Fichiers temporaires — déjà propre")
+        log("Fichiers temporaires — déjà propre")
     return total
 
 
@@ -328,9 +328,9 @@ def task_browser_cache(log):
         total += freed
     if browser_totals:
         for browser, freed in browser_totals.items():
-            log(f"🌐  Cache {browser} — {fmt_size(freed)} libérés")
+            log(f"Cache {browser} — {fmt_size(freed)} libérés")
     else:
-        log("🌐  Cache navigateurs — déjà propre")
+        log("Cache navigateurs — déjà propre")
     return total
 
 
@@ -361,9 +361,9 @@ def task_browser_history(log):
         total += freed
     if browser_totals:
         for browser, freed in browser_totals.items():
-            log(f"🌐  Historique {browser} — {fmt_size(freed)} libérés")
+            log(f"Historique {browser} — {fmt_size(freed)} libérés")
     else:
-        log("🌐  Historique navigateurs — déjà propre")
+        log("Historique navigateurs — déjà propre")
     return total
 
 
@@ -383,9 +383,9 @@ def task_browser_cookies(log):
         total += freed
     if browser_totals:
         for browser, freed in browser_totals.items():
-            log(f"🍪  Cookies {browser} — {fmt_size(freed)} libérés")
+            log(f"Cookies {browser} — {fmt_size(freed)} libérés")
     else:
-        log("🍪  Cookies navigateurs — déjà propres")
+        log("Cookies navigateurs — déjà propres")
     return total
 
 
@@ -395,22 +395,22 @@ def task_recycle_bin(log):
         result = ctypes.windll.shell32.SHEmptyRecycleBinW(None, None, 0x0007)
         if result == 0 or result == -2147418113:
             if before > 0:
-                log(f"🗑️  Corbeille — {fmt_size(before)} libérés")
+                log(f"Corbeille — {fmt_size(before)} libérés")
             else:
-                log("🗑️  Corbeille — déjà vide")
+                log("Corbeille — déjà vide")
         else:
-            log("🗑️  Corbeille — déjà vide")
+            log("Corbeille — déjà vide")
     except Exception as e:
-        log(f"🗑️  Corbeille — erreur : {e}")
+        log(f"Corbeille — erreur : {e}")
     return before
 
 
 def task_dns(log):
     try:
         subprocess.run(["ipconfig", "/flushdns"], capture_output=True, text=True, timeout=10)
-        log("🔧  Cache DNS — vidé avec succès")
+        log("Cache DNS — vidé avec succès")
     except Exception as e:
-        log(f"🔧  Cache DNS — erreur : {e}")
+        log(f"Cache DNS — erreur : {e}")
     return 0
 
 
@@ -426,9 +426,9 @@ def task_thumbnails(log):
             except (OSError, PermissionError):
                 pass
     if freed > 0:
-        log(f"🖼️  Cache miniatures — {fmt_size(freed)} libérés")
+        log(f"Cache miniatures — {fmt_size(freed)} libérés")
     else:
-        log("🖼️  Cache miniatures — déjà propre")
+        log("Cache miniatures — déjà propre")
     return freed
 
 
@@ -436,9 +436,9 @@ def task_recent_files(log):
     recent = Path(os.environ.get("APPDATA", "")) / "Microsoft" / "Windows" / "Recent"
     freed, _ = delete_folder_contents(recent)
     if freed > 0:
-        log(f"📂  Fichiers récents — {fmt_size(freed)} supprimés")
+        log(f"Fichiers récents — {fmt_size(freed)} supprimés")
     else:
-        log("📂  Fichiers récents — déjà propre")
+        log("Fichiers récents — déjà propre")
     return freed
 
 
@@ -463,15 +463,15 @@ def task_dumps(log):
                 except (OSError, PermissionError):
                     pass
     if total > 0:
-        log(f"💥  Fichiers crash — {count} fichier(s) supprimé(s), {fmt_size(total)} libérés")
+        log(f"Fichiers crash — {count} fichier(s) supprimé(s), {fmt_size(total)} libérés")
     else:
-        log("💥  Fichiers crash — aucun trouvé")
+        log("Fichiers crash — aucun trouvé")
     return total
 
 
 def task_event_logs(log):
     if not is_admin():
-        log("📋  Journaux Windows — droits administrateur requis")
+        log("Journaux Windows — droits administrateur requis")
         return 0
     log_names = ["Application", "System", "Security", "Setup", "HardwareEvents"]
     cleared = 0
@@ -483,7 +483,7 @@ def task_event_logs(log):
                 cleared += 1
         except Exception:
             pass
-    log(f"📋  Journaux Windows — {cleared}/{len(log_names)} journaux vidés")
+    log(f"Journaux Windows — {cleared}/{len(log_names)} journaux vidés")
     return 0
 
 
@@ -506,15 +506,15 @@ def task_app_caches(log):
             results.append(f"{app_name} {fmt_size(freed)}")
         total += freed
     if results:
-        log(f"📦  Caches apps — {fmt_size(total)} libérés ({', '.join(results)})")
+        log(f"Caches apps — {fmt_size(total)} libérés ({', '.join(results)})")
     else:
-        log("📦  Caches apps — déjà propres")
+        log("Caches apps — déjà propres")
     return total
 
 
 def task_font_cache(log):
     if not is_admin():
-        log("🔤  Cache polices — droits administrateur requis")
+        log("Cache polices — droits administrateur requis")
         return 0
     subprocess.run(["net", "stop", "FontCache"],       capture_output=True, timeout=10)
     subprocess.run(["net", "stop", "FontCache3.0.0.0"], capture_output=True, timeout=10)
@@ -532,39 +532,39 @@ def task_font_cache(log):
 
     subprocess.run(["net", "start", "FontCache"], capture_output=True, timeout=10)
     if freed > 0:
-        log(f"🔤  Cache polices — {fmt_size(freed)} libérés")
+        log(f"Cache polices — {fmt_size(freed)} libérés")
     else:
-        log("🔤  Cache polices — déjà propre")
+        log("Cache polices — déjà propre")
     return freed
 
 
 def task_prefetch(log):
     if not is_admin():
-        log("⚡  Prefetch — droits administrateur requis")
+        log("Prefetch — droits administrateur requis")
         return 0
     freed, _ = delete_folder_contents(r"C:\Windows\Prefetch")
     if freed > 0:
-        log(f"⚡  Prefetch — {fmt_size(freed)} libérés")
+        log(f"Prefetch — {fmt_size(freed)} libérés")
     else:
-        log("⚡  Prefetch — déjà propre")
+        log("Prefetch — déjà propre")
     return freed
 
 
 def task_windows_update(log):
     if not is_admin():
-        log("🔄  Windows Update — droits administrateur requis")
+        log("Windows Update — droits administrateur requis")
         return 0
     try:
         subprocess.run(["net", "stop", "wuauserv"], capture_output=True, timeout=15)
         freed, _ = delete_folder_contents(r"C:\Windows\SoftwareDistribution\Download")
         subprocess.run(["net", "start", "wuauserv"], capture_output=True, timeout=15)
         if freed > 0:
-            log(f"🔄  Windows Update — {fmt_size(freed)} libérés")
+            log(f"Windows Update — {fmt_size(freed)} libérés")
         else:
-            log("🔄  Windows Update — déjà propre")
+            log("Windows Update — déjà propre")
         return freed
     except Exception as e:
-        log(f"🔄  Windows Update — erreur : {e}")
+        log(f"Windows Update — erreur : {e}")
         return 0
 
 
@@ -794,7 +794,7 @@ def find_duplicates(folder, min_size_kb=100, log=None):
 
     # ── Phase 1 : collecte par taille via scandir (stat inclus, pas de syscall sup.) ──
     if log:
-        log("🔍 Scan du dossier en cours…")
+        log("Scan du dossier en cours…")
     by_size = defaultdict(list)
     scanned = 0
     stack   = [folder]
@@ -821,16 +821,16 @@ def find_duplicates(folder, min_size_kb=100, log=None):
     candidates = [item for files in by_size.values() if len(files) > 1 for item in files]
     eliminated = scanned - len(candidates)
     if log:
-        log(f"📂 {scanned} fichiers scannés — {eliminated} éliminés par taille ({len(candidates)} candidats)")
+        log(f"{scanned} fichiers scannés — {eliminated} éliminés par taille ({len(candidates)} candidats)")
 
     if not candidates:
         if log:
-            log("✅ Aucun doublon potentiel trouvé.")
+            log("Aucun doublon potentiel trouvé.")
         return {}
 
     # ── Phase 2 : hash partiel (4 Ko) en parallèle ────────────────────────────
     if log:
-        log(f"⚡ Hash rapide de {len(candidates)} candidats…")
+        log(f"Hash rapide de {len(candidates)} candidats…")
 
     def safe_partial(item):
         path, size = item
@@ -851,16 +851,16 @@ def find_duplicates(folder, min_size_kb=100, log=None):
     deep_candidates = [item for files in by_partial.values() if len(files) > 1 for item in files]
     if log:
         pct = round((1 - len(deep_candidates) / max(len(candidates), 1)) * 100)
-        log(f"⚡ Hash partiel : {pct}% supplémentaires éliminés ({len(deep_candidates)} à vérifier)")
+        log(f"Hash partiel : {pct}% supplémentaires éliminés ({len(deep_candidates)} à vérifier)")
 
     if not deep_candidates:
         if log:
-            log("✅ Aucun doublon confirmé.")
+            log("Aucun doublon confirmé.")
         return {}
 
     # ── Phase 3 : hash complet en parallèle — seulement les vrais candidats ──
     if log:
-        log(f"🔒 Vérification complète de {len(deep_candidates)} fichier(s)…")
+        log(f"Vérification complète de {len(deep_candidates)} fichier(s)…")
 
     def safe_full(item):
         path, size = item
@@ -886,7 +886,7 @@ def find_duplicates(folder, min_size_kb=100, log=None):
         for files in duplicates.values()
     )
     if log:
-        log(f"🗂️  {len(duplicates)} groupe(s) de doublons — {fmt_size(total_wasted)} récupérables.")
+        log(f"{len(duplicates)} groupe(s) de doublons — {fmt_size(total_wasted)} récupérables.")
     return duplicates
 
 
@@ -1242,7 +1242,7 @@ def find_large_files(folder, min_size_bytes, log=None):
         except (PermissionError, OSError):
             pass
     if log:
-        log(f"🔍 Grands fichiers — {len(results)} fichier(s) trouvé(s) sur {scanned} analysés")
+        log(f"Grands fichiers — {len(results)} fichier(s) trouvé(s) sur {scanned} analysés")
     return sorted(results, key=lambda x: x["size"], reverse=True)
 
 
@@ -1327,17 +1327,28 @@ def delete_empty_folders(paths):
 # ──────────────────────────────────────────────────────────────────────────────
 
 _ORPHAN_SCAN_ROOTS = [
-    Path(os.environ.get("ProgramFiles",    r"C:\Program Files")),
+    # AppData\Local exclu : trop de faux positifs (profils Chrome, caches, etc.)
+    Path(os.environ.get("ProgramFiles",      r"C:\Program Files")),
     Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")),
-    Path(os.environ.get("LOCALAPPDATA",    r"C:\Users\Default\AppData\Local")),
 ]
 
 _ORPHAN_SYSTEM_SKIP = {
-    "common files", "microsoft", "microsoft.net", "windows",
-    "windows nt", "windowsapps", "windowspowershell",
+    # Dossiers systeme Windows
+    "common files", "microsoft", "microsoft.net", "windows", "windows nt",
+    "windowsapps", "windowspowershell", "windows defender",
+    "windows media player", "windows photo viewer", "windows mail",
+    "windows sidebar", "windows journal", "windows kits",
+    "windows portable devices", "windows security",
+    # Navigateurs et runtimes connus
     "internet explorer", "mozilla firefox", "google", "microsoft edge",
-    "packaged_programs", "reference assemblies",
-    "dotnet", "desktop", "documents", "downloads",
+    # Outils developpeur
+    "packaged_programs", "reference assemblies", "dotnet",
+    "iis express", "iis", "msbuild", "nuget", "nodejs",
+    "mingw", "mingw64", "git", "cmake", "llvm",
+    # Dossiers perso
+    "desktop", "documents", "downloads",
+    # Composants systeme divers
+    "vb", "vbs", "uninstall information",
 }
 
 
@@ -1405,11 +1416,13 @@ def find_orphan_folders(log=None):
                 # Vérifie si ce dossier (ou un parent) est dans les emplacements connus
                 matched = path_lower in known_locations
                 if not matched:
-                    # Correspondance approximative sur le nom du dossier vs noms d'apps
+                    # Correspondance stricte : le nom du dossier doit être contenu dans un
+                    # nom d'app (pas l'inverse) avec une longueur minimale pour éviter les
+                    # faux positifs sur des mots courants (ex. "git" dans "github desktop")
                     matched = any(
-                        name_lower in app_name or app_name in name_lower
+                        name_lower in app_name
                         for app_name in known_names
-                        if len(app_name) >= 4
+                        if len(name_lower) >= 5 and len(app_name) >= 5
                     )
                 if not matched:
                     size = get_folder_size(entry.path)
@@ -1858,7 +1871,22 @@ def scan_disk_level(folder, on_item=None):
 
     def _measure(name, path, is_dir):
         if is_dir:
-            size = get_folder_size(path)
+            import time as _time
+            total = 0
+            deadline = _time.monotonic() + 5.0  # max 5s par dossier
+            try:
+                for dirpath, dirs, filenames in os.walk(path):
+                    if _time.monotonic() > deadline:
+                        dirs.clear()  # stop la recursion
+                        break
+                    for f in filenames:
+                        try:
+                            total += os.path.getsize(os.path.join(dirpath, f))
+                        except (OSError, PermissionError):
+                            pass
+            except (OSError, PermissionError):
+                pass
+            size = total
         else:
             try:
                 size = Path(path).stat().st_size
@@ -1870,6 +1898,7 @@ def scan_disk_level(folder, on_item=None):
             on_item(item)
         return item
 
+    from concurrent.futures import ThreadPoolExecutor, as_completed
     with ThreadPoolExecutor(max_workers=6) as ex:
         futures = {ex.submit(_measure, n, p, d): (n, p, d) for n, p, d in entries}
         for f in as_completed(futures):
@@ -2104,7 +2133,7 @@ TASKS = [
     {
         "id": "temp",      "label": "Fichiers temporaires",
         "desc": "%TEMP%, %TMP%, C:\\Windows\\Temp",
-        "admin": False, "default": True,  "group": "system",
+        "admin": True,  "default": True,  "group": "system",
         "fn": task_temp,   "estimate_fn": estimate_temp,
     },
     {

@@ -5,12 +5,10 @@ let sizes   = {};
 let cleaning = false;
 
 const GROUPS = {
-  system:  { label: "Système",      emoji: "🖥", desc: "Temp, DNS, Corbeille, Prefetch…",  cls: "s-sys", grpCls: "grp-sys", sideKey: "sys" },
-  browser: { label: "Navigateurs",  emoji: "🌐", desc: "Chrome, Edge, Firefox, Brave",     cls: "s-nav", grpCls: "grp-nav", sideKey: "nav" },
-  apps:    { label: "Applications", emoji: "📦", desc: "Discord, Spotify, Teams, miniatures…", cls: "s-app", grpCls: "grp-app", sideKey: "app" },
+  system:  { label: "Système",      cls: "s-sys", grpCls: "grp-sys" },
+  browser: { label: "Navigateurs",  cls: "s-nav", grpCls: "grp-nav" },
+  apps:    { label: "Applications", cls: "s-app", grpCls: "grp-app" },
 };
-
-const GROUP_EMOJI = { system: "🖥", browser: "🌐", apps: "📦" };
 
 // ── Init ─────────────────────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
@@ -65,18 +63,13 @@ function renderTasks() {
 
     const groupBytes = tasks.reduce((s, t) => s + (sizes[t.id]?.bytes || 0), 0);
 
-    // En-tête de groupe
+    // En-tête de groupe (h3 Notion-style, uppercase + total à droite)
     const head = document.createElement("div");
     head.className = `grp-head ${meta.cls}`;
     head.innerHTML = `
-      <span class="grp-emoji">${meta.emoji}</span>
-      <div>
-        <div class="grp-name">${meta.label}</div>
-        <div class="grp-desc">${meta.desc}</div>
-      </div>
+      <div class="grp-name">${meta.label}</div>
       <div class="grp-total">
         <div class="grp-total-val">${groupBytes > 0 ? fmtBytes(groupBytes) : "—"}</div>
-        <div class="grp-total-sub">libérables</div>
       </div>`;
     container.appendChild(head);
 
@@ -91,9 +84,9 @@ function renderTasks() {
       item.id = "task-row-" + t.id;
       if (!locked) item.onclick = () => toggleTask(t.id);
 
-      const badge = t.admin
+      const badge = (t.admin && !window.IS_ADMIN)
         ? `<span class="badge badge-admin">Admin requis</span>`
-        : `<span class="badge badge-safe">Sécurisé</span>`;
+        : "";
 
       const sizeInfo = sizes[t.id];
       const sizeHtml = sizeInfo
@@ -144,51 +137,61 @@ function sortTasksBySize() {
   });
 }
 
-// ── Sidebar ──────────────────────────────────────────────────────────────────
-function updateSidebar() {
-  const groupMap = { system: "sys", browser: "nav", apps: "app" };
-  let maxBytes = 0;
+// ── Sidebar (no-op : la sidebar a été remplacée par stat-grid) ───────────────
+function updateSidebar() { /* legacy : remplacé par updateStatTotal() */ }
 
-  Object.entries(groupMap).forEach(([groupKey]) => {
-    const total = TASKS
-      .filter(t => t.group === groupKey)
-      .reduce((s, t) => s + (sizes[t.id]?.bytes || 0), 0);
-    if (total > maxBytes) maxBytes = total;
-  });
+// ── Stat principale + callout ────────────────────────────────────────────────
+function updateStatTotal() {
+  const checked     = TASKS.filter(t => t.checked);
+  const totalBytes  = checked.reduce((s, t) => s + (sizes[t.id]?.bytes || 0), 0);
+  const sizeKnown   = TASKS.some(t => sizes[t.id]);
 
-  Object.entries(groupMap).forEach(([groupKey, sideKey]) => {
-    const tasks      = TASKS.filter(t => t.group === groupKey);
-    const totalBytes = tasks.reduce((s, t) => s + (sizes[t.id]?.bytes || 0), 0);
-    const active     = tasks.filter(t => t.checked).length;
+  const statVal     = document.getElementById("stat-total");
+  const statMeta    = document.getElementById("stat-total-meta");
+  const calloutT    = document.getElementById("callout-title");
+  const calloutD    = document.getElementById("callout-desc");
 
-    const sizeEl  = document.getElementById(`side-size-${sideKey}`);
-    const countEl = document.getElementById(`side-count-${sideKey}`);
-    const fillEl  = document.getElementById(`side-fill-${sideKey}`);
+  if (!sizeKnown) {
+    if (statVal)  { statVal.textContent  = "…"; statVal.classList.add("dim"); }
+    if (statMeta) statMeta.textContent  = "Calcul en cours…";
+    if (calloutT) calloutT.textContent  = "Calcul de l'espace récupérable…";
+    if (calloutD) calloutD.textContent  = "Patientez quelques instants";
+    return;
+  }
 
-    if (sizeEl)  sizeEl.textContent  = totalBytes > 0 ? fmtBytes(totalBytes) : "0 o";
-    if (countEl) countEl.textContent = `${active} active${active > 1 ? "s" : ""} · ${tasks.length} disponibles`;
-    if (fillEl)  fillEl.style.width  = maxBytes > 0 ? Math.round((totalBytes / maxBytes) * 100) + "%" : "0%";
-  });
-}
+  if (statVal) {
+    if (totalBytes > 0) {
+      statVal.innerHTML = fmtBytes(totalBytes).replace(/ ([^\s]+)$/, '<span class="unit"> $1</span>');
+      statVal.classList.remove("dim");
+    } else {
+      statVal.textContent = "0 Go";
+      statVal.classList.add("dim");
+    }
+  }
+  if (statMeta) {
+    statMeta.textContent = checked.length === 0
+      ? "Aucune tâche sélectionnée"
+      : `${checked.length} tâche${checked.length > 1 ? "s" : ""} sélectionnée${checked.length > 1 ? "s" : ""}`;
+  }
 
-// ── Total estimé ─────────────────────────────────────────────────────────────
-function updateTotal() {
-  const checked    = TASKS.filter(t => t.checked);
-  const totalBytes = checked.reduce((sum, t) => sum + (sizes[t.id]?.bytes || 0), 0);
-  const el = document.getElementById("total-val");
-  if (!el) return;
-
-  if (checked.length === 0) {
-    el.textContent = "Rien de sélectionné";
-    el.style.color = "var(--text-dim)";
-  } else if (totalBytes === 0) {
-    el.textContent = "Déjà propre";
-    el.style.color = "var(--green)";
-  } else {
-    el.textContent = "≈ " + fmtBytes(totalBytes);
-    el.style.color = "var(--accent)";
+  if (calloutT) {
+    if (checked.length === 0) {
+      calloutT.textContent = "Aucune tâche sélectionnée";
+    } else if (totalBytes === 0) {
+      calloutT.textContent = "Système déjà propre";
+    } else {
+      calloutT.textContent = `Prêt à libérer ${fmtBytes(totalBytes)}`;
+    }
+  }
+  if (calloutD) {
+    calloutD.textContent = checked.length === 0
+      ? "Cochez au moins une catégorie ci-dessus"
+      : `${checked.length} tâche${checked.length > 1 ? "s" : ""} cochée${checked.length > 1 ? "s" : ""} · cliquez pour exécuter`;
   }
 }
+
+// ── Total estimé (compat : délègue à updateStatTotal) ────────────────────────
+function updateTotal() { updateStatTotal(); }
 
 function fmtBytes(b) {
   if (b === 0) return "0 o";
@@ -215,7 +218,8 @@ async function loadSizes() {
 
 function setSizesLoading(loading) {
   const btn = document.getElementById("btn-refresh");
-  if (btn) btn.textContent = loading ? "Calcul…" : "↻ Réanalyser";
+  if (!btn) return;
+  if (loading) { _btnScan(btn, "Calcul…"); } else { _btnReset(btn); }
 }
 
 // ── API : disque ─────────────────────────────────────────────────────────────
@@ -238,16 +242,40 @@ function renderDisk(drives) {
     div.className  = "disk-card";
     div.innerHTML  = `
       <div class="disk-left">
-        <div class="dk-label">Disque</div>
         <div class="dk-name">${d.device}</div>
         <div class="dk-free">${d.free_fmt} libres</div>
       </div>
       <div class="disk-right">
         <div class="bar-bg"><div class="bar-fill ${barClass}" id="disk-bar-${d.device.replace(/\\/g,'')}" style="width:${pct}%"></div></div>
-        <div class="bar-stats"><span>0</span><span>${pct}% utilisé</span><span>${d.total_fmt}</span></div>
+        <div class="bar-stats"><span>${pct}% utilisé</span><span>${d.total_fmt}</span></div>
       </div>`;
     container.appendChild(div);
   });
+
+  // Mise à jour de la stat "Disque principal" (premier disque retourné)
+  const main = drives[0];
+  const sv = document.getElementById("stat-disk");
+  const sm = document.getElementById("stat-disk-meta");
+  if (sv) {
+    sv.innerHTML = `${main.percent}<span class="unit">%</span>`;
+    sv.classList.remove("dim");
+  }
+  if (sm) sm.textContent = `${main.device} · ${main.free_fmt} libres sur ${main.total_fmt}`;
+
+  // Mise à jour de la propriété "X disque(s) détecté(s)" dans le page-header
+  const propCount = document.getElementById("prop-disks-count");
+  if (propCount) {
+    const n = drives.length;
+    propCount.textContent = n;
+    const wrapper = propCount.closest(".prop");
+    if (wrapper) {
+      // remplacer le texte après le <strong> pour gérer le pluriel
+      const lastNode = wrapper.lastChild;
+      if (lastNode && lastNode.nodeType === Node.TEXT_NODE) {
+        lastNode.textContent = ` disque${n > 1 ? "s" : ""} détecté${n > 1 ? "s" : ""}`;
+      }
+    }
+  }
 }
 
 // ── Historique ────────────────────────────────────────────────────────────────
@@ -260,13 +288,35 @@ async function loadHistory() {
 }
 
 function renderHistoryHint(data) {
-  const el = document.getElementById("history-hint");
-  if (!el || !data.length) return;
+  if (!data || !data.length) {
+    // Pas d'historique : remet les propriétés sur "Jamais"
+    const prop = document.getElementById("prop-last-scan");
+    if (prop) prop.textContent = "jamais";
+    const sb = document.getElementById("sb-last-scan");
+    if (sb) sb.textContent = "jamais";
+    return;
+  }
   const last = data[0];
   const ago  = fmtAgo(new Date(last.date));
-  el.innerHTML = `⏱️ Dernière session : <strong>${ago}</strong><br>
-    <strong style="color:var(--green)">${last.freed_fmt}</strong> libérés`;
-  el.style.display = "block";
+
+  // Stat "Dernier nettoyage"
+  const sv = document.getElementById("stat-history");
+  const sm = document.getElementById("stat-history-meta");
+  if (sv) {
+    sv.textContent = ago;
+    sv.classList.remove("dim");
+  }
+  if (sm) sm.textContent = `${last.freed_fmt} libérés`;
+
+  // Propriétés du page-header + sidebar
+  const prop = document.getElementById("prop-last-scan");
+  if (prop) prop.textContent = ago;
+  const sb = document.getElementById("sb-last-scan");
+  if (sb) sb.textContent = ago;
+
+  // Ancien hint (caché — info redondante avec les stats/props)
+  const el = document.getElementById("history-hint");
+  if (el) el.style.display = "none";
 }
 
 function fmtAgo(date) {
@@ -374,7 +424,6 @@ function showCleanPreview(selected) {
     row.className = "modal-row";
     row.innerHTML = `
       <div class="modal-row-name">
-        <span>${GROUP_EMOJI[t.group] || "•"}</span>
         <span>${t.label}</span>
       </div>
       <span class="modal-row-size">${bytes > 0 ? fmtBytes(bytes) : "—"}</span>`;

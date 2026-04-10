@@ -1,5 +1,5 @@
 """
-app.py — PC Cleaner (PyQt6 + Flask interne)
+app.py — OpenCleaner (Flask local)
 """
 
 import json
@@ -42,10 +42,7 @@ app = Flask(__name__)
 JOBS: dict       = {}
 JOBS_LOCK        = threading.Lock()
 _TASK_MAP        = {t["id"]: t for t in TASKS}
-SCHEDULE_FILE    = Path(__file__).parent / "schedule.json"
 HISTORY_FILE     = Path(__file__).parent / "history.json"
-_scheduler_lock  = threading.Lock()
-_scheduler_running = False
 
 
 def _load_history():
@@ -398,7 +395,7 @@ def _run_orphan_folders(job_id):
         q.put({"type": "result", "folders": results, "count": len(results),
                "total_fmt": fmt_size(total)})
         q.put({"type": "done", "msg": f"{len(results)} dossier(s) orphelin(s) — {fmt_size(total)} récupérables.",
-               "freed_bytes": total, "freed_fmt": fmt_size(total)})
+               "count": len(results), "freed_bytes": total, "freed_fmt": fmt_size(total)})
     except Exception as e:
         q.put({"type": "done", "msg": f"Erreur : {e}", "freed_bytes": 0, "freed_fmt": "—"})
     finally:
@@ -543,19 +540,89 @@ def api_updates():
 
 @app.route("/api/updates/install", methods=["POST"])
 def api_updates_install():
-    data = request.get_json(force=True) or {}
-    pkg_id = data.get("id", "").strip()
+    data        = request.get_json(force=True) or {}
+    pkg_id      = data.get("id", "").strip()
+    old_version = data.get("old_version", "").strip()
     if not pkg_id:
         return jsonify({"error": "Identifiant de paquet requis."}), 400
-    try:
-        subprocess.Popen(
-            ["winget", "upgrade", "--id", pkg_id,
-             "--accept-source-agreements", "--accept-package-agreements"],
-            creationflags=0x00000010,  # CREATE_NEW_CONSOLE
+    job_id = _create_job()
+    threading.Thread(target=_run_update_install,
+                     args=(job_id, pkg_id, old_version), daemon=True).start()
+    return jsonify({"job_id": job_id})
+
+
+def _run_update_install(job_id, pkg_id, old_version):
+    with JOBS_LOCK:
+        job = JOBS.get(job_id)
+    if not job:
+        return
+    q   = job["queue"]
+    enc = "cp1252" if os.name == "nt" else "utf-8"
+
+    def log(msg):
+        q.put({"type": "log", "msg": msg})
+
+    def run_winget(args):
+        proc = subprocess.Popen(
+            args,
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            creationflags=0x08000000,  # CREATE_NO_WINDOW
         )
-        return jsonify({"ok": True})
+        for raw in proc.stdout:
+            text = raw.decode(enc, errors="replace").rstrip()
+            if text:
+                log(text)
+        proc.wait()
+        return proc.returncode
+
+    try:
+        log("Lancement de la mise à jour…")
+        code = run_winget([
+            "winget", "upgrade", "--id", pkg_id,
+            "--accept-source-agreements", "--accept-package-agreements",
+        ])
+        if code == 0:
+            q.put({"type": "done", "ok": True, "rollback": False,
+                   "msg": "Mise à jour installée avec succès."})
+        else:
+            if old_version and old_version not in ("?", "Unknown", "Inconnu"):
+                log(f"Échec (code {code}). Restauration de la version {old_version}…")
+                rb = run_winget([
+                    "winget", "install", "--id", pkg_id,
+                    "--version", old_version,
+                    "--accept-source-agreements", "--accept-package-agreements",
+                ])
+                if rb == 0:
+                    q.put({"type": "done", "ok": False, "rollback": True,
+                           "msg": f"Mise à jour échouée — version {old_version} restaurée."})
+                else:
+                    q.put({"type": "done", "ok": False, "rollback": False,
+                           "msg": "Mise à jour échouée et restauration impossible. Réinstallez manuellement."})
+            else:
+                q.put({"type": "done", "ok": False, "rollback": False,
+                       "msg": f"Mise à jour échouée (code {code})."})
+    except FileNotFoundError:
+        q.put({"type": "done", "ok": False, "rollback": False,
+               "msg": "winget introuvable sur ce système."})
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        q.put({"type": "done", "ok": False, "rollback": False, "msg": str(e)})
+    finally:
+        job["done"] = True
+
+
+@app.route("/api/browse-folder")
+def api_browse_folder():
+    try:
+        import tkinter as _tk
+        from tkinter import filedialog as _fd
+        root = _tk.Tk()
+        root.withdraw()
+        root.attributes('-topmost', True)
+        path = _fd.askdirectory(title="Choisir un dossier")
+        root.destroy()
+        return jsonify({"folder": path.replace("/", "\\") if path else ""})
+    except Exception as e:
+        return jsonify({"folder": "", "error": str(e)})
 
 
 @app.route("/api/health")
@@ -564,92 +631,6 @@ def api_health():
         return jsonify(get_health_data())
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Planificateur
-# ──────────────────────────────────────────────────────────────────────────────
-
-def _default_schedule():
-    return {
-        "enabled":  False,
-        "interval": "daily",
-        "time":     "02:00",
-        "tasks":    ["temp", "browser", "recycle", "dns", "thumbnails"],
-        "last_run": None,
-    }
-
-
-def _load_schedule():
-    if SCHEDULE_FILE.exists():
-        try:
-            with open(SCHEDULE_FILE) as f:
-                data = json.load(f)
-                # Fusionne avec les valeurs par défaut (robustesse)
-                defaults = _default_schedule()
-                defaults.update(data)
-                return defaults
-        except Exception:
-            pass
-    return _default_schedule()
-
-
-def _save_schedule(config):
-    with open(SCHEDULE_FILE, "w") as f:
-        json.dump(config, f, indent=2)
-
-
-@app.route("/api/schedule", methods=["GET"])
-def api_schedule_get():
-    config = _load_schedule()
-    # Calcule la prochaine exécution pour l'affichage
-    config["next_run"] = _compute_next_run(config)
-    return jsonify(config)
-
-
-@app.route("/api/schedule", methods=["POST"])
-def api_schedule_post():
-    data = request.get_json(force=True) or {}
-    config = _load_schedule()
-    for key in ["enabled", "interval", "time", "tasks"]:
-        if key in data:
-            config[key] = data[key]
-    _save_schedule(config)
-    return jsonify({"ok": True, "next_run": _compute_next_run(config)})
-
-
-def _compute_next_run(config):
-    """Calcule la prochaine exécution planifiée (chaîne ISO 8601)."""
-    from datetime import timedelta
-    if not config.get("enabled"):
-        return None
-    try:
-        now      = datetime.now()
-        h, m     = map(int, config["time"].split(":"))
-        interval = config["interval"]
-        last     = datetime.fromisoformat(config["last_run"]) if config.get("last_run") else None
-        today    = now.replace(hour=h, minute=m, second=0, microsecond=0)
-
-        if interval == "hourly":
-            if last is None:
-                return today.isoformat()
-            next_dt = last.replace(minute=m, second=0, microsecond=0)
-            while next_dt <= now:
-                next_dt += timedelta(hours=1)
-            return next_dt.isoformat()
-
-        elif interval == "daily":
-            if today > now:
-                return today.isoformat()
-            return (today + timedelta(days=1)).isoformat()
-
-        elif interval == "weekly":
-            days_ahead = 7 - now.weekday()
-            return (today + timedelta(days=days_ahead)).isoformat()
-
-    except Exception:
-        pass
-    return None
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -777,60 +758,6 @@ def _run_duplicates(job_id, folder, min_size_kb):
         job["done"] = True
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Planificateur (thread de fond)
-# ──────────────────────────────────────────────────────────────────────────────
-
-def _scheduler_thread():
-    global _scheduler_running
-    while True:
-        time.sleep(60)
-        with _scheduler_lock:
-            if _scheduler_running:
-                continue
-        config = _load_schedule()
-        if not config.get("enabled"):
-            continue
-        try:
-            now   = datetime.now()
-            h, m  = map(int, config["time"].split(":"))
-            last  = datetime.fromisoformat(config["last_run"]) if config.get("last_run") else None
-
-            should_run = False
-            if config["interval"] == "hourly":
-                should_run = last is None or (now - last).total_seconds() >= 3600
-            elif config["interval"] == "daily":
-                today_time = now.replace(hour=h, minute=m, second=0, microsecond=0)
-                should_run = now >= today_time and (last is None or last.date() < now.date())
-            elif config["interval"] == "weekly":
-                should_run = last is None or (now - last).days >= 7
-
-            if should_run:
-                task_ids = [tid for tid in config.get("tasks", []) if tid in _TASK_MAP]
-                if task_ids:
-                    with _scheduler_lock:
-                        _scheduler_running = True
-                    job_id = _create_job()
-                    t = threading.Thread(target=_run_scheduled_job,
-                                         args=(job_id, task_ids, config), daemon=True)
-                    t.start()
-        except Exception:
-            pass
-
-
-def _run_scheduled_job(job_id, task_ids, config):
-    global _scheduler_running
-    try:
-        _run_job(job_id, task_ids)
-        config["last_run"] = datetime.now().isoformat()
-        _save_schedule(config)
-    finally:
-        with _scheduler_lock:
-            _scheduler_running = False
-
-
-# ──────────────────────────────────────────────────────────────────────────────
-
 def _relaunch_as_admin():
     import ctypes, sys
     ctypes.windll.shell32.ShellExecuteW(
@@ -840,93 +767,41 @@ def _relaunch_as_admin():
     )
 
 
-def _run_desktop():
-    """Démarre Flask en interne et l'affiche dans une fenêtre Qt native (PyQt6 + WebEngine)."""
-    import socket as _sock
-    import sys as _sys
-    import urllib.request as _ur
-    import time as _t
-    import os as _os
+@app.route("/api/quit", methods=["POST"])
+def api_quit():
+    """Arrête l'application proprement."""
+    import threading as _th
+    _th.Timer(0.3, lambda: os._exit(0)).start()
+    return jsonify({"ok": True})
 
-    from PyQt6.QtWidgets import QApplication
-    from PyQt6.QtWebEngineWidgets import QWebEngineView
-    from PyQt6.QtWebEngineCore import QWebEngineSettings, QWebEngineProfile
-    from PyQt6.QtCore import QUrl
+
+def _run():
+    """Démarre Flask et affiche l'URL dans la console."""
+    import socket as _sock
 
     with _sock.socket(_sock.AF_INET, _sock.SOCK_STREAM) as s:
         s.bind(('127.0.0.1', 0))
         port = s.getsockname()[1]
 
-    threading.Thread(
-        target=lambda: app.run(
-            debug=False, threaded=True,
-            port=port, host='127.0.0.1',
-            use_reloader=False
-        ),
-        daemon=True
-    ).start()
+    url = f"http://127.0.0.1:{port}/"
+    mode = "[Administrateur]" if is_admin() else "[Mode standard]"
 
-    for _ in range(50):
-        try:
-            _ur.urlopen(f'http://127.0.0.1:{port}/', timeout=0.3)
-            break
-        except Exception:
-            _t.sleep(0.1)
+    print()
+    print("  ╔══════════════════════════════════════════════╗")
+    print("  ║                                              ║")
+    print(f"  ║   OpenCleaner {mode:<30} ║")
+    print("  ║                                              ║")
+    print(f"  ║   Ouvrez votre navigateur sur :              ║")
+    print(f"  ║   {url:<42} ║")
+    print("  ║                                              ║")
+    print("  ║   Pour arrêter : cliquez sur « Quitter »     ║")
+    print("  ║   dans l'application, ou Ctrl+C ici.         ║")
+    print("  ║                                              ║")
+    print("  ╚══════════════════════════════════════════════╝")
+    print()
 
-    qt = QApplication.instance() or QApplication(_sys.argv)
-    qt.setApplicationName('PC Cleaner')
-
-    view = QWebEngineView()
-    view.setWindowTitle('PC Cleaner')
-    view.resize(1300, 860)
-    view.setMinimumSize(960, 600)
-
-    profile = QWebEngineProfile.defaultProfile()
-    settings = profile.settings()
-    settings.setAttribute(QWebEngineSettings.WebAttribute.JavascriptEnabled, True)
-    settings.setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True)
-
-    view.load(QUrl(f'http://127.0.0.1:{port}/'))
-    view.show()
-
-    qt.lastWindowClosed.connect(lambda: _os._exit(0))
-    _sys.exit(qt.exec())
-
-
-def _smoke_test():
-    """Démarre Flask, vérifie que / répond 200, quitte avec code 0 ou 1."""
-    import socket as _sock
-    import urllib.request as _ur
-    import time as _t
-    import sys as _sys
-
-    with _sock.socket(_sock.AF_INET, _sock.SOCK_STREAM) as s:
-        s.bind(('127.0.0.1', 0))
-        port = s.getsockname()[1]
-
-    threading.Thread(
-        target=lambda: app.run(debug=False, threaded=True,
-                               port=port, host='127.0.0.1', use_reloader=False),
-        daemon=True,
-    ).start()
-
-    for _ in range(30):
-        try:
-            code = _ur.urlopen(f'http://127.0.0.1:{port}/', timeout=1).getcode()
-            if code == 200:
-                print(f"[smoke-test] OK — Flask répond 200 sur le port {port}", flush=True)
-                _sys.exit(0)
-        except Exception:
-            _t.sleep(0.2)
-
-    print("[smoke-test] ÉCHEC — Flask n'a pas répondu dans les délais", flush=True)
-    _sys.exit(1)
+    app.run(host='127.0.0.1', port=port, debug=False, threaded=True, use_reloader=False)
 
 
 if __name__ == "__main__":
-    if "--smoke-test" in os.sys.argv:
-        _smoke_test()
-    threading.Thread(target=_scheduler_thread, daemon=True).start()
-    mode = "[Administrateur]" if is_admin() else "[Mode standard]"
-    print(f"\n  PC Cleaner {mode}\n")
-    _run_desktop()
+    _run()

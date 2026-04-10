@@ -8,18 +8,10 @@ venv/
 
 # Données runtime
 history.json
-schedule.json
-pytest_output.txt
 
-# Outils de dev
-mockup_animations.html
-.pytest_cache/
-tests/__pycache__/
-
-# Build PyInstaller
-dist/
-build/
-installer_output/
+# Tests — artefacts générés
+tests/screenshots/
+tests/sandbox/
 
 # OS
 .DS_Store
