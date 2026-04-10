@@ -3,6 +3,7 @@ cleaner.py — Fonctions de nettoyage + outils système Windows
 """
 
 import hashlib
+import json
 import os
 import shutil
 import sqlite3
@@ -58,15 +59,21 @@ def fmt_size(size_bytes):
 
 def get_folder_size(folder):
     total = 0
-    try:
-        for dirpath, _, filenames in os.walk(folder):
-            for f in filenames:
-                try:
-                    total += os.path.getsize(os.path.join(dirpath, f))
-                except (OSError, PermissionError):
-                    pass
-    except (OSError, PermissionError):
-        pass
+    stack = [folder]
+    while stack:
+        cur = stack.pop()
+        try:
+            with os.scandir(cur) as it:
+                for entry in it:
+                    try:
+                        if entry.is_file(follow_symlinks=False):
+                            total += entry.stat(follow_symlinks=False).st_size
+                        elif entry.is_dir(follow_symlinks=False):
+                            stack.append(entry.path)
+                    except (OSError, PermissionError):
+                        pass
+        except (OSError, PermissionError):
+            pass
     return total
 
 
@@ -266,8 +273,32 @@ def estimate_cookies():
     return total
 
 
+def _recent_files_dir():
+    return Path(os.environ.get("APPDATA", "")) / "Microsoft" / "Windows" / "Recent"
+
+
+def _purge_recent_shortcuts():
+    """Supprime les raccourcis .lnk du dossier Recent. Retourne (count, freed, errors)."""
+    count, freed, errors = 0, 0, []
+    for f in _recent_files_dir().glob("*.lnk"):
+        try:
+            size = f.stat().st_size
+            f.unlink()
+            count += 1
+            freed += size
+        except Exception as e:
+            errors.append(str(e))
+    return count, freed, errors
+
+
 def estimate_recent_files():
-    return get_folder_size(Path(os.environ.get("APPDATA", "")) / "Microsoft" / "Windows" / "Recent")
+    total = 0
+    for f in _recent_files_dir().glob("*.lnk"):
+        try:
+            total += f.stat().st_size
+        except OSError:
+            pass
+    return total
 
 
 def estimate_dumps():
@@ -454,8 +485,7 @@ def task_thumbnails(log):
 
 
 def task_recent_files(log):
-    recent = Path(os.environ.get("APPDATA", "")) / "Microsoft" / "Windows" / "Recent"
-    freed, _ = delete_folder_contents(recent)
+    _, freed, _ = _purge_recent_shortcuts()
     if freed > 0:
         log(f"Fichiers récents — {fmt_size(freed)} supprimés")
     else:
@@ -1275,57 +1305,52 @@ def find_large_files(folder, min_size_bytes, log=None):
 # ──────────────────────────────────────────────────────────────────────────────
 
 def find_empty_folders(folder, log=None):
-    """
-    Retourne la liste des dossiers vides (sans aucun fichier dans tout le sous-arbre).
-    Exclut les dossiers système et les points de jonction NTFS.
-    """
     _SKIP = {"$Recycle.Bin", "System Volume Information", "Windows", "Program Files",
              "Program Files (x86)", "ProgramData"}
     results = []
 
     try:
-        root = Path(folder).resolve()
+        root = str(Path(folder).resolve())
     except Exception:
         return []
 
-    for dirpath, dirnames, filenames in os.walk(root, topdown=False):
-        p = Path(dirpath)
-        if p.name in _SKIP:
-            dirnames.clear()
-            continue
-        # Ignore les points de jonction / liens symboliques
+    def _walk(path):
+        # Retourne True si le dossier est entièrement vide (récursivement)
+        has_file = False
+        all_subs_empty = True
         try:
-            if p.is_symlink() or p.stat().st_file_attributes & 0x400:  # FILE_ATTRIBUTE_REPARSE_POINT
-                continue
-        except (OSError, AttributeError):
-            pass
-        try:
-            # Un dossier est vide si aucun fichier ni sous-dossier non-vide dedans
-            has_content = bool(filenames) or any(
-                Path(dirpath, d) not in [Path(r["path"]) for r in results]
-                and not any(Path(dirpath, d) == Path(r["path"]).parent for r in results)
-                for d in dirnames
-            )
-        except Exception:
-            continue
+            with os.scandir(path) as it:
+                for entry in it:
+                    try:
+                        if entry.is_file(follow_symlinks=False):
+                            has_file = True
+                        elif entry.is_dir(follow_symlinks=False):
+                            if entry.name in _SKIP:
+                                all_subs_empty = False
+                                continue
+                            # Ignore les points de jonction NTFS
+                            try:
+                                if entry.stat(follow_symlinks=False).st_file_attributes & 0x400:
+                                    all_subs_empty = False
+                                    continue
+                            except (OSError, AttributeError):
+                                pass
+                            if not _walk(entry.path):
+                                all_subs_empty = False
+                    except (OSError, PermissionError):
+                        all_subs_empty = False
+        except (OSError, PermissionError):
+            return False
 
-        # Recalcul simple : dossier vide = stat walk retourne 0 fichiers dans tout le sous-arbre
-        total_files = sum(1 for _ in Path(dirpath).rglob("*") if Path(os.path.join(dirpath, _)).is_file() if False)
-        # Approche directe et fiable
-        try:
-            total_files = sum(
-                1 for entry in os.scandir(dirpath)
-                if entry.is_file(follow_symlinks=False)
-            )
-            sub_dirs_empty = all(
-                Path(os.path.join(dirpath, entry.name)) in {Path(r["path"]) for r in results}
-                for entry in os.scandir(dirpath)
-                if entry.is_dir(follow_symlinks=False)
-            )
-            if total_files == 0 and sub_dirs_empty and dirpath != str(root):
-                results.append({"path": dirpath, "name": p.name, "needs_admin": is_admin_path(dirpath)})
-        except (PermissionError, OSError):
-            pass
+        is_empty = not has_file and all_subs_empty
+        if is_empty and path != root:
+            results.append({"path": path, "name": os.path.basename(path), "needs_admin": is_admin_path(path)})
+        return is_empty
+
+    try:
+        _walk(root)
+    except RecursionError:
+        pass
 
     results.sort(key=lambda x: x["path"])
     if log:
@@ -1537,8 +1562,8 @@ def list_restore_points():
     )
     try:
         r = subprocess.run(
-            ["powershell", "-Command", ps_cmd],
-            capture_output=True, timeout=10
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_cmd],
+            capture_output=True, timeout=10, creationflags=0x08000000
         )
         stdout = r.stdout.decode("utf-8", errors="replace").strip()
         if r.returncode != 0:
@@ -1600,36 +1625,35 @@ def delete_restore_points(ids):
 
 def get_disk_smart():
     """
-    Récupère l'état S.M.A.R.T. des disques physiques via wmic.
+    Récupère l'état S.M.A.R.T. des disques physiques via PowerShell Get-PhysicalDisk.
     Retourne une liste de dicts {model, size, size_fmt, status, healthy}.
     """
+    import json
     disks = []
     try:
         r = subprocess.run(
-            ["wmic", "diskdrive", "get", "model,size,status"],
-            capture_output=True, timeout=5
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command",
+             "Get-PhysicalDisk | Select-Object FriendlyName,Size,HealthStatus,OperationalStatus | ConvertTo-Json -Compress"],
+            capture_output=True, timeout=8, creationflags=0x08000000
         )
-        lines = r.stdout.decode("utf-8", errors="replace").strip().splitlines()
-        for line in lines[1:]:
-            line = line.strip()
-            if not line:
-                continue
-            # Dernière colonne : status, avant-dernière : size, reste : model
-            parts = line.rsplit(None, 2)
-            if len(parts) < 3:
-                continue
-            model, size_raw, status = parts[0].strip(), parts[1].strip(), parts[2].strip()
+        out = r.stdout.decode("utf-8", errors="replace").strip()
+        if not out:
+            return disks
+        data = json.loads(out)
+        if isinstance(data, dict):
+            data = [data]
+        for d in data:
+            status = str(d.get("HealthStatus") or "").strip()
             try:
-                size = int(size_raw)
-            except ValueError:
+                size = int(d.get("Size") or 0)
+            except (TypeError, ValueError):
                 size = 0
-            healthy = status.lower() == "ok"
             disks.append({
-                "model":    model,
+                "model":    str(d.get("FriendlyName") or "").strip(),
                 "size":     size,
                 "size_fmt": fmt_size(size),
-                "status":   status,
-                "healthy":  healthy,
+                "status":   status or "Unknown",
+                "healthy":  status.lower() == "healthy",
             })
     except Exception:
         pass
@@ -1639,6 +1663,205 @@ def get_disk_smart():
 # ──────────────────────────────────────────────────────────────────────────────
 # Mises à jour logicielles (winget)
 # ──────────────────────────────────────────────────────────────────────────────
+
+_WINDOWS_TWEAKS = [
+    # Barre des tâches
+    {"id": "widgets", "label": "Widgets", "desc": "Icône météo et actualités à gauche de la barre des tâches (Windows 11)",
+     "group": "taskbar", "path": r"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced",
+     "name": "TaskbarDa", "on_val": 1, "off_val": 0, "default_on": True},
+    {"id": "news_interests", "label": "Actualités et centres d'intérêt", "desc": "Panneau météo/news sur la barre des tâches (Windows 10)",
+     "group": "taskbar", "path": r"Software\Microsoft\Windows\CurrentVersion\Feeds",
+     "name": "ShellFeedsTaskbarViewMode", "on_val": 0, "off_val": 2, "default_on": True},
+    {"id": "chat_teams", "label": "Chat Teams", "desc": "Icône bulle Teams dans la barre des tâches",
+     "group": "taskbar", "path": r"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced",
+     "name": "TaskbarMn", "on_val": 1, "off_val": 0, "default_on": True},
+    {"id": "task_view", "label": "Bouton Task View", "desc": "Bouton timeline / bureaux virtuels dans la barre des tâches",
+     "group": "taskbar", "path": r"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced",
+     "name": "ShowTaskViewButton", "on_val": 1, "off_val": 0, "default_on": True},
+    {"id": "search_box", "label": "Barre de recherche large", "desc": "Grande barre de recherche → icône uniquement",
+     "group": "taskbar", "path": r"Software\Microsoft\Windows\CurrentVersion\Search",
+     "name": "SearchboxTaskbarMode", "on_val": 2, "off_val": 1, "default_on": True},
+
+    # Recherche
+    {"id": "bing_search", "label": "Suggestions Bing dans le menu Démarrer", "desc": "Recherches web Bing qui polluent les résultats locaux",
+     "group": "search", "path": r"Software\Policies\Microsoft\Windows\Explorer",
+     "name": "DisableSearchBoxSuggestions", "on_val": 0, "off_val": 1, "default_on": True},
+    {"id": "cortana", "label": "Cortana", "desc": "Assistant vocal Microsoft",
+     "group": "search", "path": r"Software\Microsoft\Windows\CurrentVersion\Search",
+     "name": "BingSearchEnabled", "on_val": 1, "off_val": 0, "default_on": True},
+
+    # Menu Démarrer & pubs
+    {"id": "silent_apps", "label": "Installations silencieuses d'apps", "desc": "Candy Crush, TikTok et autres installés automatiquement",
+     "group": "start", "path": r"Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager",
+     "name": "SilentInstalledAppsEnabled", "on_val": 1, "off_val": 0, "default_on": True},
+    {"id": "start_suggestions", "label": "Suggestions dans le menu Démarrer", "desc": "Apps suggérées dans la tuile du menu Démarrer",
+     "group": "start", "path": r"Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager",
+     "name": "SystemPaneSuggestionsEnabled", "on_val": 1, "off_val": 0, "default_on": True},
+    {"id": "settings_suggestions", "label": "Contenu suggéré dans Paramètres", "desc": "Pubs et astuces dans l'application Paramètres",
+     "group": "start", "path": r"Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager",
+     "name": "SubscribedContent-338393Enabled", "on_val": 1, "off_val": 0, "default_on": True},
+
+    # Écran de verrouillage & notifications
+    {"id": "lockscreen_tips", "label": "Astuces sur l'écran de verrouillage", "desc": "Texte promo Windows Spotlight sur l'écran de verrouillage",
+     "group": "lockscreen", "path": r"Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager",
+     "name": "RotatingLockScreenOverlayEnabled", "on_val": 1, "off_val": 0, "default_on": True},
+    {"id": "soft_landing", "label": "Notifications « Conseils Windows »", "desc": "Popups de suggestions et astuces pendant l'utilisation",
+     "group": "lockscreen", "path": r"Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager",
+     "name": "SoftLandingEnabled", "on_val": 1, "off_val": 0, "default_on": True},
+
+    # Explorateur
+    {"id": "onedrive_ads", "label": "Pubs OneDrive dans l'Explorateur", "desc": "Notifications pour passer à OneDrive premium",
+     "group": "explorer", "path": r"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced",
+     "name": "ShowSyncProviderNotifications", "on_val": 1, "off_val": 0, "default_on": True},
+    {"id": "show_recent", "label": "Fichiers récents dans Accès rapide", "desc": "Historique des fichiers récemment ouverts",
+     "group": "explorer", "path": r"Software\Microsoft\Windows\CurrentVersion\Explorer",
+     "name": "ShowRecent", "on_val": 1, "off_val": 0, "default_on": True},
+    {"id": "show_frequent", "label": "Dossiers fréquents dans Accès rapide", "desc": "Dossiers les plus consultés dans l'Explorateur",
+     "group": "explorer", "path": r"Software\Microsoft\Windows\CurrentVersion\Explorer",
+     "name": "ShowFrequent", "on_val": 1, "off_val": 0, "default_on": True},
+]
+
+_TWEAK_GROUPS = [
+    ("taskbar",    "Barre des tâches"),
+    ("search",     "Recherche & Cortana"),
+    ("start",      "Menu Démarrer & pubs"),
+    ("lockscreen", "Notifications & écran de verrouillage"),
+    ("explorer",   "Explorateur de fichiers"),
+]
+
+
+def get_windows_tweaks():
+    import winreg
+    result = {"groups": [], "items": []}
+    for gid, glabel in _TWEAK_GROUPS:
+        result["groups"].append({"id": gid, "label": glabel})
+
+    # Regroupe les tweaks par path pour n'ouvrir chaque clé qu'une fois
+    by_path = defaultdict(list)
+    for t in _WINDOWS_TWEAKS:
+        by_path[t["path"]].append(t)
+
+    values = {}
+    for path, tweaks in by_path.items():
+        try:
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, path) as k:
+                for t in tweaks:
+                    try:
+                        val, _ = winreg.QueryValueEx(k, t["name"])
+                        values[t["id"]] = int(val)
+                    except FileNotFoundError:
+                        values[t["id"]] = None
+        except (FileNotFoundError, OSError):
+            for t in tweaks:
+                values[t["id"]] = None
+
+    for t in _WINDOWS_TWEAKS:
+        current = values.get(t["id"])
+        active = bool(t.get("default_on", True)) if current is None else (current == t["on_val"])
+        result["items"].append({
+            "id":    t["id"],
+            "label": t["label"],
+            "desc":  t["desc"],
+            "group": t["group"],
+            "active": active,
+        })
+    return result
+
+
+def set_windows_tweak(tweak_id, active):
+    import winreg
+    tweak = next((t for t in _WINDOWS_TWEAKS if t["id"] == tweak_id), None)
+    if not tweak:
+        return False, "Tweak inconnu"
+    target = tweak["on_val"] if active else tweak["off_val"]
+    # 1) Essai API winreg (rapide, la majorité des clés)
+    try:
+        try:
+            k = winreg.OpenKey(winreg.HKEY_CURRENT_USER, tweak["path"], 0, winreg.KEY_SET_VALUE)
+        except FileNotFoundError:
+            k = winreg.CreateKey(winreg.HKEY_CURRENT_USER, tweak["path"])
+        with k:
+            winreg.SetValueEx(k, tweak["name"], 0, winreg.REG_DWORD, target)
+        return True, None
+    except (OSError, PermissionError):
+        pass
+    # 2) Fallback reg.exe — contourne les clés verrouillées par Explorer (TaskbarDa, ShellFeedsTaskbarViewMode…)
+    try:
+        r = subprocess.run(
+            ["reg", "add", "HKCU\\" + tweak["path"], "/v", tweak["name"],
+             "/t", "REG_DWORD", "/d", str(target), "/f"],
+            capture_output=True, timeout=8, creationflags=0x08000000
+        )
+        if r.returncode == 0:
+            return True, None
+        err = r.stderr.decode("utf-8", errors="replace").strip() or "reg.exe a échoué"
+        return False, err
+    except Exception as e:
+        return False, str(e)
+
+
+def get_drivers():
+    _CLASS_MAP = {
+        "display":       "display",
+        "media":         "media",
+        "audioendpoint": "media",
+        "net":           "net",
+        "diskdrive":     "disk",
+        "volume":        "disk",
+        "hdc":           "disk",
+        "usbstor":       "usb",
+        "usb":           "usb",
+        "bluetooth":     "bluetooth",
+        "image":         "camera",
+        "camera":        "camera",
+        "keyboard":      "keyboard",
+        "mouse":         "mouse",
+        "hidclass":      "mouse",
+        "battery":       "battery",
+        "processor":     "cpu",
+        "printer":       "printer",
+        "printqueue":    "printer",
+        "system":        "system",
+        "computer":      "system",
+    }
+    cmd = [
+        "powershell", "-NoProfile", "-NonInteractive", "-Command",
+        "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; "
+        "Get-CimInstance Win32_PnPSignedDriver | Where-Object { $_.DeviceName } | "
+        "Select-Object "
+        "@{n='name';e={$_.DeviceName}}, "
+        "@{n='version';e={$_.DriverVersion}}, "
+        "@{n='date';e={if($_.DriverDate){$_.DriverDate.ToString('yyyy-MM-dd')}else{''}}}, "
+        "@{n='manufacturer';e={if($_.Manufacturer){$_.Manufacturer}else{''}}}, "
+        "@{n='class';e={if($_.DeviceClass){$_.DeviceClass}else{''}}} "
+        "| ConvertTo-Json -Compress"
+    ]
+    try:
+        r = subprocess.run(cmd, capture_output=True, timeout=30, creationflags=0x08000000)
+        out = r.stdout.decode("utf-8", errors="replace").strip()
+        if not out:
+            return []
+        data = json.loads(out)
+        if isinstance(data, dict):
+            data = [data]
+        result = []
+        for d in data:
+            name = (d.get("name") or "").strip()
+            if not name:
+                continue
+            cls = (d.get("class") or "").strip().lower()
+            result.append({
+                "name":         name,
+                "version":      (d.get("version") or "").strip(),
+                "date":         (d.get("date") or "").strip(),
+                "manufacturer": (d.get("manufacturer") or "").strip(),
+                "class_key":    _CLASS_MAP.get(cls, "other"),
+            })
+        result.sort(key=lambda x: x["date"], reverse=True)
+        return result
+    except Exception:
+        return []
+
 
 def get_software_updates():
     """
@@ -1651,8 +1874,7 @@ def get_software_updates():
              "--accept-source-agreements", "--disable-interactivity"],
             capture_output=True, timeout=30
         )
-        enc    = "cp1252" if sys.platform == "win32" else "utf-8"
-        output = r.stdout.decode(enc, errors="replace")
+        output = r.stdout.decode("utf-8", errors="replace")
         lines  = output.splitlines()
 
         # Trouver la ligne séparateur : uniquement des tirets, au moins 20 caractères
@@ -1722,8 +1944,7 @@ def get_privacy_items():
     """
     items = []
 
-    # Fichiers récents (MRU Explorateur)
-    recent = Path(os.environ.get("APPDATA", "")) / "Microsoft" / "Windows" / "Recent"
+    recent = _recent_files_dir()
     if recent.exists():
         files = list(recent.glob("*.lnk"))
         size  = sum(f.stat().st_size for f in files if f.is_file())
@@ -1817,13 +2038,9 @@ def clean_privacy_items(ids):
     cleaned, errors = 0, []
 
     if "recent_files" in ids:
-        recent = Path(os.environ.get("APPDATA", "")) / "Microsoft" / "Windows" / "Recent"
-        for f in recent.glob("*.lnk"):
-            try:
-                f.unlink()
-                cleaned += 1
-            except Exception as e:
-                errors.append(str(e))
+        count, _, errs = _purge_recent_shortcuts()
+        cleaned += count
+        errors.extend(errs)
 
     if "jump_lists" in ids:
         jl_dirs = [

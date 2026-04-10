@@ -8,6 +8,7 @@ venv/
 
 # Données runtime
 history.json
+logs/
 
 # Tests — artefacts générés
 tests/screenshots/

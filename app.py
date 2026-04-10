@@ -3,6 +3,7 @@ app.py — OpenCleaner (Flask local)
 """
 
 import json
+import logging
 import os
 import queue
 import subprocess
@@ -11,6 +12,7 @@ import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 from flask import Flask, Response, jsonify, render_template, request
@@ -35,7 +37,15 @@ from cleaner import (
     get_windows_old_info, delete_windows_old,
     find_old_installers, delete_installer_files,
     is_admin, is_admin_path,
+    get_drivers,
+    get_windows_tweaks, set_windows_tweak,
 )
+
+
+def _log_delete(op, summary, errors):
+    app.logger.info("%s — %s, %d erreur(s)", op, summary, len(errors or []))
+    for e in (errors or []):
+        app.logger.warning("  échec: %s", e)
 
 
 def _reject_if_admin_paths(paths):
@@ -49,6 +59,13 @@ def _reject_if_admin_paths(paths):
     return None
 
 app = Flask(__name__)
+
+_LOG_DIR = Path(__file__).parent / "logs"
+_LOG_DIR.mkdir(exist_ok=True)
+_handler = RotatingFileHandler(_LOG_DIR / "app.log", maxBytes=5 * 1024 * 1024, backupCount=3, encoding="utf-8")
+_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S"))
+app.logger.addHandler(_handler)
+app.logger.setLevel(logging.INFO)
 
 JOBS: dict       = {}
 JOBS_LOCK        = threading.Lock()
@@ -232,6 +249,7 @@ def api_duplicates_delete():
     if rejected:
         return rejected
     freed, errors = delete_duplicate_files(paths)
+    _log_delete("duplicates/delete", f"{len(paths)} fichier(s), {fmt_size(freed)} libérés", errors)
     return jsonify({"freed": freed, "freed_fmt": fmt_size(freed), "errors": errors})
 
 
@@ -303,6 +321,7 @@ def api_shortcuts_delete():
     if rejected:
         return rejected
     deleted, errors = delete_shortcuts(paths)
+    _log_delete("shortcuts/delete", f"{deleted} supprimé(s)", errors)
     return jsonify({"deleted": deleted, "errors": errors})
 
 
@@ -337,6 +356,7 @@ def _run_largefiles(job_id, folder, min_bytes):
         q.put({"type": "done", "msg": f"{len(results)} fichier(s) — {fmt_size(total)} au total.",
                "freed_bytes": 0, "freed_fmt": "—"})
     except Exception as e:
+        app.logger.exception("largefiles scan error")
         log(f"Erreur : {e}")
         q.put({"type": "done", "msg": f"Erreur : {e}", "freed_bytes": 0, "freed_fmt": "0 o"})
     finally:
@@ -364,6 +384,7 @@ def api_empty_folders_delete():
     if rejected:
         return rejected
     deleted, errors = delete_empty_folders(paths)
+    _log_delete("empty-folders/delete", f"{deleted} supprimé(s)", errors)
     return jsonify({"ok": deleted > 0, "deleted": deleted, "errors": errors})
 
 
@@ -380,6 +401,7 @@ def _run_empty_folders(job_id, folder):
         q.put({"type": "done", "msg": f"{len(results)} dossier(s) vide(s) trouvé(s).",
                "count": len(results), "freed_bytes": 0, "freed_fmt": "—"})
     except Exception as e:
+        app.logger.exception("empty-folders scan error")
         q.put({"type": "done", "msg": f"Erreur : {e}", "freed_bytes": 0, "freed_fmt": "—"})
     finally:
         job["done"] = True
@@ -399,6 +421,7 @@ def api_orphan_folders_delete():
     if not paths:
         return jsonify({"error": "Aucun chemin fourni."}), 400
     deleted, errors = delete_orphan_folders(paths)
+    _log_delete("orphan-folders/delete", f"{deleted} supprimé(s)", errors)
     return jsonify({"ok": deleted > 0, "deleted": deleted, "errors": errors})
 
 
@@ -417,6 +440,7 @@ def _run_orphan_folders(job_id):
         q.put({"type": "done", "msg": f"{len(results)} dossier(s) orphelin(s) — {fmt_size(total)} récupérables.",
                "count": len(results), "freed_bytes": total, "freed_fmt": fmt_size(total)})
     except Exception as e:
+        app.logger.exception("orphan-folders scan error")
         q.put({"type": "done", "msg": f"Erreur : {e}", "freed_bytes": 0, "freed_fmt": "—"})
     finally:
         job["done"] = True
@@ -526,8 +550,42 @@ def api_old_installers_delete():
     if rejected:
         return rejected
     freed, errors = delete_installer_files(paths)
+    _log_delete("old-installers/delete", f"{len(paths)} fichier(s), {fmt_size(freed)} libérés", errors)
     return jsonify({"ok": freed > 0 or not errors, "freed": freed,
                     "freed_fmt": fmt_size(freed), "errors": errors})
+
+
+@app.route("/api/windows-tweaks")
+def api_windows_tweaks():
+    try:
+        return jsonify(get_windows_tweaks())
+    except Exception as e:
+        app.logger.exception("windows-tweaks error")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/windows-tweaks/set", methods=["POST"])
+def api_windows_tweaks_set():
+    data = request.get_json(force=True) or {}
+    tweak_id = data.get("id")
+    active   = bool(data.get("active"))
+    if not tweak_id:
+        return jsonify({"error": "id manquant"}), 400
+    ok, err = set_windows_tweak(tweak_id, active)
+    if ok:
+        app.logger.info("windows-tweaks/set — %s → %s", tweak_id, "on" if active else "off")
+        return jsonify({"ok": True})
+    app.logger.warning("windows-tweaks/set — %s failed: %s", tweak_id, err)
+    return jsonify({"ok": False, "error": err}), 500
+
+
+@app.route("/api/drivers")
+def api_drivers():
+    try:
+        return jsonify(get_drivers())
+    except Exception as e:
+        app.logger.exception("drivers error")
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/relaunch-admin", methods=["POST"])

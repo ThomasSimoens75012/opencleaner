@@ -53,17 +53,15 @@ async function loadHealth() {
 
 function updateHealthBadge(data) {
   const pct   = Math.round((data.score / data.max) * 100);
-  const color = pct >= 80 ? "var(--green)" : pct >= 50 ? "var(--amber)" : "var(--red)";
   const badge = document.getElementById("health-badge");
-  if (badge) { badge.textContent = pct + "%"; badge.style.color = color; }
-  // Page-property du score Santé
+  if (badge) { badge.textContent = pct + "%"; }
   const prop = document.getElementById("prop-health-score");
-  if (prop) { prop.textContent = pct + "%"; prop.style.color = color; }
+  if (prop) { prop.textContent = pct + "%"; }
 }
 
 function renderHealth(data) {
   const pct   = Math.round((data.score / data.max) * 100);
-  const color = pct >= 80 ? "var(--green)" : pct >= 50 ? "var(--amber)" : "var(--red)";
+  const color = pct >= 80 ? "#22c55e" : pct >= 50 ? "#f59e0b" : "#ef4444";
   const C     = 2 * Math.PI * 54; // r=54
   const offset = C - (pct / 100) * C;
 
@@ -74,12 +72,11 @@ function renderHealth(data) {
   if (ringFill) {
     ringFill.style.strokeDasharray  = C;
     ringFill.style.strokeDashoffset = offset;
-    ringFill.setAttribute("stroke", color);
+    ringFill.style.stroke = color;
   }
-  if (scoreVal) { scoreVal.textContent = pct + "%"; scoreVal.style.color = color; }
+  if (scoreVal) { scoreVal.textContent = pct + "%"; }
   if (scoreLbl) {
     scoreLbl.textContent = pct >= 80 ? "Excellent" : pct >= 50 ? "À améliorer" : "Attention";
-    scoreLbl.style.color = color;
   }
 
   updateHealthBadge(data);

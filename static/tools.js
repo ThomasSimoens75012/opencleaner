@@ -175,12 +175,16 @@ function _makeSelHeader(el, { countText, deleteId, deleteLabel = "Supprimer la s
     left.appendChild(sortDiv);
   }
 
-  const btnDel = document.createElement("button"); btnDel.className = "btn-ghost";
-  if (deleteId) btnDel.id = deleteId;
-  btnDel.style.cssText = "font-size:12px;padding:6px 12px;flex-shrink:0";
-  btnDel.textContent = deleteLabel;
-  btnDel.addEventListener("click", deleteFn);
-  header.append(left, btnDel);
+  if (deleteFn) {
+    const btnDel = document.createElement("button"); btnDel.className = "btn-ghost";
+    if (deleteId) btnDel.id = deleteId;
+    btnDel.style.cssText = "font-size:12px;padding:6px 12px;flex-shrink:0";
+    btnDel.textContent = deleteLabel;
+    btnDel.addEventListener("click", deleteFn);
+    header.append(left, btnDel);
+  } else {
+    header.appendChild(left);
+  }
   return header;
 }
 
@@ -472,83 +476,64 @@ function renderDuplicates(groups, totalFmt) {
 
   el.innerHTML = `
     <div class="dupe-header">
-      <span>${sorted.length} groupe(s) — ${totalFmt} récupérables</span>
+      <div class="list-header">
+        <input type="checkbox" id="sel-all-dupes" class="sel-all" checked title="Tout sélectionner / désélectionner">
+        <span>${sorted.length} groupe(s) — ${totalFmt} récupérables</span>
+      </div>
       <button class="btn-ghost" onclick="deleteSelectedDupes()" id="btn-delete-dupes">
         Supprimer la sélection
       </button>
     </div>`;
 
-  sorted.forEach((files, gi) => {
+  _watchSelSize(el, document.getElementById("btn-delete-dupes"));
+  _renderBatched(sorted, (files, gi) => {
     const group = document.createElement("div");
     group.className = "dupe-group";
-
-    // Index du fichier à conserver (0 par défaut)
-    let keptIdx = 0;
-
     const groupSize = files.reduce((s, f) => s + f.size, 0);
     group.innerHTML = `<div class="dupe-group-title">${files.length} fichiers identiques — ${fmtBytesTools(groupSize)}</div>`;
-
+    let keptIdx = 0;
     const renderRows = () => {
-      // Vider les lignes existantes (sans toucher au titre)
       [...group.querySelectorAll(".dupe-row")].forEach(r => r.remove());
-
       files.forEach((f, fi) => {
-        const row  = document.createElement("div");
-        row.className = "dupe-row";
-        const cbId = `dupe-${gi}-${fi}`;
-        const isKept = fi === keptIdx;
-
+        const row = document.createElement("div"); row.className = "dupe-row";
+        const cbId = `dupe-${gi}-${fi}`; const isKept = fi === keptIdx;
         const cb = document.createElement("input");
-        cb.type = "checkbox"; cb.id = cbId; cb.dataset.path = f.path;
-        cb.checked  = !isKept;
-        cb.disabled = isKept;
-        cb.title    = isKept ? "Ce fichier sera conservé" : "";
-
-        const lbl = document.createElement("label");
-        lbl.htmlFor = cbId; lbl.className = "dupe-path";
-        lbl.style.opacity = isKept ? "0.55" : "";
-
-        const sizeSpan = document.createElement("span");
-        sizeSpan.className = "dupe-size"; sizeSpan.textContent = f.size_fmt;
-        lbl.appendChild(sizeSpan);
-        lbl.appendChild(document.createTextNode(" " + f.path));
-
+        cb.type = "checkbox"; cb.id = cbId; cb.dataset.path = f.path; cb.dataset.size = f.size;
+        cb.checked = !isKept; cb.disabled = isKept;
+        cb.title = isKept ? "Ce fichier sera conservé" : "";
+        const lbl = document.createElement("label"); lbl.htmlFor = cbId; lbl.className = "dupe-path"; lbl.style.opacity = isKept ? "0.55" : "";
+        const sizeSpan = document.createElement("span"); sizeSpan.className = "dupe-size"; sizeSpan.textContent = f.size_fmt;
+        lbl.appendChild(sizeSpan); lbl.appendChild(document.createTextNode(" " + f.path));
         if (isKept) {
-          const badge = document.createElement("span");
-          badge.className = "source-badge";
-          badge.style.cssText = "margin-left:6px;color:var(--green);border-color:var(--green)";
-          badge.textContent = "↩ conservé";
-          lbl.appendChild(badge);
+          const badge = document.createElement("span"); badge.className = "source-badge";
+          badge.style.cssText = "margin-left:6px;color:var(--green);border-color:var(--green)"; badge.textContent = "↩ conservé";
+          lbl.appendChild(badge); row.append(cb, lbl);
         } else {
-          // Bouton "Conserver celui-ci" sur les fichiers supprimables
-          const keepBtn = document.createElement("button");
-          keepBtn.className   = "btn-ghost";
-          keepBtn.textContent = "Conserver celui-ci";
+          const keepBtn = document.createElement("button"); keepBtn.className = "btn-ghost"; keepBtn.textContent = "Conserver celui-ci";
           keepBtn.style.cssText = "font-size:11px;padding:2px 8px;margin-left:8px;flex-shrink:0";
-          keepBtn.addEventListener("click", (e) => {
-            e.preventDefault();
-            keptIdx = fi;
-            renderRows();
-          });
+          keepBtn.addEventListener("click", (e) => { e.preventDefault(); keptIdx = fi; renderRows(); });
           row.append(cb, lbl, keepBtn);
-          _applyAdminLock(row, cb, f.needs_admin);
-          group.appendChild(row);
-          return;
         }
-
-        row.append(cb, lbl);
         _applyAdminLock(row, cb, f.needs_admin);
         group.appendChild(row);
       });
     };
-
     renderRows();
-    el.appendChild(group);
-  });
+    return group;
+  }, el);
+
+  const selAll = document.getElementById("sel-all-dupes");
+  if (selAll) {
+    selAll.addEventListener("change", () => {
+      el.querySelectorAll("input[type=checkbox]:not(#sel-all-dupes)").forEach(cb => {
+        if (!cb.disabled) cb.checked = selAll.checked;
+      });
+    });
+  }
 }
 
 async function deleteSelectedDupes() {
-  const checked = [...document.querySelectorAll("#dupe-results input[type=checkbox]:checked:not(.sel-all)")];
+  const checked = [...document.querySelectorAll("#dupe-results input[type=checkbox]:checked:not(.sel-all)")].filter(c => !c.disabled);
   if (!checked.length) { showToast("Aucune sélection", "Cochez au moins un élément.", "warn"); return; }
 
   // Vérification de sécurité : s'assurer qu'au moins un fichier de chaque groupe est conservé
@@ -563,10 +548,11 @@ async function deleteSelectedDupes() {
   }
 
   const paths = checked.map(c => c.dataset.path);
+  const totalSize = checked.reduce((s, c) => s + (parseInt(c.dataset.size) || 0), 0);
   const btn = document.getElementById("btn-delete-dupes");
   showConfirm(
     `Supprimer ${paths.length} élément(s) ?`,
-    "Cette action est irréversible. Les fichiers cochés seront définitivement supprimés du disque.",
+    `Les fichiers cochés seront définitivement supprimés du disque. Espace récupéré estimé : ${fmtBytesTools(totalSize)}.`,
     async () => {
       if (btn) { btn.disabled = true; btn.textContent = "Suppression…"; }
       try {
@@ -599,6 +585,39 @@ function fmtBytesTools(b) {
   let i = 0;
   while (b >= 1024 && i < units.length - 1) { b /= 1024; i++; }
   return b.toFixed(1) + " " + units[i];
+}
+
+function _renderBatched(items, rowFn, container, batchSize, onDone) {
+  batchSize = batchSize || 50;
+  // Annule tout rendu en cours sur ce container
+  const token = Symbol();
+  container._renderToken = token;
+  let i = 0;
+  function next() {
+    if (container._renderToken !== token) return;
+    const frag = document.createDocumentFragment();
+    const end = Math.min(i + batchSize, items.length);
+    for (; i < end; i++) frag.appendChild(rowFn(items[i], i));
+    container.appendChild(frag);
+    if (i < items.length) requestAnimationFrame(next);
+    else if (onDone) onDone();
+  }
+  requestAnimationFrame(next);
+}
+
+function _watchSelSize(el, btnEl) {
+  if (!btnEl) return;
+  const update = () => {
+    const checked = [...el.querySelectorAll("input[type=checkbox]:checked:not(.sel-all)")];
+    const total = checked.reduce((s, c) => s + (parseInt(c.dataset.size) || 0), 0);
+    btnEl.textContent = total > 0
+      ? `Supprimer la sélection (${fmtBytesTools(total)})`
+      : "Supprimer la sélection";
+  };
+  if (el._selSizeHandler) el.removeEventListener("change", el._selSizeHandler);
+  el._selSizeHandler = update;
+  el.addEventListener("change", update);
+  update();
 }
 
 // ── Registre ──────────────────────────────────────────────────────────────────
@@ -664,7 +683,7 @@ function renderRegistryIssues(issues) {
   el.appendChild(_makeSelHeader(el, {
     countText:   `${issues.length} problème(s) détecté(s)`,
     deleteId:    "btn-fix-reg",
-    deleteLabel: "Corriger la sélection",
+    deleteLabel: "Supprimer la sélection",
     deleteFn:    fixSelectedRegistry,
   }));
 
@@ -1033,7 +1052,7 @@ function renderShortcuts(shortcuts) {
 }
 
 async function deleteSelectedShortcuts() {
-  const checked = [...document.querySelectorAll("#shortcuts-results input[type=checkbox]:checked:not(.sel-all)")];
+  const checked = [...document.querySelectorAll("#shortcuts-results input[type=checkbox]:checked:not(.sel-all)")].filter(c => !c.disabled);
   if (!checked.length) { showToast("Aucune sélection", "Cochez au moins un élément.", "warn"); return; }
   const paths = checked.map(c => c.dataset.path);
   const btn = document.getElementById("btn-delete-shortcuts");
@@ -1138,10 +1157,11 @@ function _renderLargeFiles() {
     onSort: (key) => { _lfSortKey === key ? _lfSortDir *= -1 : (_lfSortKey = key, _lfSortDir = -1); _renderLargeFiles(); },
   }));
 
-  files.forEach((f, i) => {
+  _watchSelSize(el, document.getElementById("btn-delete-lf"));
+  _renderBatched(files, (f, i) => {
     const row  = document.createElement("div"); row.className = "dupe-row";
     const cbId = `lf-${i}`;
-    const cb   = document.createElement("input"); cb.type = "checkbox"; cb.id = cbId; cb.dataset.path = f.path; cb.checked = true;
+    const cb   = document.createElement("input"); cb.type = "checkbox"; cb.id = cbId; cb.dataset.path = f.path; cb.dataset.size = f.size; cb.checked = true;
     const lbl  = document.createElement("label"); lbl.htmlFor = cbId;
     lbl.style.cssText = "flex:1;font-size:12px;color:var(--text-mid);cursor:pointer;word-break:break-all";
     const sizeSpan = document.createElement("span"); sizeSpan.className = "dupe-size"; sizeSpan.textContent = f.size_fmt;
@@ -1150,18 +1170,19 @@ function _renderLargeFiles() {
     lbl.append(sizeSpan, " ", nameSpan, document.createElement("br"), pathSpan);
     row.append(cb, lbl);
     _applyAdminLock(row, cb, f.needs_admin);
-    el.appendChild(row);
-  });
+    return row;
+  }, el);
 }
 
 async function deleteSelectedLargeFiles() {
-  const checked = [...document.querySelectorAll("#lf-results input[type=checkbox]:checked:not(.sel-all)")];
+  const checked = [...document.querySelectorAll("#lf-results input[type=checkbox]:checked:not(.sel-all)")].filter(c => !c.disabled);
   if (!checked.length) { showToast("Aucune sélection", "Cochez au moins un élément.", "warn"); return; }
   const paths = checked.map(c => c.dataset.path);
+  const totalSize = checked.reduce((s, c) => s + (parseInt(c.dataset.size) || 0), 0);
   const btn = document.getElementById("btn-delete-lf");
   showConfirm(
     `Supprimer ${paths.length} élément(s) ?`,
-    "Ces fichiers seront définitivement supprimés du disque. Cette action est irréversible.",
+    `Ces fichiers seront définitivement supprimés du disque. Espace récupéré estimé : ${fmtBytesTools(totalSize)}.`,
     async () => {
       if (btn) { btn.disabled = true; btn.textContent = "Suppression…"; }
       try {
@@ -1503,10 +1524,11 @@ function _renderInstallers() {
     onSort: (key) => { _instSortKey === key ? _instSortDir *= -1 : (_instSortKey = key, _instSortDir = -1); _renderInstallers(); },
   }));
 
-  files.forEach((f, i) => {
+  _watchSelSize(el, document.getElementById("btn-delete-inst"));
+  _renderBatched(files, (f, i) => {
     const row  = document.createElement("div"); row.className = "dupe-row";
     const cbId = `inst-${i}`;
-    const cb   = document.createElement("input"); cb.type = "checkbox"; cb.id = cbId; cb.dataset.path = f.path; cb.checked = true;
+    const cb   = document.createElement("input"); cb.type = "checkbox"; cb.id = cbId; cb.dataset.path = f.path; cb.dataset.size = f.size; cb.checked = true;
     const lbl  = document.createElement("label"); lbl.htmlFor = cbId;
     lbl.style.cssText = "flex:1;font-size:12px;color:var(--text-mid);cursor:pointer;word-break:break-all";
     const sizeSpan = document.createElement("span"); sizeSpan.className = "dupe-size"; sizeSpan.textContent = f.size_fmt;
@@ -1515,18 +1537,19 @@ function _renderInstallers() {
     lbl.append(sizeSpan, " ", nameSpan, " — ", ageSpan);
     row.append(cb, lbl);
     _applyAdminLock(row, cb, f.needs_admin);
-    el.appendChild(row);
-  });
+    return row;
+  }, el);
 }
 
 async function deleteSelectedInstallers() {
-  const checked = [...document.querySelectorAll("#inst-results input[type=checkbox]:checked:not(.sel-all)")];
+  const checked = [...document.querySelectorAll("#inst-results input[type=checkbox]:checked:not(.sel-all)")].filter(c => !c.disabled);
   if (!checked.length) { showToast("Aucune sélection", "Cochez au moins un élément.", "warn"); return; }
   const paths = checked.map(c => c.dataset.path);
+  const totalSize = checked.reduce((s, c) => s + (parseInt(c.dataset.size) || 0), 0);
   const btn = document.getElementById("btn-delete-inst");
   showConfirm(
     `Supprimer ${paths.length} élément(s) ?`,
-    "Ces fichiers d'installation seront définitivement supprimés. Vous devrez les re-télécharger si besoin.",
+    `Ces fichiers d'installation seront définitivement supprimés. Espace récupéré estimé : ${fmtBytesTools(totalSize)}.`,
     async () => {
       if (btn) { btn.disabled = true; btn.textContent = "Suppression…"; }
       try {
@@ -1592,7 +1615,7 @@ function renderPrivacy(items) {
   el.appendChild(_makeSelHeader(el, {
     countText:   `${active.length} catégorie(s)`,
     deleteId:    "btn-clean-privacy",
-    deleteLabel: "Nettoyer la sélection",
+    deleteLabel: "Supprimer la sélection",
     deleteFn:    cleanSelectedPrivacy,
   }));
 
@@ -1656,10 +1679,10 @@ async function cleanSelectedPrivacy() {
           showToast("Suppression terminée", `${data.cleaned} supprimé(s).`, "success");
           loadPrivacy();
         }
-        if (btn) { btn.disabled = false; btn.textContent = "Nettoyer la sélection"; }
+        if (btn) { btn.disabled = false; btn.textContent = "Supprimer la sélection"; }
       } catch (e) {
         showToast("Erreur", e.message, "warn");
-        if (btn) { btn.disabled = false; btn.textContent = "Nettoyer la sélection"; }
+        if (btn) { btn.disabled = false; btn.textContent = "Supprimer la sélection"; }
       }
     }
   );
@@ -1797,7 +1820,7 @@ function renderEmptyFolders(folders) {
     deleteFn:    deleteSelectedEmptyFolders,
   }));
 
-  folders.forEach((f, i) => {
+  _renderBatched(folders, (f, i) => {
     const row  = document.createElement("div"); row.className = "dupe-row";
     const cbId = `ef-${i}`;
     const cb   = document.createElement("input"); cb.type = "checkbox"; cb.id = cbId; cb.dataset.path = f.path; cb.checked = true;
@@ -1808,12 +1831,12 @@ function renderEmptyFolders(folders) {
     lbl.append(nameSpan, document.createElement("br"), pathSpan);
     row.append(cb, lbl);
     _applyAdminLock(row, cb, f.needs_admin);
-    el.appendChild(row);
-  });
+    return row;
+  }, el);
 }
 
 async function deleteSelectedEmptyFolders() {
-  const checked = [...document.querySelectorAll("#ef-results input[type=checkbox]:checked:not(.sel-all)")];
+  const checked = [...document.querySelectorAll("#ef-results input[type=checkbox]:checked:not(.sel-all)")].filter(c => !c.disabled);
   if (!checked.length) { showToast("Aucune sélection", "Cochez au moins un élément.", "warn"); return; }
   const paths = checked.map(c => c.dataset.path);
   const btn = document.getElementById("btn-delete-ef");
@@ -1917,10 +1940,11 @@ function _renderOrphanFolders() {
     onSort: (key) => { _orphanSortKey === key ? _orphanSortDir *= -1 : (_orphanSortKey = key, _orphanSortDir = -1); _renderOrphanFolders(); },
   }));
 
-  folders.forEach((f, i) => {
+  _watchSelSize(el, document.getElementById("btn-delete-orphan"));
+  _renderBatched(folders, (f, i) => {
     const row  = document.createElement("div"); row.className = "dupe-row";
     const cbId = `or-${i}`;
-    const cb   = document.createElement("input"); cb.type = "checkbox"; cb.id = cbId; cb.dataset.path = f.path; cb.checked = true;
+    const cb   = document.createElement("input"); cb.type = "checkbox"; cb.id = cbId; cb.dataset.path = f.path; cb.dataset.size = f.size; cb.checked = true;
     const lbl  = document.createElement("label"); lbl.htmlFor = cbId;
     lbl.style.cssText = "flex:1;font-size:12px;color:var(--text-mid);cursor:pointer;word-break:break-all";
     const sizeSpan = document.createElement("span"); sizeSpan.className = "dupe-size"; sizeSpan.textContent = f.size_fmt;
@@ -1928,18 +1952,19 @@ function _renderOrphanFolders() {
     const pathSpan = document.createElement("span"); pathSpan.style.color = "var(--text-dim)"; pathSpan.textContent = f.path;
     lbl.append(sizeSpan, " ", nameSpan, document.createElement("br"), pathSpan);
     row.append(cb, lbl);
-    el.appendChild(row);
-  });
+    return row;
+  }, el);
 }
 
 async function deleteSelectedOrphanFolders() {
-  const checked = [...document.querySelectorAll("#orphan-results input[type=checkbox]:checked:not(.sel-all)")];
+  const checked = [...document.querySelectorAll("#orphan-results input[type=checkbox]:checked:not(.sel-all)")].filter(c => !c.disabled);
   if (!checked.length) { showToast("Aucune sélection", "Cochez au moins un élément.", "warn"); return; }
   const paths = checked.map(c => c.dataset.path);
+  const totalSize = checked.reduce((s, c) => s + (parseInt(c.dataset.size) || 0), 0);
   const btn = document.getElementById("btn-delete-orphan");
   showConfirm(
     `Supprimer ${paths.length} élément(s) ?`,
-    "Assurez-vous que ces dossiers correspondent bien à des applications désinstallées. Cette action est irréversible.",
+    `Assurez-vous que ces dossiers correspondent bien à des applications désinstallées. Espace récupéré estimé : ${fmtBytesTools(totalSize)}.`,
     async () => {
       if (btn) { btn.disabled = true; btn.textContent = "Suppression…"; }
       try {
@@ -1967,6 +1992,250 @@ async function deleteSelectedOrphanFolders() {
       }
     }
   );
+}
+
+// ── Personnalisation Windows ──────────────────────────────────────────────────
+
+let _tweaksLoaded = false;
+
+async function loadWindowsTweaks() {
+  if (_tweaksLoaded) return;
+  const el = document.getElementById("tweaks-list");
+  if (!el) return;
+  try {
+    const res  = await fetch("/api/windows-tweaks");
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Erreur serveur");
+    _renderTweaks(data);
+    _tweaksLoaded = true;
+  } catch (e) {
+    el.innerHTML = `<div class="tool-error">Erreur : ${e.message}</div>`;
+  }
+}
+
+function _renderTweaks(data) {
+  const el = document.getElementById("tweaks-list");
+  el.innerHTML = "";
+  data.groups.forEach(g => {
+    const items = data.items.filter(i => i.group === g.id);
+    if (!items.length) return;
+    const gh = document.createElement("div");
+    gh.className = "tweak-group-title";
+    gh.textContent = g.label;
+    el.appendChild(gh);
+    items.forEach(it => el.appendChild(_tweakRow(it)));
+  });
+}
+
+function _tweakRow(item) {
+  const row = document.createElement("div");
+  row.className = "tweak-row";
+  const info = document.createElement("div");
+  info.className = "tweak-info";
+  const lbl = document.createElement("div");
+  lbl.className = "tweak-label";
+  lbl.textContent = item.label;
+  const desc = document.createElement("div");
+  desc.className = "tweak-desc";
+  desc.textContent = item.desc;
+  info.append(lbl, desc);
+
+  const sw = document.createElement("label");
+  sw.className = "sw";
+  const cb = document.createElement("input");
+  cb.type = "checkbox";
+  cb.checked = !item.active;
+  const slider = document.createElement("span");
+  slider.className = "slider";
+  sw.append(cb, slider);
+
+  cb.addEventListener("change", async () => {
+    sw.classList.add("busy");
+    const active = !cb.checked;
+    try {
+      const res = await fetch("/api/windows-tweaks/set", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: item.id, active }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || "Échec");
+      item.active = active;
+      showToast(active ? "Réactivé" : "Désactivé", item.label, "success", 2500);
+    } catch (e) {
+      cb.checked = !cb.checked;
+      showToast("Erreur", e.message, "warn");
+    } finally {
+      sw.classList.remove("busy");
+    }
+  });
+
+  row.append(info, sw);
+  return row;
+}
+
+// ── Pilotes ───────────────────────────────────────────────────────────────────
+
+let _drivers = [], _driversFilter = "all";
+
+const _DRIVER_CATEGORIES = [
+  ["display",   "Affichage"],
+  ["media",     "Audio"],
+  ["net",       "Réseau"],
+  ["disk",      "Stockage"],
+  ["usb",       "USB"],
+  ["bluetooth", "Bluetooth"],
+  ["camera",    "Caméra"],
+  ["keyboard",  "Clavier"],
+  ["mouse",     "Souris"],
+  ["battery",   "Batterie"],
+  ["cpu",       "Processeur"],
+  ["printer",   "Impression"],
+  ["system",    "Système"],
+  ["other",     "Autres"],
+];
+
+const _DRIVER_ICONS = {
+  display:   `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>`,
+  media:     `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>`,
+  net:       `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>`,
+  disk:      `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>`,
+  usb:       `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2v8l4 4-4 4v4"/><path d="M18 2v8l-4 4 4 4v4"/><line x1="12" y1="6" x2="12" y2="18"/></svg>`,
+  bluetooth: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6.5 6.5 17.5 17.5 12 23 12 1 17.5 6.5 6.5 17.5"/></svg>`,
+  camera:    `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`,
+  keyboard:  `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="10" x2="6.01" y2="10"/><line x1="10" y1="10" x2="10.01" y2="10"/><line x1="14" y1="10" x2="14.01" y2="10"/><line x1="18" y1="10" x2="18.01" y2="10"/><line x1="8" y1="14" x2="16" y2="14"/></svg>`,
+  mouse:     `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="7"/><line x1="12" y1="2" x2="12" y2="10"/></svg>`,
+  battery:   `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="6" width="18" height="12" rx="2"/><line x1="23" y1="13" x2="23" y2="11"/></svg>`,
+  cpu:       `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>`,
+  printer:   `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>`,
+  system:    `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>`,
+  other:     `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="12" y1="8" x2="12" y2="16"/></svg>`,
+};
+
+async function startDriversScan() {
+  const logEl    = document.getElementById("drivers-log");
+  const resultEl = document.getElementById("drivers-results");
+  const btnEl    = document.getElementById("btn-scan-drivers");
+  logEl.innerHTML = "";
+  resultEl.innerHTML = _skeleton(4);
+  _btnScan(btnEl, "Analyse…");
+  try {
+    const res  = await fetch("/api/drivers");
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Erreur serveur");
+    _drivers = data;
+    _driversFilter = "all";
+    if (!_drivers.length) {
+      resultEl.innerHTML = "";
+      _logAppend("drivers-log", "Aucun résultat.");
+    } else {
+      _logAppend("drivers-log", `${_drivers.length} pilote(s) trouvé(s).`);
+      _renderDrivers();
+    }
+  } catch (e) {
+    _logAppend("drivers-log", "Erreur : " + e.message);
+    resultEl.innerHTML = "";
+  }
+  _btnReset(btnEl);
+}
+
+function _renderDrivers() {
+  const el = document.getElementById("drivers-results");
+  el.innerHTML = "";
+
+  // Regrouper par catégorie
+  const groups = {};
+  _drivers.forEach(d => {
+    const k = d.class_key || "other";
+    (groups[k] = groups[k] || []).push(d);
+  });
+
+  // Header : total + filtre pills
+  const header = document.createElement("div");
+  header.className = "reg-header";
+  header.style.cssText = "flex-direction:column;align-items:stretch;gap:10px;padding:12px 6px";
+
+  const topRow = document.createElement("div");
+  topRow.style.cssText = "display:flex;align-items:center;gap:10px";
+  const totalSpan = document.createElement("span");
+  totalSpan.style.cssText = "font-size:13px;color:var(--text-mid);font-weight:500";
+  totalSpan.textContent = `${_drivers.length} pilote(s) — ${Object.keys(groups).length} catégorie(s)`;
+  topRow.appendChild(totalSpan);
+
+  const pillsRow = document.createElement("div");
+  pillsRow.style.cssText = "display:flex;flex-wrap:wrap;gap:4px";
+  const mkPill = (key, label, count) => {
+    const pill = document.createElement("span");
+    pill.className = "sort-pill" + (_driversFilter === key ? " active" : "");
+    pill.textContent = count != null ? `${label} (${count})` : label;
+    pill.addEventListener("click", () => { _driversFilter = key; _renderDrivers(); });
+    return pill;
+  };
+  pillsRow.appendChild(mkPill("all", "Tous", _drivers.length));
+  _DRIVER_CATEGORIES.forEach(([k, label]) => {
+    if (groups[k]) pillsRow.appendChild(mkPill(k, label, groups[k].length));
+  });
+
+  header.append(topRow, pillsRow);
+  el.appendChild(header);
+
+  // Déterminer les catégories à afficher
+  const visibleCats = _driversFilter === "all"
+    ? _DRIVER_CATEGORIES.filter(([k]) => groups[k])
+    : _DRIVER_CATEGORIES.filter(([k]) => k === _driversFilter && groups[k]);
+
+  // Collecter tous les items à rendre (avec headers de groupe)
+  const renderItems = [];
+  visibleCats.forEach(([k, label]) => {
+    const items = [...groups[k]].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+    renderItems.push({ type: "group", key: k, label, count: items.length });
+    items.forEach(d => renderItems.push({ type: "row", data: d }));
+  });
+
+  _renderBatched(renderItems, (item) => {
+    if (item.type === "group") {
+      const gh = document.createElement("div");
+      gh.style.cssText = "display:flex;align-items:center;gap:8px;padding:12px 6px 6px;border-bottom:1px solid var(--border);margin-top:4px";
+      const iconWrap = document.createElement("span");
+      iconWrap.style.cssText = "color:var(--text-mid);width:14px;height:14px;display:flex;align-items:center;flex-shrink:0";
+      iconWrap.innerHTML = _DRIVER_ICONS[item.key] || _DRIVER_ICONS.other;
+      const title = document.createElement("span");
+      title.style.cssText = "font-size:12px;font-weight:600;color:var(--text);text-transform:uppercase;letter-spacing:.3px";
+      title.textContent = item.label;
+      const count = document.createElement("span");
+      count.style.cssText = "font-size:11px;color:var(--text-dim)";
+      count.textContent = `${item.count}`;
+      gh.append(iconWrap, title, count);
+      return gh;
+    }
+    const d = item.data;
+    const row = document.createElement("div");
+    row.style.cssText = "display:flex;align-items:center;gap:10px;padding:8px 6px 8px 26px;border-bottom:1px solid var(--border)";
+    const info = document.createElement("div");
+    info.style.cssText = "flex:1;min-width:0";
+    const name = document.createElement("div");
+    name.style.cssText = "font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis";
+    name.textContent = d.name;
+    const mfr = document.createElement("div");
+    mfr.style.cssText = "font-size:11px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis";
+    mfr.textContent = d.manufacturer || "—";
+    info.append(name, mfr);
+    const meta = document.createElement("div");
+    meta.style.cssText = "display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex-shrink:0";
+    if (d.version) {
+      const ver = document.createElement("span");
+      ver.style.cssText = "font-size:10px;color:var(--text-dim);font-family:monospace";
+      ver.textContent = d.version;
+      meta.appendChild(ver);
+    }
+    if (d.date) {
+      const dt = document.createElement("span");
+      dt.style.cssText = "font-size:10px;color:var(--text-dim)";
+      dt.textContent = d.date;
+      meta.appendChild(dt);
+    }
+    row.append(info, meta);
+    return row;
+  }, el);
 }
 
 // ── Points de restauration ────────────────────────────────────────────────────
