@@ -11,8 +11,37 @@ import subprocess
 import sys
 import tempfile
 import ctypes
+import winreg
 from collections import defaultdict
 from pathlib import Path
+
+
+def _ps_json(ps_command, timeout=10):
+    """Exécute une commande PowerShell et retourne le JSON parsé sous forme de liste.
+
+    Gère l'encodage UTF-8, la normalisation dict→list, et les erreurs.
+    Retourne [] si échec, sortie vide, ou "null".
+    """
+    try:
+        r = subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command",
+             "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; " + ps_command],
+            capture_output=True, timeout=timeout, creationflags=0x08000000,
+        )
+    except Exception:
+        return []
+    if r.returncode != 0:
+        return []
+    out = r.stdout.decode("utf-8", errors="replace").strip()
+    if not out or out == "null":
+        return []
+    try:
+        data = json.loads(out)
+    except Exception:
+        return []
+    if isinstance(data, dict):
+        return [data]
+    return data if isinstance(data, list) else []
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -628,7 +657,6 @@ def get_startup_entries():
     Retourne la liste des programmes au démarrage depuis le registre.
     Lit aussi l'état activé/désactivé depuis StartupApproved.
     """
-    import winreg
     entries = []
 
     run_keys = [
@@ -690,7 +718,6 @@ def get_startup_entries():
 
 def set_startup_entry(name, source, enabled):
     """Active ou désactive un programme au démarrage via StartupApproved."""
-    import winreg
     approved_map = {
         "HKCU":   (winreg.HKEY_CURRENT_USER,
                    r"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run"),
@@ -719,7 +746,6 @@ def set_startup_entry(name, source, enabled):
 
 def get_installed_apps():
     """Lit la liste des applications installées depuis le registre Windows."""
-    import winreg
     apps = []
     seen = set()
 
@@ -965,7 +991,6 @@ def scan_registry(log=None):
     Analyse le registre pour détecter les entrées orphelines (valeurs seulement).
     Retourne une liste de dicts {id, category, hive, key, value_name, description}.
     """
-    import winreg
     issues = []
 
     def _log(msg):
@@ -1057,7 +1082,6 @@ def scan_registry(log=None):
 
 def fix_registry_issues(issues, log=None):
     """Supprime les valeurs/clés de registre sélectionnées. Retourne (fixed, errors)."""
-    import winreg
     hive_map = {
         "HKLM": winreg.HKEY_LOCAL_MACHINE,
         "HKCU": winreg.HKEY_CURRENT_USER,
@@ -1098,7 +1122,6 @@ def get_browser_extensions():
     Retourne {browser: [{id, name, version, description, profile, path}]}.
     Supporte Chrome, Edge, Brave (Chromium) et Firefox.
     """
-    import json as _json
     local   = Path(os.environ.get("LOCALAPPDATA", ""))
     appdata = Path(os.environ.get("APPDATA", ""))
     result  = {}
@@ -1128,7 +1151,7 @@ def get_browser_extensions():
                     continue
                 try:
                     with open(manifest_path, encoding="utf-8", errors="ignore") as f:
-                        m = _json.load(f)
+                        m = json.load(f)
                     name = m.get("name", eid_dir.name)
                     # Résolution i18n __MSG_xxx__
                     if name.startswith("__MSG_"):
@@ -1137,7 +1160,7 @@ def get_browser_extensions():
                             mp = versions[-1] / "_locales" / lang / "messages.json"
                             if mp.exists():
                                 try:
-                                    msgs = _json.loads(mp.read_text(encoding="utf-8", errors="ignore"))
+                                    msgs = json.loads(mp.read_text(encoding="utf-8", errors="ignore"))
                                     for k, v in msgs.items():
                                         if k.lower() == msg_key.lower():
                                             name = v.get("message", name)
@@ -1168,7 +1191,7 @@ def get_browser_extensions():
             if not ext_json.exists():
                 continue
             try:
-                data = _json.loads(ext_json.read_text(encoding="utf-8", errors="ignore"))
+                data = json.loads(ext_json.read_text(encoding="utf-8", errors="ignore"))
                 for addon in data.get("addons", []):
                     if addon.get("type") != "extension":
                         continue
@@ -1414,7 +1437,6 @@ def find_orphan_folders(log=None):
     d'entrée correspondante dans le registre Uninstall.
     Retourne une liste de dicts {path, name, size, size_fmt}.
     """
-    import winreg
 
     # 1. Collecte toutes les InstallLocation connues depuis le registre
     known_locations: set[str] = set()
@@ -1570,16 +1592,15 @@ def list_restore_points():
             return {"points": [], "requires_admin": True, "error": None}
         if not stdout or stdout == "null":
             return {"points": [], "requires_admin": False, "error": None}
-        import json as _json
-        from datetime import datetime as _dt
-        raw = _json.loads(stdout)
+        from datetime import datetime
+        raw = json.loads(stdout)
         if isinstance(raw, dict):
             raw = [raw]
         points = []
         for p in raw:
             date_str = str(p.get("CT", ""))[:14]
             try:
-                date_fmt = _dt.strptime(date_str, "%Y%m%d%H%M%S").strftime("%d/%m/%Y %H:%M")
+                date_fmt = datetime.strptime(date_str, "%Y%m%d%H%M%S").strftime("%d/%m/%Y %H:%M")
             except Exception:
                 date_fmt = date_str
             points.append({
@@ -1628,20 +1649,12 @@ def get_disk_smart():
     Récupère l'état S.M.A.R.T. des disques physiques via PowerShell Get-PhysicalDisk.
     Retourne une liste de dicts {model, size, size_fmt, status, healthy}.
     """
-    import json
     disks = []
     try:
-        r = subprocess.run(
-            ["powershell", "-NoProfile", "-NonInteractive", "-Command",
-             "Get-PhysicalDisk | Select-Object FriendlyName,Size,HealthStatus,OperationalStatus | ConvertTo-Json -Compress"],
-            capture_output=True, timeout=8, creationflags=0x08000000
+        data = _ps_json(
+            "Get-PhysicalDisk | Select-Object FriendlyName,Size,HealthStatus | ConvertTo-Json -Compress",
+            timeout=8,
         )
-        out = r.stdout.decode("utf-8", errors="replace").strip()
-        if not out:
-            return disks
-        data = json.loads(out)
-        if isinstance(data, dict):
-            data = [data]
         for d in data:
             status = str(d.get("HealthStatus") or "").strip()
             try:
@@ -1731,7 +1744,6 @@ _TWEAK_GROUPS = [
 
 
 def get_windows_tweaks():
-    import winreg
     result = {"groups": [], "items": []}
     for gid, glabel in _TWEAK_GROUPS:
         result["groups"].append({"id": gid, "label": glabel})
@@ -1769,7 +1781,6 @@ def get_windows_tweaks():
 
 
 def set_windows_tweak(tweak_id, active):
-    import winreg
     tweak = next((t for t in _WINDOWS_TWEAKS if t["id"] == tweak_id), None)
     if not tweak:
         return False, "Tweak inconnu"
@@ -1824,9 +1835,7 @@ def get_drivers():
         "system":        "system",
         "computer":      "system",
     }
-    cmd = [
-        "powershell", "-NoProfile", "-NonInteractive", "-Command",
-        "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; "
+    ps_cmd = (
         "Get-CimInstance Win32_PnPSignedDriver | Where-Object { $_.DeviceName } | "
         "Select-Object "
         "@{n='name';e={$_.DeviceName}}, "
@@ -1835,32 +1844,23 @@ def get_drivers():
         "@{n='manufacturer';e={if($_.Manufacturer){$_.Manufacturer}else{''}}}, "
         "@{n='class';e={if($_.DeviceClass){$_.DeviceClass}else{''}}} "
         "| ConvertTo-Json -Compress"
-    ]
-    try:
-        r = subprocess.run(cmd, capture_output=True, timeout=30, creationflags=0x08000000)
-        out = r.stdout.decode("utf-8", errors="replace").strip()
-        if not out:
-            return []
-        data = json.loads(out)
-        if isinstance(data, dict):
-            data = [data]
-        result = []
-        for d in data:
-            name = (d.get("name") or "").strip()
-            if not name:
-                continue
-            cls = (d.get("class") or "").strip().lower()
-            result.append({
-                "name":         name,
-                "version":      (d.get("version") or "").strip(),
-                "date":         (d.get("date") or "").strip(),
-                "manufacturer": (d.get("manufacturer") or "").strip(),
-                "class_key":    _CLASS_MAP.get(cls, "other"),
-            })
-        result.sort(key=lambda x: x["date"], reverse=True)
-        return result
-    except Exception:
-        return []
+    )
+    data = _ps_json(ps_cmd, timeout=30)
+    result = []
+    for d in data:
+        name = (d.get("name") or "").strip()
+        if not name:
+            continue
+        cls = (d.get("class") or "").strip().lower()
+        result.append({
+            "name":         name,
+            "version":      (d.get("version") or "").strip(),
+            "date":         (d.get("date") or "").strip(),
+            "manufacturer": (d.get("manufacturer") or "").strip(),
+            "class_key":    _CLASS_MAP.get(cls, "other"),
+        })
+    result.sort(key=lambda x: x["date"], reverse=True)
+    return result
 
 
 def get_software_updates():
@@ -1984,7 +1984,6 @@ def get_privacy_items():
 
     # Recherches récentes dans l'Explorateur
     try:
-        import winreg
         key = winreg.OpenKey(winreg.HKEY_CURRENT_USER,
                              r"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\TypedPaths",
                              0, winreg.KEY_READ)
@@ -2059,7 +2058,6 @@ def clean_privacy_items(ids):
 
     if "explorer_searches" in ids:
         try:
-            import winreg
             # Bug fix : il faut KEY_READ ET KEY_WRITE pour pouvoir
             # enumerer (EnumValue) puis supprimer (DeleteValue).
             # KEY_SET_VALUE seul ne permet pas EnumValue.

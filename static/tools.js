@@ -474,16 +474,12 @@ function renderDuplicates(groups, totalFmt) {
     return;
   }
 
-  el.innerHTML = `
-    <div class="dupe-header">
-      <div class="list-header">
-        <input type="checkbox" id="sel-all-dupes" class="sel-all" checked title="Tout sélectionner / désélectionner">
-        <span>${sorted.length} groupe(s) — ${totalFmt} récupérables</span>
-      </div>
-      <button class="btn-ghost" onclick="deleteSelectedDupes()" id="btn-delete-dupes">
-        Supprimer la sélection
-      </button>
-    </div>`;
+  el.innerHTML = "";
+  el.appendChild(_makeSelHeader(el, {
+    countText: `${sorted.length} groupe(s) — ${totalFmt} récupérables`,
+    deleteId:  "btn-delete-dupes",
+    deleteFn:  deleteSelectedDupes,
+  }));
 
   _watchSelSize(el, document.getElementById("btn-delete-dupes"));
   _renderBatched(sorted, (files, gi) => {
@@ -521,62 +517,27 @@ function renderDuplicates(groups, totalFmt) {
     renderRows();
     return group;
   }, el);
-
-  const selAll = document.getElementById("sel-all-dupes");
-  if (selAll) {
-    selAll.addEventListener("change", () => {
-      el.querySelectorAll("input[type=checkbox]:not(#sel-all-dupes)").forEach(cb => {
-        if (!cb.disabled) cb.checked = selAll.checked;
-      });
-    });
-  }
 }
 
-async function deleteSelectedDupes() {
-  const checked = [...document.querySelectorAll("#dupe-results input[type=checkbox]:checked:not(.sel-all)")].filter(c => !c.disabled);
-  if (!checked.length) { showToast("Aucune sélection", "Cochez au moins un élément.", "warn"); return; }
-
-  // Vérification de sécurité : s'assurer qu'au moins un fichier de chaque groupe est conservé
-  const groups = document.querySelectorAll(".dupe-group");
-  for (const group of groups) {
-    const allInGroup    = group.querySelectorAll("input[type=checkbox]");
-    const checkedInGroup = group.querySelectorAll("input[type=checkbox]:checked:not(.sel-all)");
-    if (allInGroup.length > 0 && checkedInGroup.length >= allInGroup.length) {
-      showToast("Action impossible", "Vous ne pouvez pas supprimer toutes les copies d'un groupe.", "warn");
-      return;
-    }
-  }
-
-  const paths = checked.map(c => c.dataset.path);
-  const totalSize = checked.reduce((s, c) => s + (parseInt(c.dataset.size) || 0), 0);
-  const btn = document.getElementById("btn-delete-dupes");
-  showConfirm(
-    `Supprimer ${paths.length} élément(s) ?`,
-    `Les fichiers cochés seront définitivement supprimés du disque. Espace récupéré estimé : ${fmtBytesTools(totalSize)}.`,
-    async () => {
-      if (btn) { btn.disabled = true; btn.textContent = "Suppression…"; }
-      try {
-        const res  = await fetch("/api/duplicates/delete", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ paths }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Erreur serveur");
-        const errCount = (data.errors || []).length;
-        if (errCount > 0) {
-          showToast("Suppression partielle", `${paths.length - errCount} supprimé(s) — ${data.freed_fmt} libérés — ${errCount} échec(s).`, "warn");
-        } else {
-          showToast("Suppression terminée", `${paths.length} supprimé(s) — ${data.freed_fmt} libérés.`, "success");
+function deleteSelectedDupes() {
+  _deleteSelected({
+    resultsId: "dupe-results",
+    btnId:     "btn-delete-dupes",
+    endpoint:  "/api/duplicates/delete",
+    confirmBody: (n, size) =>
+      `Les fichiers cochés seront définitivement supprimés du disque. Espace récupéré estimé : ${fmtBytesTools(size)}.`,
+    preCheck: () => {
+      for (const group of document.querySelectorAll(".dupe-group")) {
+        const all = group.querySelectorAll("input[type=checkbox]");
+        const checkedIn = group.querySelectorAll("input[type=checkbox]:checked:not(.sel-all)");
+        if (all.length > 0 && checkedIn.length >= all.length) {
+          showToast("Action impossible", "Vous ne pouvez pas supprimer toutes les copies d'un groupe.", "warn");
+          return false;
         }
-        checked.forEach(c => c.closest(".dupe-row").remove());
-        if (btn) { btn.disabled = false; btn.textContent = "Supprimer la sélection"; }
-      } catch (e) {
-        showToast("Erreur", e.message, "warn");
-        if (btn) { btn.disabled = false; btn.textContent = "Supprimer la sélection"; }
       }
-    }
-  );
+      return true;
+    },
+  });
 }
 
 function fmtBytesTools(b) {
@@ -618,6 +579,94 @@ function _watchSelSize(el, btnEl) {
   el._selSizeHandler = update;
   el.addEventListener("change", update);
   update();
+}
+
+function _makeFileRow(item, i, idPrefix, opts) {
+  // opts: { showSize: bool, showPath: bool (default true), extraRight: (item)=>Element|null }
+  opts = opts || {};
+  const showPath = opts.showPath !== false;
+  const row = document.createElement("div"); row.className = "dupe-row";
+  const cbId = `${idPrefix}-${i}`;
+  const cb = document.createElement("input");
+  cb.type = "checkbox"; cb.id = cbId; cb.dataset.path = item.path; cb.checked = true;
+  if (item.size != null) cb.dataset.size = item.size;
+  const lbl = document.createElement("label"); lbl.htmlFor = cbId; lbl.className = "sel-label";
+  if (opts.showSize && item.size_fmt) {
+    const sizeSpan = document.createElement("span");
+    sizeSpan.className = "dupe-size"; sizeSpan.textContent = item.size_fmt;
+    lbl.append(sizeSpan, " ");
+  }
+  const nameSpan = document.createElement("span"); nameSpan.className = "sel-name";
+  nameSpan.textContent = item.name;
+  lbl.appendChild(nameSpan);
+  if (opts.extraRight) {
+    const extra = opts.extraRight(item);
+    if (extra) lbl.append(" — ", extra);
+  }
+  if (showPath) {
+    const pathSpan = document.createElement("span"); pathSpan.className = "sel-dim";
+    pathSpan.textContent = item.path;
+    lbl.append(document.createElement("br"), pathSpan);
+  }
+  row.append(cb, lbl);
+  _applyAdminLock(row, cb, item.needs_admin);
+  return row;
+}
+
+async function _deleteSelected(opts) {
+  // opts: { resultsId, btnId, endpoint, confirmBody, rowSelector, afterDelete, preCheck }
+  const checked = [...document.querySelectorAll(
+    `#${opts.resultsId} input[type=checkbox]:checked:not(.sel-all)`
+  )].filter(c => !c.disabled);
+  if (!checked.length) {
+    showToast("Aucune sélection", "Cochez au moins un élément.", "warn");
+    return;
+  }
+  if (opts.preCheck && opts.preCheck() === false) return;
+  const paths = checked.map(c => c.dataset.path);
+  const totalSize = checked.reduce((s, c) => s + (parseInt(c.dataset.size) || 0), 0);
+  const btn = document.getElementById(opts.btnId);
+  const confirmBody = typeof opts.confirmBody === "function"
+    ? opts.confirmBody(paths.length, totalSize)
+    : opts.confirmBody;
+  showConfirm(
+    `Supprimer ${paths.length} élément(s) ?`,
+    confirmBody,
+    async () => {
+      if (btn) { btn.disabled = true; btn.textContent = "Suppression…"; }
+      try {
+        const res  = await fetch(opts.endpoint, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ paths }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Erreur serveur");
+        const errCount = (data.errors || []).length;
+        const deleted = data.deleted != null ? data.deleted : (paths.length - errCount);
+        const freedFmt = data.freed_fmt;
+        if (errCount > 0) {
+          const sub = freedFmt
+            ? `${deleted} supprimé(s) — ${freedFmt} libérés — ${errCount} échec(s).`
+            : `${deleted} supprimé(s) — ${errCount} échec(s).`;
+          showToast("Suppression partielle", sub, "warn");
+        } else {
+          const sub = freedFmt
+            ? `${deleted} supprimé(s) — ${freedFmt} libérés.`
+            : `${deleted} supprimé(s).`;
+          showToast("Suppression terminée", sub, "success");
+        }
+        checked.forEach(c => {
+          const row = c.closest(opts.rowSelector || ".dupe-row");
+          if (row) row.remove();
+        });
+        if (opts.afterDelete) opts.afterDelete(data);
+      } catch (e) {
+        showToast("Erreur", e.message, "warn");
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = "Supprimer la sélection"; }
+      }
+    }
+  );
 }
 
 // ── Registre ──────────────────────────────────────────────────────────────────
@@ -1038,12 +1087,12 @@ function renderShortcuts(shortcuts) {
   shortcuts.forEach((sc, i) => {
     const row  = document.createElement("div"); row.className = "dupe-row";
     const cbId = `sc-${i}`;
-    const cb   = document.createElement("input"); cb.type = "checkbox"; cb.id = cbId; cb.dataset.path = sc.path; cb.checked = true;
-    const lbl  = document.createElement("label"); lbl.htmlFor = cbId;
-    lbl.style.cssText = "flex:1;font-size:12px;color:var(--text-mid);cursor:pointer;word-break:break-all";
-    const nameSpan = document.createElement("span"); nameSpan.style.cssText = "font-weight:600;color:var(--text)"; nameSpan.textContent = sc.name;
+    const cb   = document.createElement("input");
+    cb.type = "checkbox"; cb.id = cbId; cb.dataset.path = sc.path; cb.checked = true;
+    const lbl  = document.createElement("label"); lbl.htmlFor = cbId; lbl.className = "sel-label";
+    const nameSpan = document.createElement("span"); nameSpan.className = "sel-name"; nameSpan.textContent = sc.name;
     const locSpan  = document.createElement("span"); locSpan.className = "source-badge"; locSpan.style.marginLeft = "6px"; locSpan.textContent = sc.location;
-    const tgtSpan  = document.createElement("span"); tgtSpan.style.color = "var(--text-dim)"; tgtSpan.textContent = sc.target;
+    const tgtSpan  = document.createElement("span"); tgtSpan.className = "sel-dim"; tgtSpan.textContent = sc.target;
     lbl.append(nameSpan, " ", locSpan, document.createElement("br"), tgtSpan);
     row.append(cb, lbl);
     _applyAdminLock(row, cb, sc.needs_admin);
@@ -1051,39 +1100,13 @@ function renderShortcuts(shortcuts) {
   });
 }
 
-async function deleteSelectedShortcuts() {
-  const checked = [...document.querySelectorAll("#shortcuts-results input[type=checkbox]:checked:not(.sel-all)")].filter(c => !c.disabled);
-  if (!checked.length) { showToast("Aucune sélection", "Cochez au moins un élément.", "warn"); return; }
-  const paths = checked.map(c => c.dataset.path);
-  const btn = document.getElementById("btn-delete-shortcuts");
-  showConfirm(
-    `Supprimer ${paths.length} élément(s) ?`,
-    "Les fichiers .lnk sélectionnés seront définitivement supprimés. Cela n'affecte pas les applications elles-mêmes.",
-    async () => {
-      if (btn) { btn.disabled = true; btn.textContent = "Suppression…"; }
-      try {
-        const res  = await fetch("/api/shortcuts/delete", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ paths }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Erreur serveur");
-        if (data.deleted === 0) {
-          showToast("Suppression impossible", "Les fichiers sont peut-être déjà absents ou verrouillés.", "warn");
-        } else if (data.errors > 0) {
-          showToast("Suppression partielle", `${data.deleted} supprimé(s) — ${data.errors} échec(s).`, "warn");
-        } else {
-          showToast("Suppression terminée", `${data.deleted} supprimé(s).`, "success");
-        }
-        checked.forEach(c => c.closest(".dupe-row").remove());
-        if (btn) { btn.disabled = false; btn.textContent = "Supprimer la sélection"; }
-      } catch (e) {
-        showToast("Erreur", e.message, "warn");
-        if (btn) { btn.disabled = false; btn.textContent = "Supprimer la sélection"; }
-      }
-    }
-  );
+function deleteSelectedShortcuts() {
+  _deleteSelected({
+    resultsId: "shortcuts-results",
+    btnId:     "btn-delete-shortcuts",
+    endpoint:  "/api/shortcuts/delete",
+    confirmBody: "Les fichiers .lnk sélectionnés seront définitivement supprimés. Cela n'affecte pas les applications elles-mêmes.",
+  });
 }
 
 // ── Grands fichiers ───────────────────────────────────────────────────────────
@@ -1158,54 +1181,17 @@ function _renderLargeFiles() {
   }));
 
   _watchSelSize(el, document.getElementById("btn-delete-lf"));
-  _renderBatched(files, (f, i) => {
-    const row  = document.createElement("div"); row.className = "dupe-row";
-    const cbId = `lf-${i}`;
-    const cb   = document.createElement("input"); cb.type = "checkbox"; cb.id = cbId; cb.dataset.path = f.path; cb.dataset.size = f.size; cb.checked = true;
-    const lbl  = document.createElement("label"); lbl.htmlFor = cbId;
-    lbl.style.cssText = "flex:1;font-size:12px;color:var(--text-mid);cursor:pointer;word-break:break-all";
-    const sizeSpan = document.createElement("span"); sizeSpan.className = "dupe-size"; sizeSpan.textContent = f.size_fmt;
-    const nameSpan = document.createElement("span"); nameSpan.style.cssText = "font-weight:600;color:var(--text)"; nameSpan.textContent = f.name;
-    const pathSpan = document.createElement("span"); pathSpan.style.color = "var(--text-dim)"; pathSpan.textContent = f.path;
-    lbl.append(sizeSpan, " ", nameSpan, document.createElement("br"), pathSpan);
-    row.append(cb, lbl);
-    _applyAdminLock(row, cb, f.needs_admin);
-    return row;
-  }, el);
+  _renderBatched(files, (f, i) => _makeFileRow(f, i, "lf", { showSize: true }), el);
 }
 
-async function deleteSelectedLargeFiles() {
-  const checked = [...document.querySelectorAll("#lf-results input[type=checkbox]:checked:not(.sel-all)")].filter(c => !c.disabled);
-  if (!checked.length) { showToast("Aucune sélection", "Cochez au moins un élément.", "warn"); return; }
-  const paths = checked.map(c => c.dataset.path);
-  const totalSize = checked.reduce((s, c) => s + (parseInt(c.dataset.size) || 0), 0);
-  const btn = document.getElementById("btn-delete-lf");
-  showConfirm(
-    `Supprimer ${paths.length} élément(s) ?`,
-    `Ces fichiers seront définitivement supprimés du disque. Espace récupéré estimé : ${fmtBytesTools(totalSize)}.`,
-    async () => {
-      if (btn) { btn.disabled = true; btn.textContent = "Suppression…"; }
-      try {
-        const res  = await fetch("/api/duplicates/delete", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ paths }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Erreur serveur");
-        const errCount = (data.errors || []).length;
-        if (errCount > 0) {
-          showToast("Suppression partielle", `${paths.length - errCount} supprimé(s) — ${data.freed_fmt} libérés — ${errCount} échec(s).`, "warn");
-        } else {
-          showToast("Suppression terminée", `${paths.length} supprimé(s) — ${data.freed_fmt} libérés.`, "success");
-        }
-        checked.forEach(c => c.closest(".dupe-row").remove());
-        if (btn) { btn.disabled = false; btn.textContent = "Supprimer la sélection"; }
-      } catch (e) {
-        showToast("Erreur", e.message, "warn");
-        if (btn) { btn.disabled = false; btn.textContent = "Supprimer la sélection"; }
-      }
-    }
-  );
+function deleteSelectedLargeFiles() {
+  _deleteSelected({
+    resultsId: "lf-results",
+    btnId:     "btn-delete-lf",
+    endpoint:  "/api/duplicates/delete",
+    confirmBody: (n, size) =>
+      `Ces fichiers seront définitivement supprimés du disque. Espace récupéré estimé : ${fmtBytesTools(size)}.`,
+  });
 }
 
 // ── Analyse de l'espace disque ────────────────────────────────────────────────
@@ -1525,57 +1511,26 @@ function _renderInstallers() {
   }));
 
   _watchSelSize(el, document.getElementById("btn-delete-inst"));
-  _renderBatched(files, (f, i) => {
-    const row  = document.createElement("div"); row.className = "dupe-row";
-    const cbId = `inst-${i}`;
-    const cb   = document.createElement("input"); cb.type = "checkbox"; cb.id = cbId; cb.dataset.path = f.path; cb.dataset.size = f.size; cb.checked = true;
-    const lbl  = document.createElement("label"); lbl.htmlFor = cbId;
-    lbl.style.cssText = "flex:1;font-size:12px;color:var(--text-mid);cursor:pointer;word-break:break-all";
-    const sizeSpan = document.createElement("span"); sizeSpan.className = "dupe-size"; sizeSpan.textContent = f.size_fmt;
-    const nameSpan = document.createElement("span"); nameSpan.style.cssText = "font-weight:600;color:var(--text)"; nameSpan.textContent = f.name;
-    const ageSpan  = document.createElement("span"); ageSpan.style.color = "var(--text-dim)"; ageSpan.textContent = `${f.age_days} jours`;
-    lbl.append(sizeSpan, " ", nameSpan, " — ", ageSpan);
-    row.append(cb, lbl);
-    _applyAdminLock(row, cb, f.needs_admin);
-    return row;
-  }, el);
+  _renderBatched(files, (f, i) => _makeFileRow(f, i, "inst", {
+    showSize: true,
+    showPath: false,
+    extraRight: (it) => {
+      const age = document.createElement("span");
+      age.className = "sel-dim";
+      age.textContent = `${it.age_days} jours`;
+      return age;
+    },
+  }), el);
 }
 
-async function deleteSelectedInstallers() {
-  const checked = [...document.querySelectorAll("#inst-results input[type=checkbox]:checked:not(.sel-all)")].filter(c => !c.disabled);
-  if (!checked.length) { showToast("Aucune sélection", "Cochez au moins un élément.", "warn"); return; }
-  const paths = checked.map(c => c.dataset.path);
-  const totalSize = checked.reduce((s, c) => s + (parseInt(c.dataset.size) || 0), 0);
-  const btn = document.getElementById("btn-delete-inst");
-  showConfirm(
-    `Supprimer ${paths.length} élément(s) ?`,
-    `Ces fichiers d'installation seront définitivement supprimés. Espace récupéré estimé : ${fmtBytesTools(totalSize)}.`,
-    async () => {
-      if (btn) { btn.disabled = true; btn.textContent = "Suppression…"; }
-      try {
-        const res  = await fetch("/api/old-installers/delete", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ paths }),
-        });
-        const data = await res.json();
-        if (!res.ok || (!data.ok && !data.freed)) {
-          showToast("Erreur", (data.errors || []).join(", ") || "Suppression impossible.", "warn");
-        } else {
-          const errCount = (data.errors || []).length;
-          const title = errCount > 0 ? "Suppression partielle" : "Suppression terminée";
-          const msg = errCount > 0
-            ? `${paths.length - errCount} supprimé(s) — ${data.freed_fmt} libérés — ${errCount} échec(s).`
-            : `${paths.length} supprimé(s) — ${data.freed_fmt} libérés.`;
-          showToast(title, msg, errCount > 0 ? "warn" : "success");
-          checked.forEach(c => c.closest(".dupe-row").remove());
-        }
-        if (btn) { btn.disabled = false; btn.textContent = "Supprimer la sélection"; }
-      } catch (e) {
-        showToast("Erreur", e.message, "warn");
-        if (btn) { btn.disabled = false; btn.textContent = "Supprimer la sélection"; }
-      }
-    }
-  );
+function deleteSelectedInstallers() {
+  _deleteSelected({
+    resultsId: "inst-results",
+    btnId:     "btn-delete-inst",
+    endpoint:  "/api/old-installers/delete",
+    confirmBody: (n, size) =>
+      `Ces fichiers d'installation seront définitivement supprimés. Espace récupéré estimé : ${fmtBytesTools(size)}.`,
+  });
 }
 
 // ── Confidentialité ──────────────────────────────────────────────────────────
@@ -1820,57 +1775,16 @@ function renderEmptyFolders(folders) {
     deleteFn:    deleteSelectedEmptyFolders,
   }));
 
-  _renderBatched(folders, (f, i) => {
-    const row  = document.createElement("div"); row.className = "dupe-row";
-    const cbId = `ef-${i}`;
-    const cb   = document.createElement("input"); cb.type = "checkbox"; cb.id = cbId; cb.dataset.path = f.path; cb.checked = true;
-    const lbl  = document.createElement("label"); lbl.htmlFor = cbId;
-    lbl.style.cssText = "flex:1;font-size:12px;color:var(--text-mid);cursor:pointer;word-break:break-all";
-    const nameSpan = document.createElement("span"); nameSpan.style.cssText = "font-weight:600;color:var(--text)"; nameSpan.textContent = f.name;
-    const pathSpan = document.createElement("span"); pathSpan.style.color = "var(--text-dim)"; pathSpan.textContent = f.path;
-    lbl.append(nameSpan, document.createElement("br"), pathSpan);
-    row.append(cb, lbl);
-    _applyAdminLock(row, cb, f.needs_admin);
-    return row;
-  }, el);
+  _renderBatched(folders, (f, i) => _makeFileRow(f, i, "ef", {}), el);
 }
 
-async function deleteSelectedEmptyFolders() {
-  const checked = [...document.querySelectorAll("#ef-results input[type=checkbox]:checked:not(.sel-all)")].filter(c => !c.disabled);
-  if (!checked.length) { showToast("Aucune sélection", "Cochez au moins un élément.", "warn"); return; }
-  const paths = checked.map(c => c.dataset.path);
-  const btn = document.getElementById("btn-delete-ef");
-  showConfirm(
-    `Supprimer ${paths.length} élément(s) ?`,
-    "Ces dossiers sont vides et seront définitivement supprimés.",
-    async () => {
-      if (btn) { btn.disabled = true; btn.textContent = "Suppression…"; }
-      try {
-        const res  = await fetch("/api/empty-folders/delete", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ paths }),
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          showToast("Erreur", data.error || "Suppression impossible.", "warn");
-        } else if (!data.ok) {
-          showToast("Erreur", (data.errors || []).join("\n") || "Suppression impossible.", "warn");
-        } else {
-          const errCount = (data.errors || []).length;
-          if (errCount > 0) {
-            showToast("Suppression partielle", `${data.deleted} supprimé(s) — ${errCount} échec(s).`, "warn");
-          } else {
-            showToast("Suppression terminée", `${data.deleted} supprimé(s).`, "success");
-          }
-          checked.forEach(c => c.closest(".dupe-row").remove());
-        }
-        if (btn) { btn.disabled = false; btn.textContent = "Supprimer la sélection"; }
-      } catch (e) {
-        showToast("Erreur", e.message, "warn");
-        if (btn) { btn.disabled = false; btn.textContent = "Supprimer la sélection"; }
-      }
-    }
-  );
+function deleteSelectedEmptyFolders() {
+  _deleteSelected({
+    resultsId: "ef-results",
+    btnId:     "btn-delete-ef",
+    endpoint:  "/api/empty-folders/delete",
+    confirmBody: "Ces dossiers sont vides et seront définitivement supprimés.",
+  });
 }
 
 // ── Dossiers orphelins ────────────────────────────────────────────────────────
@@ -1941,57 +1855,17 @@ function _renderOrphanFolders() {
   }));
 
   _watchSelSize(el, document.getElementById("btn-delete-orphan"));
-  _renderBatched(folders, (f, i) => {
-    const row  = document.createElement("div"); row.className = "dupe-row";
-    const cbId = `or-${i}`;
-    const cb   = document.createElement("input"); cb.type = "checkbox"; cb.id = cbId; cb.dataset.path = f.path; cb.dataset.size = f.size; cb.checked = true;
-    const lbl  = document.createElement("label"); lbl.htmlFor = cbId;
-    lbl.style.cssText = "flex:1;font-size:12px;color:var(--text-mid);cursor:pointer;word-break:break-all";
-    const sizeSpan = document.createElement("span"); sizeSpan.className = "dupe-size"; sizeSpan.textContent = f.size_fmt;
-    const nameSpan = document.createElement("span"); nameSpan.style.cssText = "font-weight:600;color:var(--text)"; nameSpan.textContent = f.name;
-    const pathSpan = document.createElement("span"); pathSpan.style.color = "var(--text-dim)"; pathSpan.textContent = f.path;
-    lbl.append(sizeSpan, " ", nameSpan, document.createElement("br"), pathSpan);
-    row.append(cb, lbl);
-    return row;
-  }, el);
+  _renderBatched(folders, (f, i) => _makeFileRow(f, i, "or", { showSize: true }), el);
 }
 
-async function deleteSelectedOrphanFolders() {
-  const checked = [...document.querySelectorAll("#orphan-results input[type=checkbox]:checked:not(.sel-all)")].filter(c => !c.disabled);
-  if (!checked.length) { showToast("Aucune sélection", "Cochez au moins un élément.", "warn"); return; }
-  const paths = checked.map(c => c.dataset.path);
-  const totalSize = checked.reduce((s, c) => s + (parseInt(c.dataset.size) || 0), 0);
-  const btn = document.getElementById("btn-delete-orphan");
-  showConfirm(
-    `Supprimer ${paths.length} élément(s) ?`,
-    `Assurez-vous que ces dossiers correspondent bien à des applications désinstallées. Espace récupéré estimé : ${fmtBytesTools(totalSize)}.`,
-    async () => {
-      if (btn) { btn.disabled = true; btn.textContent = "Suppression…"; }
-      try {
-        const res  = await fetch("/api/orphan-folders/delete", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ paths }),
-        });
-        const data = await res.json();
-        if (!res.ok || !data.ok) {
-          const errMsg = (data.errors || []).join(", ") || data.error || "Suppression impossible.";
-          showToast("Erreur", errMsg, "warn");
-        } else {
-          const errCount = (data.errors || []).length;
-          const title = errCount > 0 ? "Suppression partielle" : "Suppression terminée";
-          const msg = errCount > 0
-            ? `${data.deleted} supprimé(s) — ${errCount} échec(s).`
-            : `${data.deleted} supprimé(s).`;
-          showToast(title, msg, errCount > 0 ? "warn" : "success");
-          checked.forEach(c => c.closest(".dupe-row").remove());
-        }
-        if (btn) { btn.disabled = false; btn.textContent = "Supprimer la sélection"; }
-      } catch (e) {
-        showToast("Erreur", e.message, "warn");
-        if (btn) { btn.disabled = false; btn.textContent = "Supprimer la sélection"; }
-      }
-    }
-  );
+function deleteSelectedOrphanFolders() {
+  _deleteSelected({
+    resultsId: "orphan-results",
+    btnId:     "btn-delete-orphan",
+    endpoint:  "/api/orphan-folders/delete",
+    confirmBody: (n, size) =>
+      `Assurez-vous que ces dossiers correspondent bien à des applications désinstallées. Espace récupéré estimé : ${fmtBytesTools(size)}.`,
+  });
 }
 
 // ── Personnalisation Windows ──────────────────────────────────────────────────
@@ -2142,27 +2016,22 @@ function _renderDrivers() {
   const el = document.getElementById("drivers-results");
   el.innerHTML = "";
 
-  // Regrouper par catégorie
   const groups = {};
   _drivers.forEach(d => {
     const k = d.class_key || "other";
     (groups[k] = groups[k] || []).push(d);
   });
 
-  // Header : total + filtre pills
   const header = document.createElement("div");
-  header.className = "reg-header";
-  header.style.cssText = "flex-direction:column;align-items:stretch;gap:10px;padding:12px 6px";
-
+  header.className = "drivers-header";
   const topRow = document.createElement("div");
-  topRow.style.cssText = "display:flex;align-items:center;gap:10px";
+  topRow.className = "drivers-header-top";
   const totalSpan = document.createElement("span");
-  totalSpan.style.cssText = "font-size:13px;color:var(--text-mid);font-weight:500";
   totalSpan.textContent = `${_drivers.length} pilote(s) — ${Object.keys(groups).length} catégorie(s)`;
   topRow.appendChild(totalSpan);
 
   const pillsRow = document.createElement("div");
-  pillsRow.style.cssText = "display:flex;flex-wrap:wrap;gap:4px";
+  pillsRow.className = "drivers-header-pills";
   const mkPill = (key, label, count) => {
     const pill = document.createElement("span");
     pill.className = "sort-pill" + (_driversFilter === key ? " active" : "");
@@ -2178,12 +2047,10 @@ function _renderDrivers() {
   header.append(topRow, pillsRow);
   el.appendChild(header);
 
-  // Déterminer les catégories à afficher
   const visibleCats = _driversFilter === "all"
     ? _DRIVER_CATEGORIES.filter(([k]) => groups[k])
     : _DRIVER_CATEGORIES.filter(([k]) => k === _driversFilter && groups[k]);
 
-  // Collecter tous les items à rendre (avec headers de groupe)
   const renderItems = [];
   visibleCats.forEach(([k, label]) => {
     const items = [...groups[k]].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
@@ -2194,42 +2061,41 @@ function _renderDrivers() {
   _renderBatched(renderItems, (item) => {
     if (item.type === "group") {
       const gh = document.createElement("div");
-      gh.style.cssText = "display:flex;align-items:center;gap:8px;padding:12px 6px 6px;border-bottom:1px solid var(--border);margin-top:4px";
+      gh.className = "driver-group-head";
       const iconWrap = document.createElement("span");
-      iconWrap.style.cssText = "color:var(--text-mid);width:14px;height:14px;display:flex;align-items:center;flex-shrink:0";
+      iconWrap.className = "driver-group-icon";
       iconWrap.innerHTML = _DRIVER_ICONS[item.key] || _DRIVER_ICONS.other;
       const title = document.createElement("span");
-      title.style.cssText = "font-size:12px;font-weight:600;color:var(--text);text-transform:uppercase;letter-spacing:.3px";
+      title.className = "driver-group-title";
       title.textContent = item.label;
       const count = document.createElement("span");
-      count.style.cssText = "font-size:11px;color:var(--text-dim)";
+      count.className = "driver-group-count";
       count.textContent = `${item.count}`;
       gh.append(iconWrap, title, count);
       return gh;
     }
     const d = item.data;
     const row = document.createElement("div");
-    row.style.cssText = "display:flex;align-items:center;gap:10px;padding:8px 6px 8px 26px;border-bottom:1px solid var(--border)";
+    row.className = "driver-row";
     const info = document.createElement("div");
-    info.style.cssText = "flex:1;min-width:0";
+    info.className = "driver-info";
     const name = document.createElement("div");
-    name.style.cssText = "font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis";
+    name.className = "driver-name";
     name.textContent = d.name;
     const mfr = document.createElement("div");
-    mfr.style.cssText = "font-size:11px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis";
+    mfr.className = "driver-mfr";
     mfr.textContent = d.manufacturer || "—";
     info.append(name, mfr);
     const meta = document.createElement("div");
-    meta.style.cssText = "display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex-shrink:0";
+    meta.className = "driver-meta";
     if (d.version) {
       const ver = document.createElement("span");
-      ver.style.cssText = "font-size:10px;color:var(--text-dim);font-family:monospace";
+      ver.className = "driver-ver";
       ver.textContent = d.version;
       meta.appendChild(ver);
     }
     if (d.date) {
       const dt = document.createElement("span");
-      dt.style.cssText = "font-size:10px;color:var(--text-dim)";
       dt.textContent = d.date;
       meta.appendChild(dt);
     }

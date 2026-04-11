@@ -694,6 +694,53 @@
       padding: 18px 6px 6px; border-bottom: 1px solid var(--border);
     }
 
+    /* Pilotes — rows et group headers */
+    .driver-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 6px 8px 26px; border-bottom: 1px solid var(--border);
+    }
+    .driver-row:last-child { border-bottom: none; }
+    .driver-info { flex: 1; min-width: 0; }
+    .driver-name {
+      font-size: 12px; font-weight: 600; color: var(--text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .driver-mfr {
+      font-size: 11px; color: var(--text-dim);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .driver-meta {
+      display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex-shrink: 0;
+    }
+    .driver-meta span { font-size: 10px; color: var(--text-dim); }
+    .driver-ver { font-family: monospace; }
+    .driver-group-head {
+      display: flex; align-items: center; gap: 8px;
+      padding: 12px 6px 6px; border-bottom: 1px solid var(--border);
+      margin-top: 4px;
+    }
+    .driver-group-head .driver-group-icon {
+      color: var(--text-mid); width: 14px; height: 14px;
+      display: flex; align-items: center; flex-shrink: 0;
+    }
+    .driver-group-head .driver-group-title {
+      font-size: 12px; font-weight: 600; color: var(--text);
+      text-transform: uppercase; letter-spacing: .3px;
+    }
+    .driver-group-head .driver-group-count {
+      font-size: 11px; color: var(--text-dim);
+    }
+    .drivers-header {
+      display: flex; flex-direction: column; align-items: stretch;
+      gap: 10px; padding: 12px 6px;
+      background: transparent; border-bottom: 1px solid var(--border);
+    }
+    .drivers-header-top {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 13px; color: var(--text-mid); font-weight: 500;
+    }
+    .drivers-header-pills { display: flex; flex-wrap: wrap; gap: 4px; }
+
     /* Cards transparentes Notion */
     .card {
       background: transparent; border: none;
@@ -887,6 +934,9 @@
     .dupe-row input[type=checkbox] { margin-top: 3px; flex-shrink: 0; accent-color: var(--accent); }
     .dupe-path { font-size: 12px; color: var(--text-mid); word-break: break-all; cursor: pointer; }
     .dupe-size { font-weight: 500; color: var(--text); margin-right: 8px; font-variant-numeric: tabular-nums; }
+    .sel-label { flex: 1; font-size: 12px; color: var(--text-mid); cursor: pointer; word-break: break-all; }
+    .sel-name  { font-weight: 600; color: var(--text); }
+    .sel-dim   { color: var(--text-dim); }
 
     /* Analyse disque */
     .da-row {
