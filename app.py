@@ -46,6 +46,7 @@ from cleaner import (
     list_repair_actions, run_repair_action, run_repair_action_stream,
     run_self_check, export_tweaks_reg,
     get_autorun_entries, set_autorun_enabled,
+    export_config_snapshot, import_config_snapshot,
 )
 
 
@@ -176,6 +177,45 @@ def api_autoruns_set():
     if not ok:
         return jsonify({"ok": False, "error": err}), 500
     return jsonify({"ok": True})
+
+
+@app.route("/api/config/export")
+def api_config_export():
+    try:
+        snapshot = export_config_snapshot()
+    except Exception as e:
+        app.logger.exception("config export error")
+        return jsonify({"error": str(e)}), 500
+    content = json.dumps(snapshot, indent=2, ensure_ascii=False)
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    resp = Response(content, mimetype="application/json; charset=utf-8")
+    resp.headers["Content-Disposition"] = f'attachment; filename="opencleaner-config-{stamp}.json"'
+    return resp
+
+
+@app.route("/api/config/import", methods=["POST"])
+def api_config_import():
+    data = request.get_json(force=True) or {}
+    snapshot = data.get("snapshot")
+    sections = data.get("sections")
+    if not isinstance(snapshot, dict):
+        return jsonify({"error": "snapshot manquant ou invalide"}), 400
+    try:
+        result = import_config_snapshot(snapshot, sections=sections)
+    except Exception as e:
+        app.logger.exception("config import error")
+        return jsonify({"error": str(e)}), 500
+    _save_history_entry(
+        0,
+        kind="restore",
+        label="Restauration configuration",
+        details={
+            "applied": result.get("applied", 0),
+            "skipped": result.get("skipped", 0),
+            "errors":  len(result.get("errors", [])),
+        },
+    )
+    return jsonify(result)
 
 
 @app.route("/favicon.ico")

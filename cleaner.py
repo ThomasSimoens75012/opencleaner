@@ -2335,6 +2335,118 @@ def set_autorun_enabled(entry_id, enabled):
     return False, "Type inconnu"
 
 
+def export_config_snapshot():
+    """Capture l'état actuel de toutes les options réversibles (tweaks, services,
+    tâches, autoruns) dans un dict sérialisable."""
+    import platform
+    from datetime import datetime
+
+    snapshot = {
+        "version":   1,
+        "created_at": datetime.now().isoformat(),
+        "hostname":   platform.node(),
+        "windows":    get_windows_version(),
+        "tweaks":     {},
+        "services":   {},
+        "tasks":      {},
+        "autoruns":   {},
+    }
+
+    try:
+        tw = get_windows_tweaks()
+        for item in tw.get("items", []):
+            snapshot["tweaks"][item["id"]] = bool(item["active"])
+    except Exception:
+        pass
+
+    try:
+        for s in get_services_state():
+            snapshot["services"][s["name"]] = bool(s.get("enabled"))
+    except Exception:
+        pass
+
+    try:
+        for t in get_scheduled_tasks_state():
+            snapshot["tasks"][t["path"]] = bool(t.get("enabled"))
+    except Exception:
+        pass
+
+    try:
+        for a in get_autorun_entries():
+            snapshot["autoruns"][a["id"]] = bool(a.get("enabled"))
+    except Exception:
+        pass
+
+    return snapshot
+
+
+def import_config_snapshot(data, sections=None):
+    """Applique un snapshot. `sections` restreint aux clés choisies (liste parmi
+    tweaks/services/tasks/autoruns). Retourne un résumé {applied, skipped, errors}."""
+    if not isinstance(data, dict):
+        return {"applied": 0, "skipped": 0, "errors": ["Snapshot invalide"]}
+
+    sections = sections or ["tweaks", "services", "tasks", "autoruns"]
+    applied = 0
+    skipped = 0
+    errors = []
+
+    if "tweaks" in sections:
+        for tid, active in (data.get("tweaks") or {}).items():
+            try:
+                res = set_windows_tweak(tid, bool(active))
+                ok, err = res if isinstance(res, tuple) else (bool(res), None)
+                if ok:
+                    applied += 1
+                else:
+                    skipped += 1
+                    if err:
+                        errors.append(f"tweak {tid}: {err}")
+            except Exception as e:
+                errors.append(f"tweak {tid}: {e}")
+
+    if "services" in sections:
+        for name, enabled in (data.get("services") or {}).items():
+            try:
+                ok, err = set_service_enabled(name, bool(enabled))
+                if ok:
+                    applied += 1
+                else:
+                    skipped += 1
+                    if err:
+                        errors.append(f"service {name}: {err}")
+            except Exception as e:
+                errors.append(f"service {name}: {e}")
+
+    if "tasks" in sections:
+        for path, enabled in (data.get("tasks") or {}).items():
+            try:
+                ok, err = set_scheduled_task_enabled(path, bool(enabled))
+                if ok:
+                    applied += 1
+                else:
+                    skipped += 1
+                    if err:
+                        errors.append(f"task {path}: {err}")
+            except Exception as e:
+                errors.append(f"task {path}: {e}")
+
+    if "autoruns" in sections:
+        for entry_id, enabled in (data.get("autoruns") or {}).items():
+            try:
+                ok, err = set_autorun_enabled(entry_id, bool(enabled))
+                if ok:
+                    applied += 1
+                else:
+                    skipped += 1
+                    if err:
+                        errors.append(f"autorun {entry_id}: {err}")
+            except Exception as e:
+                errors.append(f"autorun {entry_id}: {e}")
+
+    return {"applied": applied, "skipped": skipped, "errors": errors}
+
+
 def run_self_check():
     """Exécute un diagnostic rapide de l'état de l'app.
 

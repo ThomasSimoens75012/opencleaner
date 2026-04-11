@@ -2597,6 +2597,13 @@
         <div style="font-size:11px;color:var(--text-dim)">Applique un ensemble de désactivations en un clic. Réversible.</div>
       </div>
       <div id="tweak-presets" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+      <button class="btn-ghost" onclick="exportConfigSnapshot()" title="Télécharge un fichier JSON contenant l'état complet (tweaks, services, tâches, autoruns) restaurable dans OpenCleaner" style="font-size:11px">
+        Sauvegarder
+      </button>
+      <button class="btn-ghost" onclick="triggerImportConfig()" title="Restaure un fichier JSON OpenCleaner précédemment sauvegardé" style="font-size:11px">
+        Restaurer
+      </button>
+      <input type="file" id="config-import-file" accept="application/json" style="display:none" onchange="handleImportConfigFile(event)">
       <button class="btn-ghost" onclick="exportTweaksReg()" title="Exporter un fichier .reg avec la config actuelle (importable sur un autre PC sans OpenCleaner)" style="font-size:11px">
         Exporter .reg
       </button>

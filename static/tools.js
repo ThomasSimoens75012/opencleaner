@@ -2833,6 +2833,100 @@ async function _loadTweakPresets() {
   } catch (e) {}
 }
 
+async function exportConfigSnapshot() {
+  try {
+    const res = await fetch("/api/config/export");
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || ("HTTP " + res.status));
+    }
+    const disp = res.headers.get("Content-Disposition") || "";
+    const m = disp.match(/filename="([^"]+)"/);
+    const filename = m ? m[1] : "opencleaner-config.json";
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    showToast("Sauvegarde créée", `${filename} téléchargé`, "success");
+  } catch (e) {
+    showToast("Sauvegarde impossible", e.message, "warn");
+  }
+}
+
+function triggerImportConfig() {
+  const input = document.getElementById("config-import-file");
+  if (input) {
+    input.value = "";
+    input.click();
+  }
+}
+
+async function handleImportConfigFile(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+  let snapshot;
+  try {
+    const text = await file.text();
+    snapshot = JSON.parse(text);
+  } catch (e) {
+    showToast("Fichier invalide", "Impossible de lire le JSON.", "warn");
+    return;
+  }
+  if (!snapshot || typeof snapshot !== "object") {
+    showToast("Fichier invalide", "Format non reconnu.", "warn");
+    return;
+  }
+
+  const counts = {
+    tweaks:   Object.keys(snapshot.tweaks   || {}).length,
+    services: Object.keys(snapshot.services || {}).length,
+    tasks:    Object.keys(snapshot.tasks    || {}).length,
+    autoruns: Object.keys(snapshot.autoruns || {}).length,
+  };
+  const total = counts.tweaks + counts.services + counts.tasks + counts.autoruns;
+  if (!total) {
+    showToast("Rien à restaurer", "Snapshot vide.", "warn");
+    return;
+  }
+
+  const summary = `Restaurer cette configuration ?\n\n` +
+    `• ${counts.tweaks} tweaks\n` +
+    `• ${counts.services} services\n` +
+    `• ${counts.tasks} tâches planifiées\n` +
+    `• ${counts.autoruns} autoruns\n\n` +
+    `Date : ${snapshot.created_at || "inconnue"}\n` +
+    `Hôte : ${snapshot.hostname || "inconnu"}`;
+  if (!confirm(summary)) return;
+
+  const actId = activityPush("Restauration configuration", "Application en cours…", { tab: "outils" });
+  try {
+    const res = await fetch("/api/config/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ snapshot }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || ("HTTP " + res.status));
+    activityDone(actId, `${data.applied} appliqués, ${data.skipped} ignorés`);
+    if (data.errors && data.errors.length) {
+      console.warn("[restore] errors:", data.errors);
+    }
+    // Rafraîchit les panneaux impactés
+    if (typeof loadWindowsTweaks === "function") loadWindowsTweaks();
+    if (typeof loadServices === "function") loadServices();
+    if (typeof loadScheduledTasks === "function") loadScheduledTasks();
+    if (typeof loadStartup === "function") loadStartup();
+  } catch (e) {
+    activityDone(actId, "Échec", "error");
+    showToast("Restauration impossible", e.message, "warn");
+  }
+}
+
 async function exportTweaksReg() {
   try {
     const res = await fetch("/api/windows-tweaks/export-reg");
