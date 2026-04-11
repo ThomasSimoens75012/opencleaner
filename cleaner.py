@@ -2362,6 +2362,95 @@ def get_tweak_tags():
     return [{"id": tid, "label": lbl} for tid, lbl in _TWEAK_TAGS]
 
 
+# Presets one-click — chaque preset est une liste d'IDs de tweaks à désactiver.
+# Le frontend applique le preset via /api/windows-tweaks/set-batch avec active=False.
+_TWEAK_PRESETS = {
+    "standard": {
+        "label": "Standard",
+        "desc":  "Coupe les pubs, suggestions, notifications promo. Zéro risque.",
+        "tweaks_off": [
+            # Pubs et promotions
+            "silent_apps", "start_suggestions", "settings_suggestions",
+            "start_account_notifs", "start_irisxp", "preinstalled_apps",
+            "oem_preinstalled", "start_iris_recommendations",
+            "lockscreen_tips", "soft_landing", "welcome_experience",
+            "finish_setup", "tips_tricks", "onedrive_ads",
+            "sub_content_338387", "sub_content_353694",
+            # Cosmétique peu controversé
+            "copilot_button", "explorer_recommended",
+            # Privacy légère
+            "ad_id", "tailored_experiences",
+            # Edge promos
+            "edge_shopping",
+        ],
+    },
+    "aggressive": {
+        "label": "Agressif",
+        "desc":  "Standard + coupe Copilot, Edge boost, Cortana, Game Bar. Gros gain RAM.",
+        "tweaks_off": [
+            # Tout le standard
+            "silent_apps", "start_suggestions", "settings_suggestions",
+            "start_account_notifs", "start_irisxp", "preinstalled_apps",
+            "oem_preinstalled", "start_iris_recommendations",
+            "lockscreen_tips", "soft_landing", "welcome_experience",
+            "finish_setup", "tips_tricks", "onedrive_ads",
+            "sub_content_338387", "sub_content_353694",
+            "copilot_button", "explorer_recommended",
+            "ad_id", "tailored_experiences", "edge_shopping",
+            # + Performance
+            "copilot", "edge_startup_boost", "edge_background",
+            "cortana", "bing_search", "search_highlights",
+            "game_dvr", "game_bar",
+            "start_recommended", "spotlight_lockscreen",
+            "general_content_delivery", "notepad_ai",
+            "app_launch_tracking", "edge_personalization_reporting",
+            "edge_hub_sidebar",
+            # Explorer
+            "show_recent", "show_frequent",
+        ],
+    },
+    "paranoid": {
+        "label": "Paranoïaque",
+        "desc":  "Agressif + vie privée extrême. Coupe toute la telemetry et data collection.",
+        "tweaks_off": [
+            # Tout agressif
+            "silent_apps", "start_suggestions", "settings_suggestions",
+            "start_account_notifs", "start_irisxp", "preinstalled_apps",
+            "oem_preinstalled", "start_iris_recommendations",
+            "lockscreen_tips", "soft_landing", "welcome_experience",
+            "finish_setup", "tips_tricks", "onedrive_ads",
+            "sub_content_338387", "sub_content_353694",
+            "copilot_button", "explorer_recommended",
+            "ad_id", "tailored_experiences", "edge_shopping",
+            "copilot", "edge_startup_boost", "edge_background",
+            "cortana", "bing_search", "search_highlights",
+            "game_dvr", "game_bar",
+            "start_recommended", "spotlight_lockscreen",
+            "general_content_delivery", "notepad_ai",
+            "app_launch_tracking", "edge_personalization_reporting",
+            "edge_hub_sidebar", "show_recent", "show_frequent",
+            # + Vie privée extrême
+            "activity_history", "cloud_clipboard",
+            "inking_typing", "online_speech",
+        ],
+    },
+}
+
+
+def get_tweak_presets():
+    """Retourne les presets disponibles pour l'UI."""
+    return [
+        {
+            "id":    pid,
+            "label": data["label"],
+            "desc":  data["desc"],
+            "count": len(data["tweaks_off"]),
+            "tweaks_off": data["tweaks_off"],
+        }
+        for pid, data in _TWEAK_PRESETS.items()
+    ]
+
+
 def set_windows_tweak(tweak_id, active):
     tweak = next((t for t in _WINDOWS_TWEAKS if t["id"] == tweak_id), None)
     if not tweak:
@@ -2391,6 +2480,674 @@ def set_windows_tweak(tweak_id, active):
         return False, err
     except Exception as e:
         return False, str(e)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Outils de réparation système
+# ══════════════════════════════════════════════════════════════════════════════
+
+# Chaque action = {id, label, desc, cmd, needs_admin, est_duration_sec}
+# cmd est une liste passée à subprocess.run. Les commandes sont **curées** —
+# aucune édition utilisateur possible. Les actions "longues" (SFC, DISM) sont
+# exécutées via SSE pour streamer leur sortie.
+_REPAIR_ACTIONS = [
+    {"id": "flush_dns",          "label": "Vider le cache DNS",
+     "desc": "Efface le cache de résolution DNS local (règle souvent les problèmes réseau)",
+     "cmd": ["ipconfig", "/flushdns"],
+     "needs_admin": False, "duration": 2, "category": "network"},
+
+    {"id": "reset_winsock",      "label": "Réinitialiser Winsock",
+     "desc": "Remet la pile de sockets Windows à zéro (règle les problèmes réseau persistants)",
+     "cmd": ["netsh", "winsock", "reset"],
+     "needs_admin": True, "duration": 5, "reboot_required": True, "category": "network"},
+
+    {"id": "reset_tcpip",        "label": "Réinitialiser la pile TCP/IP",
+     "desc": "Réinitialise la configuration IP de Windows",
+     "cmd": ["netsh", "int", "ip", "reset"],
+     "needs_admin": True, "duration": 5, "reboot_required": True, "category": "network"},
+
+    {"id": "release_renew_ip",   "label": "Renouveler l'adresse IP",
+     "desc": "Libère et renouvelle l'adresse IP DHCP",
+     "cmd": ["powershell", "-NoProfile", "-Command",
+             "ipconfig /release; ipconfig /renew"],
+     "needs_admin": False, "duration": 10, "category": "network"},
+
+    {"id": "wsreset",            "label": "Vider le cache du Microsoft Store",
+     "desc": "Remet à zéro le Store Windows (corrige les erreurs d'installation)",
+     "cmd": ["wsreset.exe", "-i"],
+     "needs_admin": False, "duration": 5, "category": "store"},
+
+    {"id": "reset_windows_update","label": "Réinitialiser Windows Update",
+     "desc": "Arrête BITS/wuauserv, supprime SoftwareDistribution, redémarre les services",
+     "cmd": None,  # multi-step custom
+     "needs_admin": True, "duration": 15, "category": "update"},
+
+    {"id": "rebuild_icon_cache", "label": "Reconstruire le cache d'icônes",
+     "desc": "Force Windows à régénérer toutes les icônes (utile si icônes cassées)",
+     "cmd": None,  # multi-step custom
+     "needs_admin": False, "duration": 10, "category": "shell"},
+
+    {"id": "sfc_scan",           "label": "Scan SFC (vérification fichiers système)",
+     "desc": "Analyse et répare les fichiers système Windows corrompus. Long (~10 min)",
+     "cmd": ["sfc", "/scannow"],
+     "needs_admin": True, "duration": 600, "category": "system", "streaming": True},
+
+    {"id": "dism_restore",       "label": "DISM Restore Health",
+     "desc": "Répare l'image système Windows via DISM. Très long (~15-30 min)",
+     "cmd": ["DISM", "/Online", "/Cleanup-Image", "/RestoreHealth"],
+     "needs_admin": True, "duration": 1200, "category": "system", "streaming": True},
+]
+
+
+def list_repair_actions():
+    """Retourne la liste des actions de réparation avec métadonnées."""
+    return [
+        {k: v for k, v in a.items() if k != "cmd"}
+        for a in _REPAIR_ACTIONS
+    ]
+
+
+def _run_repair_simple(cmd, timeout=60):
+    """Exécute une commande simple et retourne (ok, stdout, stderr)."""
+    try:
+        r = subprocess.run(
+            cmd, capture_output=True, timeout=timeout,
+            creationflags=0x08000000,
+        )
+        out = r.stdout.decode("utf-8", errors="replace").strip()
+        err = r.stderr.decode("utf-8", errors="replace").strip()
+        return r.returncode == 0, out, err
+    except subprocess.TimeoutExpired:
+        return False, "", f"Timeout après {timeout}s"
+    except Exception as e:
+        return False, "", str(e)
+
+
+def _run_reset_windows_update():
+    """Réinitialise Windows Update en plusieurs étapes."""
+    steps = []
+    # 1. Arrêter les services
+    for svc in ["bits", "wuauserv", "appidsvc", "cryptsvc"]:
+        ok, _, err = _run_repair_simple(["net", "stop", svc], timeout=15)
+        steps.append(f"Arrêt {svc} : {'OK' if ok else 'déjà arrêté ou erreur'}")
+    # 2. Supprimer SoftwareDistribution
+    import shutil as _sh
+    sd = Path(r"C:\Windows\SoftwareDistribution")
+    if sd.exists():
+        try:
+            _sh.rmtree(sd, ignore_errors=True)
+            steps.append("Suppression SoftwareDistribution : OK")
+        except Exception as e:
+            steps.append(f"Suppression SoftwareDistribution : échec ({e})")
+    # 3. Redémarrer les services
+    for svc in ["cryptsvc", "appidsvc", "wuauserv", "bits"]:
+        ok, _, err = _run_repair_simple(["net", "start", svc], timeout=15)
+        steps.append(f"Démarrage {svc} : {'OK' if ok else 'erreur'}")
+    return steps
+
+
+def _run_rebuild_icon_cache():
+    """Reconstruit le cache d'icônes Windows."""
+    steps = []
+    # 1. Tuer explorer.exe
+    _run_repair_simple(["taskkill", "/f", "/im", "explorer.exe"], timeout=5)
+    steps.append("Explorer tué")
+    # 2. Supprimer les fichiers de cache
+    import os as _os
+    localappdata = _os.environ.get("LOCALAPPDATA", "")
+    targets = [
+        Path(localappdata) / "IconCache.db",
+        Path(localappdata) / "Microsoft" / "Windows" / "Explorer",
+    ]
+    for t in targets:
+        if t.is_file():
+            try:
+                t.unlink()
+                steps.append(f"Supprimé : {t.name}")
+            except Exception as e:
+                steps.append(f"Erreur {t.name} : {e}")
+        elif t.is_dir():
+            try:
+                for f in t.glob("iconcache*"):
+                    try: f.unlink()
+                    except: pass
+                for f in t.glob("thumbcache*"):
+                    try: f.unlink()
+                    except: pass
+                steps.append(f"Nettoyé : {t.name}")
+            except Exception as e:
+                steps.append(f"Erreur {t.name} : {e}")
+    # 3. Relancer explorer
+    try:
+        subprocess.Popen(["explorer.exe"], creationflags=0x08000000)
+        steps.append("Explorer relancé")
+    except Exception as e:
+        steps.append(f"Erreur relance explorer : {e}")
+    return steps
+
+
+def run_repair_action(action_id):
+    """Exécute une action de réparation (mode non-streaming).
+
+    Retourne {"ok": bool, "output": str, "steps": list}.
+    Pour les actions longues (SFC/DISM), utiliser run_repair_action_stream.
+    """
+    action = next((a for a in _REPAIR_ACTIONS if a["id"] == action_id), None)
+    if not action:
+        return {"ok": False, "output": "Action inconnue"}
+
+    # Actions custom multi-étapes
+    if action_id == "reset_windows_update":
+        steps = _run_reset_windows_update()
+        return {"ok": True, "output": "\n".join(steps), "steps": steps}
+    if action_id == "rebuild_icon_cache":
+        steps = _run_rebuild_icon_cache()
+        return {"ok": True, "output": "\n".join(steps), "steps": steps}
+
+    # Actions simples (single subprocess)
+    if action.get("cmd"):
+        ok, out, err = _run_repair_simple(action["cmd"], timeout=action.get("duration", 60) + 10)
+        output = out if out else err
+        return {"ok": ok, "output": output or ("OK" if ok else "Échec")}
+    return {"ok": False, "output": "Commande non définie"}
+
+
+def run_repair_action_stream(action_id):
+    """Générateur pour SSE : stream l'output d'une action longue (SFC, DISM).
+
+    Yield des événements dict {type: "log"|"done"|"error", msg: str}.
+    """
+    action = next((a for a in _REPAIR_ACTIONS if a["id"] == action_id), None)
+    if not action or not action.get("cmd"):
+        yield {"type": "error", "msg": "Action inconnue ou sans commande directe"}
+        return
+
+    yield {"type": "log", "msg": f"Lancement : {' '.join(action['cmd'])}"}
+    try:
+        proc = subprocess.Popen(
+            action["cmd"],
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, encoding="utf-8", errors="replace",
+            creationflags=0x08000000,
+        )
+        for line in proc.stdout:
+            line = line.rstrip()
+            if line:
+                yield {"type": "log", "msg": line}
+        proc.wait()
+        if proc.returncode == 0:
+            yield {"type": "done", "msg": "Terminé avec succès"}
+        else:
+            yield {"type": "error", "msg": f"Code retour {proc.returncode}"}
+    except Exception as e:
+        yield {"type": "error", "msg": str(e)}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Services Windows & tâches planifiées (debloat)
+# ══════════════════════════════════════════════════════════════════════════════
+
+_WINDOWS_SERVICES_TO_DISABLE = [
+    # Telemetry
+    {"name": "DiagTrack",        "label": "Expérience utilisateur connectée et télémétrie",
+     "desc": "Collecte et envoie les données de diagnostic à Microsoft. Gros gain RAM (40-80 Mo)",
+     "category": "telemetry",    "risk": "safe"},
+    {"name": "dmwappushservice", "label": "Service de routage WAP push",
+     "desc": "Route les messages push utilisés par la télémétrie",
+     "category": "telemetry",    "risk": "safe"},
+    {"name": "WerSvc",           "label": "Rapport d'erreurs Windows",
+     "desc": "Envoie les rapports de plantage à Microsoft",
+     "category": "telemetry",    "risk": "safe"},
+    {"name": "DPS",              "label": "Stratégie de diagnostic",
+     "desc": "Détection de problèmes Windows, dépendances diagnostics",
+     "category": "telemetry",    "risk": "review"},
+    {"name": "PcaSvc",           "label": "Assistant Compatibilité des programmes",
+     "desc": "Surveille la compatibilité des apps, remonte des données d'usage",
+     "category": "telemetry",    "risk": "review"},
+
+    # Legacy
+    {"name": "MapsBroker",       "label": "Gestionnaire de téléchargement de cartes",
+     "desc": "Télécharge les cartes hors connexion de l'app Cartes",
+     "category": "legacy",       "risk": "safe"},
+    {"name": "RetailDemo",       "label": "Mode démo magasin",
+     "desc": "Service de démonstration en magasin, inutile en perso",
+     "category": "legacy",       "risk": "safe"},
+    {"name": "WMPNetworkSvc",    "label": "Partage réseau Windows Media Player",
+     "desc": "Partage DLNA/UPnP des bibliothèques WMP",
+     "category": "legacy",       "risk": "safe"},
+    {"name": "Fax",              "label": "Télécopie (Fax)",
+     "desc": "Service d'envoi et réception de fax via modem",
+     "category": "legacy",       "risk": "safe"},
+    {"name": "RemoteRegistry",   "label": "Registre à distance",
+     "desc": "Permet la modification du registre depuis une autre machine",
+     "category": "privacy",      "risk": "safe"},
+
+    # Gaming (à désactiver si pas gamer)
+    {"name": "XblAuthManager",   "label": "Xbox Live — Authentification",
+     "desc": "Sign-in Xbox Live, inutile sans jeux Xbox/Game Pass",
+     "category": "gaming",       "risk": "safe"},
+    {"name": "XblGameSave",      "label": "Xbox Live — Sauvegardes",
+     "desc": "Synchro cloud des sauvegardes de jeux Xbox",
+     "category": "gaming",       "risk": "safe"},
+    {"name": "XboxNetApiSvc",    "label": "Xbox Live — Réseau",
+     "desc": "Accès réseau multijoueur pour apps Xbox",
+     "category": "gaming",       "risk": "safe"},
+    {"name": "XboxGipSvc",       "label": "Accessoires Xbox",
+     "desc": "Support des manettes Xbox pour l'app Accessoires",
+     "category": "gaming",       "risk": "review"},
+
+    # Privacy / Cloud
+    {"name": "lfsvc",            "label": "Géolocalisation",
+     "desc": "Fournit la position géographique aux applications",
+     "category": "privacy",      "risk": "safe"},
+    {"name": "CDPUserSvc",       "label": "Plateforme des appareils connectés",
+     "desc": "Synchro multi-appareils via compte Microsoft (Timeline, clipboard cloud)",
+     "category": "cloud_sync",   "risk": "review"},
+    {"name": "OneSyncSvc",       "label": "Hôte de synchronisation",
+     "desc": "Sync Courrier/Contacts/Calendrier avec le cloud Microsoft",
+     "category": "cloud_sync",   "risk": "review"},
+]
+
+
+_SCHEDULED_TASKS_TO_DISABLE = [
+    # Telemetry / Compatibility Appraiser
+    {"path": r"\Microsoft\Windows\Application Experience\Microsoft Compatibility Appraiser",
+     "label": "Compatibility Appraiser",
+     "desc": "Collecte les données de compatibilité applicative pour la télémétrie",
+     "category": "telemetry", "risk": "safe"},
+    {"path": r"\Microsoft\Windows\Application Experience\ProgramDataUpdater",
+     "label": "ProgramDataUpdater",
+     "desc": "Met à jour les données d'usage des programmes pour la télémétrie",
+     "category": "telemetry", "risk": "safe"},
+    {"path": r"\Microsoft\Windows\Application Experience\PcaPatchDbTask",
+     "label": "PCA Patch DB",
+     "desc": "Met à jour la base de l'assistant compatibilité",
+     "category": "telemetry", "risk": "safe"},
+    {"path": r"\Microsoft\Windows\Customer Experience Improvement Program\Consolidator",
+     "label": "CEIP Consolidator",
+     "desc": "Envoie périodiquement les données CEIP à Microsoft",
+     "category": "telemetry", "risk": "safe"},
+    {"path": r"\Microsoft\Windows\Customer Experience Improvement Program\UsbCeip",
+     "label": "CEIP USB",
+     "desc": "Remonte les données d'usage des périphériques USB",
+     "category": "telemetry", "risk": "safe"},
+    {"path": r"\Microsoft\Windows\Autochk\Proxy",
+     "label": "Autochk Proxy",
+     "desc": "Collecte et envoie les données SQM d'Autochk",
+     "category": "telemetry", "risk": "safe"},
+    {"path": r"\Microsoft\Windows\DiskDiagnostic\Microsoft-Windows-DiskDiagnosticDataCollector",
+     "label": "Disk Diagnostic Data Collector",
+     "desc": "Collecte les données SMART et les envoie à Microsoft",
+     "category": "telemetry", "risk": "safe"},
+    {"path": r"\Microsoft\Windows\Feedback\Siuf\DmClient",
+     "label": "Feedback Siuf DmClient",
+     "desc": "Remonte les données de feedback utilisateur",
+     "category": "telemetry", "risk": "safe"},
+    {"path": r"\Microsoft\Windows\Feedback\Siuf\DmClientOnScenarioDownload",
+     "label": "Feedback Siuf Scenario",
+     "desc": "Télécharge les scénarios de collecte de feedback",
+     "category": "telemetry", "risk": "safe"},
+    {"path": r"\Microsoft\Windows\Windows Error Reporting\QueueReporting",
+     "label": "Error Reporting Queue",
+     "desc": "Envoie la file des rapports d'erreurs à Microsoft",
+     "category": "telemetry", "risk": "safe"},
+    # Legacy
+    {"path": r"\Microsoft\Windows\Maps\MapsUpdateTask",
+     "label": "Maps Update",
+     "desc": "Met à jour les cartes hors connexion en arrière-plan",
+     "category": "legacy", "risk": "safe"},
+    {"path": r"\Microsoft\Windows\Maps\MapsToastTask",
+     "label": "Maps Toast",
+     "desc": "Notifications de l'application Cartes",
+     "category": "legacy", "risk": "safe"},
+    {"path": r"\Microsoft\Windows\PushToInstall\Registration",
+     "label": "PushToInstall Registration",
+     "desc": "Permet l'installation d'apps poussées depuis le Store distant",
+     "category": "privacy", "risk": "safe"},
+]
+
+
+def get_services_state():
+    """Retourne l'état des services de la liste curée via PowerShell Get-Service."""
+    names = [s["name"] for s in _WINDOWS_SERVICES_TO_DISABLE]
+    ps_array = ",".join(f"'{n}'" for n in names)
+    ps_cmd = (
+        f"$names = @({ps_array}); "
+        "$result = @(); "
+        "foreach ($n in $names) { "
+        "  try { "
+        "    $s = Get-Service -Name $n -ErrorAction Stop; "
+        "    $result += [PSCustomObject]@{ "
+        "      Name = $n; "
+        "      Status = $s.Status.ToString(); "
+        "      StartType = $s.StartType.ToString(); "
+        "      Exists = $true "
+        "    } "
+        "  } catch { "
+        "    $result += [PSCustomObject]@{ Name = $n; Exists = $false } "
+        "  } "
+        "}; "
+        "$result | ConvertTo-Json -Compress"
+    )
+    try:
+        r = subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command",
+             "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; " + ps_cmd],
+            capture_output=True, timeout=15, creationflags=0x08000000,
+        )
+        raw = r.stdout.decode("utf-8", errors="replace").strip()
+        data = json.loads(raw) if raw and raw != "null" else []
+        if isinstance(data, dict):
+            data = [data]
+    except Exception:
+        data = []
+
+    by_name = {d.get("Name"): d for d in data}
+    result = []
+    for svc in _WINDOWS_SERVICES_TO_DISABLE:
+        state = by_name.get(svc["name"], {})
+        exists   = bool(state.get("Exists"))
+        start    = (state.get("StartType") or "").lower()
+        status   = (state.get("Status") or "").lower()
+        # "active" = service actuellement configuré pour démarrer (Automatic / Manual)
+        # "disabled" = StartType = Disabled
+        is_disabled = start == "disabled"
+        result.append({
+            "name":     svc["name"],
+            "label":    svc["label"],
+            "desc":     svc["desc"],
+            "category": svc["category"],
+            "risk":     svc["risk"],
+            "exists":   exists,
+            "active":   exists and not is_disabled,
+            "status":   status,
+            "start_type": start,
+            "needs_admin": True,
+        })
+    return result
+
+
+def set_service_enabled(service_name, enabled):
+    """Active ou désactive un service. Nécessite admin.
+
+    enabled=True  → StartupType Manual (safe default, ne force pas Automatic)
+    enabled=False → StartupType Disabled
+    """
+    if service_name not in {s["name"] for s in _WINDOWS_SERVICES_TO_DISABLE}:
+        return False, "Service non whitelisté"
+    target = "Manual" if enabled else "Disabled"
+    ps_cmd = f"Set-Service -Name '{service_name}' -StartupType {target} -ErrorAction Stop"
+    try:
+        r = subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_cmd],
+            capture_output=True, timeout=15, creationflags=0x08000000,
+        )
+        if r.returncode == 0:
+            return True, None
+        err = r.stderr.decode("utf-8", errors="replace").strip()
+        return False, err or "Set-Service a échoué"
+    except Exception as e:
+        return False, str(e)
+
+
+def get_scheduled_tasks_state():
+    """Retourne l'état des tâches planifiées curées via schtasks /Query."""
+    result = []
+    for task in _SCHEDULED_TASKS_TO_DISABLE:
+        state = "unknown"
+        exists = False
+        try:
+            r = subprocess.run(
+                ["schtasks", "/Query", "/TN", task["path"], "/FO", "CSV", "/NH"],
+                capture_output=True, timeout=5, creationflags=0x08000000,
+            )
+            if r.returncode == 0:
+                exists = True
+                out = r.stdout.decode("utf-8", errors="replace")
+                # CSV format: "TaskName","Next Run Time","Status"
+                if "Disabled" in out or "Désactivé" in out or "D\u00e9sactiv\u00e9" in out:
+                    state = "disabled"
+                elif "Ready" in out or "Running" in out or "Prêt" in out or "En cours" in out:
+                    state = "enabled"
+        except Exception:
+            pass
+        result.append({
+            "path":     task["path"],
+            "label":    task["label"],
+            "desc":     task["desc"],
+            "category": task["category"],
+            "risk":     task["risk"],
+            "exists":   exists,
+            "active":   exists and state != "disabled",
+            "state":    state,
+            "needs_admin": True,
+        })
+    return result
+
+
+def set_scheduled_task_enabled(task_path, enabled):
+    """Active ou désactive une tâche planifiée. Nécessite admin pour les tâches système."""
+    if task_path not in {t["path"] for t in _SCHEDULED_TASKS_TO_DISABLE}:
+        return False, "Tâche non whitelistée"
+    action = "/ENABLE" if enabled else "/DISABLE"
+    try:
+        r = subprocess.run(
+            ["schtasks", "/Change", "/TN", task_path, action],
+            capture_output=True, timeout=10, creationflags=0x08000000,
+        )
+        if r.returncode == 0:
+            return True, None
+        err = r.stderr.decode("utf-8", errors="replace").strip()
+        return False, err or "schtasks a échoué"
+    except Exception as e:
+        return False, str(e)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Apps UWP pré-installées (debloat)
+# ══════════════════════════════════════════════════════════════════════════════
+
+# Liste curée d'apps UWP "bloat" sur Windows 11 24H2/25H2.
+# Sources croisées : Win11Debloat, WinUtil, Sophia Script, SophiApp.
+# Risk levels :
+#   "safe"   — bloat pur, aucun effet de bord
+#   "review" — certains utilisateurs peuvent vouloir garder
+_UWP_BLOAT_APPS = [
+    # ---------- SAFE : aucun regret possible ----------
+    {"id": "bing_news",       "label": "Actualités (Bing News)",
+     "desc": "Flux d'articles MSN, lié au widget actualités",
+     "pattern": "Microsoft.BingNews", "risk": "safe"},
+    {"id": "bing_weather",    "label": "Météo (Bing Weather)",
+     "desc": "App Météo Microsoft, données MSN",
+     "pattern": "Microsoft.BingWeather", "risk": "safe"},
+    {"id": "get_help",        "label": "Obtenir de l'aide",
+     "desc": "Assistant d'aide en ligne Microsoft",
+     "pattern": "Microsoft.GetHelp", "risk": "safe"},
+    {"id": "get_started",     "label": "Conseils (Get Started)",
+     "desc": "Tutoriel de bienvenue Windows, inutile après config",
+     "pattern": "Microsoft.Getstarted", "risk": "safe"},
+    {"id": "office_hub",      "label": "Get Office (Office Hub)",
+     "desc": "Raccourci promo vers Microsoft 365",
+     "pattern": "Microsoft.MicrosoftOfficeHub", "risk": "safe"},
+    {"id": "skype",           "label": "Skype",
+     "desc": "Client Skype préinstallé, déprécié par Microsoft",
+     "pattern": "Microsoft.SkypeApp", "risk": "safe"},
+    {"id": "feedback_hub",    "label": "Hub de commentaires",
+     "desc": "Remontée de bugs et suggestions à Microsoft",
+     "pattern": "Microsoft.WindowsFeedbackHub", "risk": "safe"},
+    {"id": "3d_viewer",       "label": "Visionneuse 3D",
+     "desc": "Ancien viewer de modèles 3D, résiduel",
+     "pattern": "Microsoft.Microsoft3DViewer", "risk": "safe"},
+    {"id": "paint3d",         "label": "Paint 3D",
+     "desc": "Version 3D de Paint, dépréciée",
+     "pattern": "Microsoft.MSPaint", "risk": "safe"},
+    {"id": "mixed_reality",   "label": "Portail Réalité Mixte",
+     "desc": "Windows Mixed Reality Portal, abandonné en 2024",
+     "pattern": "Microsoft.MixedReality.Portal", "risk": "safe"},
+    {"id": "oneconnect",      "label": "Mobile Plans",
+     "desc": "Gestionnaire de forfaits cellulaires (eSIM)",
+     "pattern": "Microsoft.OneConnect", "risk": "safe"},
+    {"id": "wallet",          "label": "Microsoft Wallet",
+     "desc": "Ancien portefeuille Microsoft, déprécié",
+     "pattern": "Microsoft.Wallet", "risk": "safe"},
+    {"id": "print3d",         "label": "Print 3D",
+     "desc": "Impression 3D UWP, déprécié",
+     "pattern": "Microsoft.Print3D", "risk": "safe"},
+    {"id": "clipchamp",       "label": "Clipchamp",
+     "desc": "Éditeur vidéo Microsoft, préinstallé depuis 22H2",
+     "pattern": "Clipchamp.Clipchamp", "risk": "safe"},
+    {"id": "power_automate",  "label": "Power Automate Desktop",
+     "desc": "Outil d'automatisation RPA, rarement utilisé en perso",
+     "pattern": "Microsoft.PowerAutomateDesktop", "risk": "safe"},
+    {"id": "family",          "label": "Famille Microsoft",
+     "desc": "Contrôle parental Microsoft Family Safety",
+     "pattern": "MicrosoftCorporationII.MicrosoftFamily", "risk": "safe"},
+    {"id": "xbox_speech",     "label": "Xbox Speech To Text Overlay",
+     "desc": "Voix vers texte pour jeux Xbox",
+     "pattern": "Microsoft.XboxSpeechToTextOverlay", "risk": "safe"},
+
+    # ---------- REVIEW : certains utilisateurs peuvent vouloir garder ----------
+    {"id": "solitaire",       "label": "Solitaire Collection",
+     "desc": "Suite de jeux de cartes Microsoft",
+     "pattern": "Microsoft.MicrosoftSolitaireCollection", "risk": "review"},
+    {"id": "todo",            "label": "Microsoft To Do",
+     "desc": "Gestionnaire de tâches cloud (sync OneDrive)",
+     "pattern": "Microsoft.Todos", "risk": "review"},
+    {"id": "teams_consumer",  "label": "Teams (version grand public)",
+     "desc": "Chat Teams consumer — pas la version pro/Office",
+     "pattern": "MicrosoftTeams", "risk": "review"},
+    {"id": "your_phone",      "label": "Mobile connecté (Phone Link)",
+     "desc": "Liaison Windows ↔ smartphone Android/iOS",
+     "pattern": "Microsoft.YourPhone", "risk": "review"},
+    {"id": "quick_assist",    "label": "Assistance rapide",
+     "desc": "Prise en main à distance, utile en dépannage",
+     "pattern": "MicrosoftCorporationII.QuickAssist", "risk": "review"},
+    {"id": "zune_music",      "label": "Groove Musique / Media Player Legacy",
+     "desc": "Ancien lecteur audio",
+     "pattern": "Microsoft.ZuneMusic", "risk": "review"},
+    {"id": "zune_video",      "label": "Films et TV",
+     "desc": "Lecteur vidéo et store de films",
+     "pattern": "Microsoft.ZuneVideo", "risk": "review"},
+    {"id": "maps",            "label": "Cartes Windows",
+     "desc": "App Cartes Windows, dépréciée en 2025",
+     "pattern": "Microsoft.WindowsMaps", "risk": "review"},
+    {"id": "people",          "label": "Contacts (People)",
+     "desc": "Gestionnaire de contacts UWP",
+     "pattern": "Microsoft.People", "risk": "review"},
+    {"id": "sticky_notes",    "label": "Pense-bête (Sticky Notes)",
+     "desc": "Notes adhésives sur le bureau, sync OneNote",
+     "pattern": "Microsoft.MicrosoftStickyNotes", "risk": "review"},
+    {"id": "alarms",          "label": "Horloge et alarmes",
+     "desc": "Timers, alarmes, focus sessions",
+     "pattern": "Microsoft.WindowsAlarms", "risk": "review"},
+    {"id": "sound_recorder",  "label": "Enregistreur vocal",
+     "desc": "Enregistreur audio UWP",
+     "pattern": "Microsoft.WindowsSoundRecorder", "risk": "review"},
+    {"id": "mail_calendar",   "label": "Courrier et Calendrier (legacy)",
+     "desc": "Ancienne app, remplacée par le nouveau Outlook sur 24H2",
+     "pattern": "microsoft.windowscommunicationsapps", "risk": "review"},
+    {"id": "new_outlook",     "label": "Nouveau Outlook (web)",
+     "desc": "Nouveau client Outlook web-based poussé par Microsoft",
+     "pattern": "Microsoft.OutlookForWindows", "risk": "review"},
+    # Gaming
+    {"id": "xbox_gaming_app", "label": "Application Xbox",
+     "desc": "Client Xbox / Game Pass sur PC",
+     "pattern": "Microsoft.GamingApp", "risk": "review"},
+    {"id": "xbox_game_overlay","label": "Xbox Game Bar Overlay",
+     "desc": "Surcouche Game Bar (Win+G)",
+     "pattern": "Microsoft.XboxGameOverlay", "risk": "review"},
+    {"id": "xbox_gamebar",    "label": "Xbox Game Bar",
+     "desc": "Barre de jeu Windows (capture, perfs)",
+     "pattern": "Microsoft.XboxGamingOverlay", "risk": "review"},
+    {"id": "xbox_tcui",       "label": "Xbox TCUI",
+     "desc": "Interface commune Xbox (parties, invitations)",
+     "pattern": "Microsoft.Xbox.TCUI", "risk": "review"},
+]
+
+
+def list_uwp_apps():
+    """Liste les apps UWP debloat détectées comme installées sur le système.
+
+    Retourne une liste avec `installed: bool` et `package_full_name` si présent.
+    """
+    # Construit un tableau PowerShell avec tous les patterns, fait un seul
+    # appel au lieu de N (plus rapide).
+    patterns = [a["pattern"] for a in _UWP_BLOAT_APPS]
+    ps_array = ",".join(f"'{p}'" for p in patterns)
+    ps_cmd = (
+        f"$patterns = @({ps_array}); "
+        "$result = @(); "
+        "foreach ($p in $patterns) { "
+        "  $pkg = Get-AppxPackage -Name \"*$p*\" -ErrorAction SilentlyContinue | Select-Object -First 1; "
+        "  if ($pkg) { "
+        "    $result += [PSCustomObject]@{ "
+        "      Pattern = $p; "
+        "      PackageFullName = $pkg.PackageFullName; "
+        "      Name = $pkg.Name; "
+        "      Publisher = $pkg.Publisher "
+        "    } "
+        "  } "
+        "}; "
+        "$result | ConvertTo-Json -Depth 3 -Compress"
+    )
+    try:
+        r = subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command",
+             "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; " + ps_cmd],
+            capture_output=True, timeout=30, creationflags=0x08000000,
+        )
+        raw = r.stdout.decode("utf-8", errors="replace").strip()
+        data = json.loads(raw) if raw and raw != "null" else []
+        if isinstance(data, dict):
+            data = [data]
+    except Exception:
+        data = []
+
+    by_pattern = {d.get("Pattern"): d for d in data if d.get("Pattern")}
+    result = []
+    for app in _UWP_BLOAT_APPS:
+        pkg = by_pattern.get(app["pattern"])
+        result.append({
+            "id":                app["id"],
+            "label":             app["label"],
+            "desc":              app["desc"],
+            "pattern":           app["pattern"],
+            "risk":              app["risk"],
+            "installed":         pkg is not None,
+            "package_full_name": pkg.get("PackageFullName") if pkg else None,
+            "publisher":         (pkg.get("Publisher") or "").split(",")[0].replace("CN=", "") if pkg else None,
+        })
+    return result
+
+
+def remove_uwp_app(package_full_name):
+    """Supprime une app UWP via Remove-AppxPackage (user scope)."""
+    try:
+        r = subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command",
+             f"Remove-AppxPackage -Package '{package_full_name}' -ErrorAction Stop"],
+            capture_output=True, timeout=120, creationflags=0x08000000,
+        )
+        if r.returncode == 0:
+            return True, None
+        err = r.stderr.decode("utf-8", errors="replace").strip()
+        return False, err or "Échec Remove-AppxPackage"
+    except subprocess.TimeoutExpired:
+        return False, "Timeout (>120 s)"
+    except Exception as e:
+        return False, str(e)
+
+
+def remove_uwp_apps(package_full_names):
+    """Bulk remove. Retourne liste de résultats par package."""
+    results = []
+    ok_count = 0
+    for pfn in package_full_names:
+        ok, err = remove_uwp_app(pfn)
+        results.append({"package": pfn, "ok": ok, "error": err})
+        if ok:
+            ok_count += 1
+    return {"ok_count": ok_count, "fail_count": len(package_full_names) - ok_count, "results": results}
 
 
 def get_drivers():

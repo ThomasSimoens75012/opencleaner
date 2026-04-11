@@ -39,8 +39,12 @@ from cleaner import (
     find_old_installers, delete_installer_files,
     is_admin, is_admin_path,
     get_drivers, export_drivers_report, scan_windows_update_drivers,
-    get_windows_tweaks, set_windows_tweak,
+    get_windows_tweaks, set_windows_tweak, get_tweak_presets,
     capture_benchmark,
+    list_uwp_apps, remove_uwp_apps,
+    get_services_state, set_service_enabled,
+    get_scheduled_tasks_state, set_scheduled_task_enabled,
+    list_repair_actions, run_repair_action, run_repair_action_stream,
 )
 
 
@@ -635,6 +639,14 @@ def api_windows_tweaks_set():
     return jsonify({"ok": False, "error": err}), 500
 
 
+@app.route("/api/windows-tweaks/presets")
+def api_windows_tweaks_presets():
+    try:
+        return jsonify({"presets": get_tweak_presets()})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/windows-tweaks/set-batch", methods=["POST"])
 def api_windows_tweaks_set_batch():
     data    = request.get_json(force=True) or {}
@@ -656,6 +668,123 @@ def api_windows_tweaks_set_batch():
             fail_count += 1
     app.logger.info("windows-tweaks/set-batch — %d ok, %d échec(s)", ok_count, fail_count)
     return jsonify({"ok": fail_count == 0, "results": results, "ok_count": ok_count, "fail_count": fail_count})
+
+
+@app.route("/api/services")
+def api_services_list():
+    try:
+        return jsonify({"services": get_services_state(), "is_admin": is_admin()})
+    except Exception as e:
+        app.logger.exception("services list error")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/services/set", methods=["POST"])
+def api_services_set():
+    if not is_admin():
+        return jsonify({"ok": False, "error": "Droits administrateur requis"}), 403
+    data = request.get_json(force=True) or {}
+    name    = data.get("name")
+    enabled = bool(data.get("enabled"))
+    if not name:
+        return jsonify({"ok": False, "error": "name manquant"}), 400
+    ok, err = set_service_enabled(name, enabled)
+    if ok:
+        app.logger.info("services/set — %s → %s", name, "enabled" if enabled else "disabled")
+        return jsonify({"ok": True})
+    app.logger.warning("services/set — %s failed: %s", name, err)
+    return jsonify({"ok": False, "error": err}), 500
+
+
+@app.route("/api/scheduled-tasks")
+def api_scheduled_tasks_list():
+    try:
+        return jsonify({"tasks": get_scheduled_tasks_state(), "is_admin": is_admin()})
+    except Exception as e:
+        app.logger.exception("scheduled-tasks list error")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/scheduled-tasks/set", methods=["POST"])
+def api_scheduled_tasks_set():
+    if not is_admin():
+        return jsonify({"ok": False, "error": "Droits administrateur requis"}), 403
+    data = request.get_json(force=True) or {}
+    path    = data.get("path")
+    enabled = bool(data.get("enabled"))
+    if not path:
+        return jsonify({"ok": False, "error": "path manquant"}), 400
+    ok, err = set_scheduled_task_enabled(path, enabled)
+    if ok:
+        app.logger.info("scheduled-tasks/set — %s → %s", path, "enabled" if enabled else "disabled")
+        return jsonify({"ok": True})
+    app.logger.warning("scheduled-tasks/set — %s failed: %s", path, err)
+    return jsonify({"ok": False, "error": err}), 500
+
+
+@app.route("/api/repair/list")
+def api_repair_list():
+    try:
+        return jsonify({"actions": list_repair_actions(), "is_admin": is_admin()})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/repair/run", methods=["POST"])
+def api_repair_run():
+    data = request.get_json(force=True) or {}
+    action_id = data.get("id")
+    if not action_id:
+        return jsonify({"ok": False, "error": "id manquant"}), 400
+    # Check admin pour les actions qui le nécessitent
+    action = next((a for a in list_repair_actions() if a["id"] == action_id), None)
+    if action and action.get("needs_admin") and not is_admin():
+        return jsonify({"ok": False, "error": "Droits administrateur requis"}), 403
+    try:
+        result = run_repair_action(action_id)
+        app.logger.info("repair/run — %s → ok=%s", action_id, result.get("ok"))
+        return jsonify(result)
+    except Exception as e:
+        app.logger.exception("repair run error")
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/repair/stream/<action_id>")
+def api_repair_stream(action_id):
+    action = next((a for a in list_repair_actions() if a["id"] == action_id), None)
+    if not action:
+        return jsonify({"error": "Action inconnue"}), 404
+    if action.get("needs_admin") and not is_admin():
+        return jsonify({"error": "Droits administrateur requis"}), 403
+
+    def _stream():
+        for event in run_repair_action_stream(action_id):
+            yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+    return Response(_stream(), mimetype="text/event-stream")
+
+
+@app.route("/api/uwp-apps")
+def api_uwp_apps():
+    try:
+        return jsonify(list_uwp_apps())
+    except Exception as e:
+        app.logger.exception("uwp-apps list error")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/uwp-apps/remove", methods=["POST"])
+def api_uwp_apps_remove():
+    data = request.get_json(force=True) or {}
+    packages = data.get("packages") or []
+    if not packages:
+        return jsonify({"error": "Aucun package sélectionné"}), 400
+    try:
+        result = remove_uwp_apps(packages)
+        app.logger.info("uwp-apps/remove — %d ok, %d échec(s)", result["ok_count"], result["fail_count"])
+        return jsonify(result)
+    except Exception as e:
+        app.logger.exception("uwp-apps remove error")
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/drivers")

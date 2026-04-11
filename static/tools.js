@@ -580,6 +580,452 @@ function renderDuplicates(groups, totalFmt) {
 
 let duplicateFolderGroups = [];
 
+// ── Services Windows (admin) ─────────────────────────────────────────────────
+
+let _services = [];
+
+async function loadServices() {
+  const btn = document.getElementById("btn-load-services");
+  const el  = document.getElementById("services-list");
+  _btnScan(btn, "Chargement…");
+  try {
+    const res  = await fetch("/api/services");
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Erreur serveur");
+    _services = data.services || [];
+    _renderServices(data.is_admin);
+    _btnReset(btn);
+  } catch (e) {
+    el.innerHTML = `<div class="tool-error" style="padding:20px">Erreur : ${e.message}</div>`;
+    _btnReset(btn);
+  }
+}
+
+function _renderServices(isAdmin) {
+  const el = document.getElementById("services-list");
+  const visible = _services.filter(s => s.exists);
+  if (!visible.length) {
+    el.innerHTML = `<div class="tool-empty" style="padding:20px">Aucun service détecté (tous déjà désactivés ou absents de cette version de Windows).</div>`;
+    return;
+  }
+
+  const bucket = { telemetry: [], gaming: [], legacy: [], cloud_sync: [], privacy: [] };
+  visible.forEach(s => { (bucket[s.category] || bucket.legacy).push(s); });
+  const order = [
+    ["telemetry",  "Télémétrie"],
+    ["gaming",     "Gaming (si pas gamer)"],
+    ["legacy",     "Fonctions legacy"],
+    ["cloud_sync", "Synchronisation cloud"],
+    ["privacy",    "Vie privée"],
+  ];
+
+  el.innerHTML = order.map(([cat, label]) => {
+    const items = bucket[cat] || [];
+    if (!items.length) return "";
+    return `
+      <div class="tweak-group-title" style="padding:14px 16px 6px">${label}</div>
+      ${items.map(s => _serviceRowHtml(s, isAdmin)).join("")}
+    `;
+  }).join("");
+}
+
+function _serviceRowHtml(svc, isAdmin) {
+  const locked = !isAdmin;
+  return `
+    <div class="tweak-row${locked ? ' row-locked' : ''}" data-service="${svc.name}" style="padding:10px 16px">
+      <div class="tweak-info">
+        <div class="tweak-label">${_escapeHtml(svc.label)}${locked ? ' <span class="admin-badge">Admin requis</span>' : ''}</div>
+        <div class="tweak-desc">${_escapeHtml(svc.desc)}</div>
+      </div>
+      <label class="sw">
+        <input type="checkbox" ${svc.active ? "checked" : ""} ${locked ? "disabled" : ""} onchange="toggleService('${svc.name}', this)">
+        <span class="slider"></span>
+      </label>
+    </div>
+  `;
+}
+
+async function toggleService(name, checkbox) {
+  const row = checkbox.closest(".tweak-row");
+  const sw = row.querySelector(".sw");
+  sw.classList.add("busy");
+  row.classList.remove("tweak-error");
+  const errEl = row.querySelector(".tweak-err-msg");
+  if (errEl) errEl.remove();
+  const enabled = checkbox.checked;
+  try {
+    const res = await fetch("/api/services/set", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, enabled }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error(data.error || "Échec");
+    const svc = _services.find(s => s.name === name);
+    if (svc) svc.active = enabled;
+    row.classList.add("tweak-ok");
+    setTimeout(() => row.classList.remove("tweak-ok"), 600);
+  } catch (e) {
+    checkbox.checked = !checkbox.checked;
+    row.classList.add("tweak-error");
+    const msg = document.createElement("div");
+    msg.className = "tweak-err-msg";
+    msg.textContent = "Échec : " + e.message;
+    row.appendChild(msg);
+    setTimeout(() => {
+      row.classList.remove("tweak-error");
+      msg.remove();
+    }, 5000);
+  } finally {
+    sw.classList.remove("busy");
+  }
+}
+
+// ── Tâches planifiées (admin) ────────────────────────────────────────────────
+
+let _scheduledTasks = [];
+
+async function loadScheduledTasks() {
+  const btn = document.getElementById("btn-load-tasks");
+  const el  = document.getElementById("tasks-list");
+  _btnScan(btn, "Chargement…");
+  try {
+    const res  = await fetch("/api/scheduled-tasks");
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Erreur serveur");
+    _scheduledTasks = data.tasks || [];
+    _renderScheduledTasks(data.is_admin);
+    _btnReset(btn);
+  } catch (e) {
+    el.innerHTML = `<div class="tool-error" style="padding:20px">Erreur : ${e.message}</div>`;
+    _btnReset(btn);
+  }
+}
+
+function _renderScheduledTasks(isAdmin) {
+  const el = document.getElementById("tasks-list");
+  const visible = _scheduledTasks.filter(t => t.exists);
+  if (!visible.length) {
+    el.innerHTML = `<div class="tool-empty" style="padding:20px">Aucune tâche détectée (toutes déjà désactivées ou absentes).</div>`;
+    return;
+  }
+
+  const bucket = { telemetry: [], legacy: [], privacy: [] };
+  visible.forEach(t => { (bucket[t.category] || bucket.legacy).push(t); });
+  const order = [
+    ["telemetry", "Télémétrie"],
+    ["legacy",    "Fonctions legacy"],
+    ["privacy",   "Vie privée"],
+  ];
+
+  el.innerHTML = order.map(([cat, label]) => {
+    const items = bucket[cat] || [];
+    if (!items.length) return "";
+    return `
+      <div class="tweak-group-title" style="padding:14px 16px 6px">${label}</div>
+      ${items.map(t => _scheduledTaskRowHtml(t, isAdmin)).join("")}
+    `;
+  }).join("");
+}
+
+function _scheduledTaskRowHtml(task, isAdmin) {
+  const locked = !isAdmin;
+  const pathSafe = task.path.replace(/"/g, '&quot;').replace(/'/g, "\\'");
+  return `
+    <div class="tweak-row${locked ? ' row-locked' : ''}" style="padding:10px 16px">
+      <div class="tweak-info">
+        <div class="tweak-label">${_escapeHtml(task.label)}${locked ? ' <span class="admin-badge">Admin requis</span>' : ''}</div>
+        <div class="tweak-desc">${_escapeHtml(task.desc)}</div>
+      </div>
+      <label class="sw">
+        <input type="checkbox" ${task.active ? "checked" : ""} ${locked ? "disabled" : ""} onchange="toggleScheduledTask('${pathSafe}', this)">
+        <span class="slider"></span>
+      </label>
+    </div>
+  `;
+}
+
+async function toggleScheduledTask(path, checkbox) {
+  const row = checkbox.closest(".tweak-row");
+  const sw = row.querySelector(".sw");
+  sw.classList.add("busy");
+  const enabled = checkbox.checked;
+  try {
+    const res = await fetch("/api/scheduled-tasks/set", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path, enabled }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error(data.error || "Échec");
+    const t = _scheduledTasks.find(x => x.path === path);
+    if (t) t.active = enabled;
+    row.classList.add("tweak-ok");
+    setTimeout(() => row.classList.remove("tweak-ok"), 600);
+  } catch (e) {
+    checkbox.checked = !checkbox.checked;
+    row.classList.add("tweak-error");
+    const msg = document.createElement("div");
+    msg.className = "tweak-err-msg";
+    msg.textContent = "Échec : " + e.message;
+    row.appendChild(msg);
+    setTimeout(() => {
+      row.classList.remove("tweak-error");
+      msg.remove();
+    }, 5000);
+  } finally {
+    sw.classList.remove("busy");
+  }
+}
+
+// ── Outils de réparation système ─────────────────────────────────────────────
+
+let _repairActions = [];
+
+async function loadRepairActions() {
+  const btn = document.getElementById("btn-load-repair");
+  const el  = document.getElementById("repair-list");
+  _btnScan(btn, "Chargement…");
+  try {
+    const res  = await fetch("/api/repair/list");
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Erreur serveur");
+    _repairActions = data.actions || [];
+    _renderRepairActions(data.is_admin);
+    _btnReset(btn);
+  } catch (e) {
+    el.innerHTML = `<div class="tool-error" style="padding:20px">Erreur : ${e.message}</div>`;
+    _btnReset(btn);
+  }
+}
+
+function _renderRepairActions(isAdmin) {
+  const el = document.getElementById("repair-list");
+  const order = [
+    ["network", "Réseau"],
+    ["store",   "Microsoft Store"],
+    ["update",  "Windows Update"],
+    ["shell",   "Explorateur / icônes"],
+    ["system",  "Fichiers système (long)"],
+  ];
+  const html = order.map(([cat, label]) => {
+    const items = _repairActions.filter(a => a.category === cat);
+    if (!items.length) return "";
+    return `
+      <div class="tweak-group-title" style="padding:14px 16px 6px">${label}</div>
+      ${items.map(a => _repairRowHtml(a, isAdmin)).join("")}
+    `;
+  }).join("");
+  el.innerHTML = html;
+}
+
+function _repairRowHtml(action, isAdmin) {
+  const locked = action.needs_admin && !isAdmin;
+  const reboot = action.reboot_required ? ` <span class="admin-badge" style="background:var(--hover)">reboot requis</span>` : "";
+  const streaming = action.streaming;
+  const btnLabel = locked ? "Admin requis" : (streaming ? "Lancer (long)" : "Lancer");
+  return `
+    <div class="tweak-row${locked ? ' row-locked' : ''}" style="padding:10px 16px" data-repair-id="${action.id}">
+      <div class="tweak-info">
+        <div class="tweak-label">${_escapeHtml(action.label)}${reboot}</div>
+        <div class="tweak-desc">${_escapeHtml(action.desc)}</div>
+      </div>
+      <button class="btn-ghost" ${locked ? "disabled" : ""}
+              onclick="runRepairAction('${action.id}', ${streaming ? "true" : "false"})"
+              style="flex-shrink:0;font-size:12px">
+        ${btnLabel}
+      </button>
+    </div>
+  `;
+}
+
+async function runRepairAction(actionId, isStreaming) {
+  const row = document.querySelector(`.tweak-row[data-repair-id="${actionId}"]`);
+  const btn = row?.querySelector("button");
+  const label = row?.querySelector(".tweak-label")?.textContent || actionId;
+  const originalText = btn ? btn.textContent : "";
+  if (btn) { btn.disabled = true; btn.textContent = "En cours…"; }
+
+  _logAppend("repair-log", `▶ ${label}`);
+
+  if (isStreaming) {
+    // SSE pour SFC / DISM
+    try {
+      const es = new EventSource(`/api/repair/stream/${actionId}`);
+      es.onmessage = (e) => {
+        const item = JSON.parse(e.data);
+        if (item.type === "log") _logAppend("repair-log", "  " + item.msg);
+        else if (item.type === "done") {
+          _logAppend("repair-log", "✓ " + item.msg);
+          es.close();
+          if (btn) { btn.disabled = false; btn.textContent = originalText; }
+          showToast(label, item.msg, "success");
+        } else if (item.type === "error") {
+          _logAppend("repair-log", "✗ " + item.msg);
+          es.close();
+          if (btn) { btn.disabled = false; btn.textContent = originalText; }
+          showToast(label, item.msg, "warn");
+        }
+      };
+      es.onerror = () => {
+        es.close();
+        if (btn) { btn.disabled = false; btn.textContent = originalText; }
+        _logAppend("repair-log", "✗ Connexion SSE perdue");
+      };
+    } catch (e) {
+      _logAppend("repair-log", "✗ " + e.message);
+      if (btn) { btn.disabled = false; btn.textContent = originalText; }
+    }
+  } else {
+    // Action simple
+    try {
+      const res  = await fetch("/api/repair/run", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: actionId }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        (data.output || "").split("\n").forEach(line => {
+          if (line.trim()) _logAppend("repair-log", "  " + line);
+        });
+        _logAppend("repair-log", "✓ Terminé");
+        showToast(label, "Action terminée avec succès.", "success");
+      } else {
+        _logAppend("repair-log", "✗ " + (data.error || data.output || "Échec"));
+        showToast(label, data.error || "Échec", "warn");
+      }
+    } catch (e) {
+      _logAppend("repair-log", "✗ " + e.message);
+      showToast("Erreur", e.message, "warn");
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = originalText; }
+    }
+  }
+}
+
+// ── Apps UWP pré-installées (debloat) ────────────────────────────────────────
+
+let _uwpApps = [];
+
+async function startUwpScan() {
+  const resultEl = document.getElementById("uwp-results");
+  const btnEl    = document.getElementById("btn-scan-uwp");
+  document.getElementById("uwp-log").innerHTML = "";
+  resultEl.innerHTML = "";
+  _uwpApps = [];
+  _btnScan(btnEl, "Analyse…");
+
+  try {
+    const res  = await fetch("/api/uwp-apps");
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Erreur serveur");
+    _btnReset(btnEl);
+    renderUwpApps(data);
+  } catch (e) {
+    _logAppend("uwp-log", "Erreur : " + e.message);
+    _btnReset(btnEl);
+  }
+}
+
+function renderUwpApps(apps) {
+  _uwpApps = apps;
+  const installed = apps.filter(a => a.installed);
+  const safe      = installed.filter(a => a.risk === "safe").length;
+  const review    = installed.filter(a => a.risk === "review").length;
+
+  const el = document.getElementById("uwp-results");
+  if (!installed.length) {
+    el.innerHTML = "";
+    _logAppend("uwp-log", "Aucune app bloat détectée.");
+    return;
+  }
+  _logAppend("uwp-log", `${installed.length} app(s) bloat détectée(s) — ${safe} safe + ${review} à examiner.`);
+
+  el.innerHTML = "";
+  el.appendChild(_makeSelHeader(el, {
+    countText: `${installed.length} app(s) — cochées par défaut : niveau « safe »`,
+    deleteId:  "btn-delete-uwp",
+    deleteFn:  deleteSelectedUwp,
+  }));
+  _watchSelSize(el, document.getElementById("btn-delete-uwp"));
+
+  // Groupe par risk
+  const groups = [
+    { id: "safe",   label: "Safe — bloat pur, aucun regret",              items: installed.filter(a => a.risk === "safe") },
+    { id: "review", label: "À examiner — peut être utile selon les cas",  items: installed.filter(a => a.risk === "review") },
+  ];
+
+  for (const g of groups) {
+    if (!g.items.length) continue;
+    const gh = document.createElement("div");
+    gh.className = "dupe-group-title";
+    gh.textContent = `${g.label} · ${g.items.length}`;
+    el.appendChild(gh);
+    g.items.forEach((app, i) => {
+      const row = document.createElement("div");
+      row.className = "dupe-row";
+      const cbId = `uwp-${g.id}-${i}`;
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.id = cbId;
+      cb.dataset.path = app.package_full_name;
+      cb.checked = (g.id === "safe");
+      const lbl = document.createElement("label");
+      lbl.htmlFor = cbId;
+      lbl.className = "dupe-path";
+      lbl.style.flexDirection = "column";
+      lbl.style.alignItems = "flex-start";
+      lbl.style.gap = "2px";
+      lbl.innerHTML = `
+        <div><strong style="font-size:13px">${_escapeHtml(app.label)}</strong></div>
+        <div style="font-size:11px;color:var(--text-dim)">${_escapeHtml(app.desc)}</div>
+      `;
+      row.append(cb, lbl);
+      el.appendChild(row);
+    });
+  }
+}
+
+async function deleteSelectedUwp() {
+  const checked = [...document.querySelectorAll("#uwp-results input[type=checkbox]:checked:not(.sel-all)")];
+  if (!checked.length) {
+    showToast("Aucune sélection", "Cochez au moins une app.", "warn");
+    return;
+  }
+  const packages = checked.map(c => c.dataset.path);
+  const btn = document.getElementById("btn-delete-uwp");
+  showConfirm(
+    `Désinstaller ${packages.length} app(s) ?`,
+    `Les applications cochées seront désinstallées pour votre utilisateur Windows. L'opération est réversible via le Microsoft Store.`,
+    async () => {
+      if (btn) { btn.disabled = true; btn.textContent = "Désinstallation…"; }
+      _logAppend("uwp-log", `Désinstallation de ${packages.length} app(s)…`);
+      try {
+        const res  = await fetch("/api/uwp-apps/remove", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ packages }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Erreur serveur");
+        _logAppend("uwp-log", `${data.ok_count} désinstallée(s), ${data.fail_count} échec(s).`);
+        (data.results || []).forEach(r => {
+          if (!r.ok) {
+            _logAppend("uwp-log", `  échec ${r.package} : ${r.error}`);
+          }
+        });
+        if (data.ok_count > 0) {
+          showToast("Désinstallation terminée", `${data.ok_count} app(s) supprimée(s).`, "success");
+        }
+        // Re-scan
+        setTimeout(() => startUwpScan(), 500);
+      } catch (e) {
+        _logAppend("uwp-log", "Erreur : " + e.message);
+        showToast("Erreur", e.message, "warn");
+      } finally {
+        if (btn) { btn.disabled = false; }
+      }
+    },
+  );
+}
+
 async function startDuplicateFolderScan() {
   const folder = document.getElementById("dupe-folder").value.trim();
   if (!folder) { showToast("Dossier requis", "Entrez un dossier à analyser.", "warn"); return; }
@@ -2061,10 +2507,71 @@ async function loadWindowsTweaks() {
     _renderTweaks();
     _renderTweakFilters();
     _renderTweakChart();
+    _loadTweakPresets();
     _tweaksLoaded = true;
   } catch (e) {
     el.innerHTML = `<div class="tool-error">Erreur : ${e.message}</div>`;
   }
+}
+
+async function _loadTweakPresets() {
+  try {
+    const res  = await fetch("/api/windows-tweaks/presets");
+    const data = await res.json();
+    const el   = document.getElementById("tweak-presets");
+    if (!el || !data.presets) return;
+    el.innerHTML = data.presets.map(p => `
+      <button class="btn-ghost tweak-preset-btn"
+              title="${_escapeHtml(p.desc)}"
+              onclick="applyTweakPreset('${p.id}', ${JSON.stringify(p.tweaks_off).replace(/"/g, '&quot;')})">
+        ${_escapeHtml(p.label)} <span style="color:var(--text-dim);font-size:11px;margin-left:4px">${p.count}</span>
+      </button>
+    `).join("");
+  } catch (e) {}
+}
+
+async function applyTweakPreset(presetId, tweaksOff) {
+  // Confirmation avant application
+  showConfirm(
+    `Appliquer le preset « ${presetId} » ?`,
+    `${tweaksOff.length} fonctionnalité(s) vont être désactivées. Tu peux les réactiver individuellement ensuite.`,
+    async () => {
+      const changes = tweaksOff
+        .map(id => ({ id, active: false }))
+        .filter(c => {
+          // Ne pousser que si pas déjà off
+          const item = _tweakItems.find(i => i.id === c.id);
+          return item && item.active;
+        });
+      if (!changes.length) {
+        showToast("Rien à faire", "Toutes les fonctionnalités de ce preset sont déjà désactivées.", "info");
+        return;
+      }
+      try {
+        const res  = await fetch("/api/windows-tweaks/set-batch", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ changes }),
+        });
+        const data = await res.json();
+        (data.results || []).forEach(r => {
+          if (!r.ok) return;
+          const item = _tweakItems.find(i => i.id === r.id);
+          if (item) item.active = false;
+          const row = document.querySelector(`#tweaks-list .tweak-row[data-id="${r.id}"]`);
+          if (row) {
+            const cb = row.querySelector("input[type=checkbox]");
+            if (cb) cb.checked = false;
+            row.classList.add("tweak-ok");
+            setTimeout(() => row.classList.remove("tweak-ok"), 600);
+          }
+        });
+        _renderTweakChart();
+        showToast("Preset appliqué", `${data.ok_count} fonctionnalité(s) désactivée(s)${data.fail_count ? `, ${data.fail_count} échec(s)` : ""}.`, "success");
+      } catch (e) {
+        showToast("Erreur preset", e.message, "warn");
+      }
+    },
+  );
 }
 
 function _renderTweaks() {

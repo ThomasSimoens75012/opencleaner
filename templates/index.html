@@ -2158,6 +2158,36 @@
     </div>
   </div>
 
+  <!-- Apps UWP pré-installées (debloat) -->
+  <div>
+    <div class="section-head">
+      <div>
+        <div class="tool-section-title">Apps Windows pré-installées</div>
+        <div class="tool-section-sub">Bloatware UWP livré avec Windows 11 (Bing News, Clipchamp, Xbox apps, Your Phone, etc.)</div>
+      </div>
+      <button class="btn-primary" id="btn-scan-uwp" data-activity="Apps Windows préinstallées" data-log-target="uwp-log" onclick="startUwpScan()">Analyser</button>
+    </div>
+    <div class="card">
+      <div class="log-body" id="uwp-log"><div class="tool-empty">Cliquez sur « Analyser » pour lister les apps bloat détectées.</div></div>
+      <div id="uwp-results" class="results-scroll"></div>
+    </div>
+  </div>
+
+  <!-- Outils de réparation système -->
+  <div>
+    <div class="section-head">
+      <div>
+        <div class="tool-section-title">Réparation système</div>
+        <div class="tool-section-sub">Actions de dépannage Windows (DNS, Winsock, Store, SFC, DISM, Windows Update…)</div>
+      </div>
+      <button class="btn-primary" id="btn-load-repair" onclick="loadRepairActions()">Charger</button>
+    </div>
+    <div class="card">
+      <div id="repair-list"><div class="tool-empty" style="padding:20px">Cliquez sur « Charger » pour voir les outils de réparation disponibles.</div></div>
+      <div class="log-body" id="repair-log" style="max-height:200px"></div>
+    </div>
+  </div>
+
   <!-- Extensions navigateurs -->
   <div>
     <div class="section-head">
@@ -2480,6 +2510,19 @@
   </div>
 </div>
 
+<!-- Presets one-click -->
+<div class="card" style="margin-bottom:10px">
+  <div class="card-body">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div style="flex:1;min-width:200px">
+        <div style="font-size:13px;font-weight:600">Profil recommandé</div>
+        <div style="font-size:11px;color:var(--text-dim)">Applique un ensemble de désactivations en un clic. Réversible.</div>
+      </div>
+      <div id="tweak-presets" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+    </div>
+  </div>
+</div>
+
 <!-- Filtres par catégorie d'effet -->
 <div class="tweak-filters" id="tweak-filters">
   <button class="tweak-filter-btn active" data-filter="all">Tout voir <span class="c"></span></button>
@@ -2502,6 +2545,30 @@
 
 <div class="card">
   <div id="tweaks-list"><div class="tool-loading">Chargement…</div></div>
+</div>
+
+<!-- Services Windows (admin requis) -->
+<div class="card" style="margin-top:14px">
+  <div class="section-head" style="padding:14px 16px">
+    <div>
+      <div class="tool-section-title">Services Windows en arrière-plan</div>
+      <div class="tool-section-sub">Services non essentiels (télémétrie, Xbox, legacy). <strong>Nécessite les droits administrateur.</strong></div>
+    </div>
+    <button class="btn-primary" id="btn-load-services" onclick="loadServices()">Analyser</button>
+  </div>
+  <div id="services-list"><div class="tool-empty" style="padding:20px">Cliquez sur « Analyser » pour lister les services détectés.</div></div>
+</div>
+
+<!-- Tâches planifiées (admin requis) -->
+<div class="card" style="margin-top:14px">
+  <div class="section-head" style="padding:14px 16px">
+    <div>
+      <div class="tool-section-title">Tâches planifiées de télémétrie</div>
+      <div class="tool-section-sub">Tâches récurrentes qui remontent des données à Microsoft. <strong>Nécessite les droits administrateur.</strong></div>
+    </div>
+    <button class="btn-primary" id="btn-load-tasks" onclick="loadScheduledTasks()">Analyser</button>
+  </div>
+  <div id="tasks-list"><div class="tool-empty" style="padding:20px">Cliquez sur « Analyser » pour lister les tâches planifiées.</div></div>
 </div>
 
 </div>
