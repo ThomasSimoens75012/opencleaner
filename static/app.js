@@ -593,12 +593,13 @@ function _applyActivityState() {
   }
   const w = _activityState.w;
   const h = _activityState.h;
+  // Défaut "première ouverture" : aligné sur la rail dockée (haut-droite)
   const x = _activityState.x != null
     ? _activityState.x
-    : Math.max(0, window.innerWidth - w - 24);
+    : Math.max(0, window.innerWidth - w);
   const y = _activityState.y != null
     ? _activityState.y
-    : Math.max(0, window.innerHeight - h - 24);
+    : 140;
   panel.style.left = x + "px";
   panel.style.top = y + "px";
   panel.style.right = "auto";
@@ -608,7 +609,17 @@ function _applyActivityState() {
 }
 
 function toggleActivityDock() {
-  _activityState.docked = !_activityState.docked;
+  const panel = document.getElementById("activity-panel");
+  const wasDocked = _activityState.docked;
+  // Si on dédocke pour la première fois, capturer la position de la rail
+  // pour que le panneau apparaisse à l'endroit où il était masqué.
+  if (wasDocked && panel && (_activityState.x == null || _activityState.y == null)) {
+    const rect = panel.getBoundingClientRect();
+    const w = _activityState.w;
+    _activityState.x = Math.max(0, rect.right - w);
+    _activityState.y = rect.top;
+  }
+  _activityState.docked = !wasDocked;
   _applyActivityState();
   _saveActivityState();
 }
@@ -617,7 +628,8 @@ function _initActivityInteractions() {
   const panel = document.getElementById("activity-panel");
   if (!panel) return;
   const head = document.getElementById("activity-drag-handle");
-  const resize = document.getElementById("activity-resize-handle");
+  const handles = panel.querySelectorAll(".activity-resize-h");
+  const MIN_W = 220, MIN_H = 140;
   let op = null;
 
   head.addEventListener("mousedown", (e) => {
@@ -629,13 +641,24 @@ function _initActivityInteractions() {
     e.preventDefault();
   });
 
-  resize.addEventListener("mousedown", (e) => {
-    if (_activityState.docked) return;
-    const rect = panel.getBoundingClientRect();
-    op = { type: "resize", startX: e.clientX, startY: e.clientY, w0: rect.width, h0: rect.height };
-    panel.classList.add("resizing");
-    e.preventDefault();
-    e.stopPropagation();
+  handles.forEach(h => {
+    h.addEventListener("mousedown", (e) => {
+      if (_activityState.docked) return;
+      const rect = panel.getBoundingClientRect();
+      op = {
+        type:   "resize",
+        dir:    h.dataset.dir,
+        startX: e.clientX,
+        startY: e.clientY,
+        x0:     rect.left,
+        y0:     rect.top,
+        w0:     rect.width,
+        h0:     rect.height,
+      };
+      panel.classList.add("resizing");
+      e.preventDefault();
+      e.stopPropagation();
+    });
   });
 
   document.addEventListener("mousemove", (e) => {
@@ -653,13 +676,43 @@ function _initActivityInteractions() {
       panel.style.top = y + "px";
       panel.style.right = "auto";
     } else if (op.type === "resize") {
-      let w = op.w0 + (e.clientX - op.startX);
-      let h = op.h0 + (e.clientY - op.startY);
-      w = Math.max(220, Math.min(window.innerWidth - 40, w));
-      h = Math.max(140, Math.min(window.innerHeight - 40, h));
+      const dx = e.clientX - op.startX;
+      const dy = e.clientY - op.startY;
+      let x = op.x0, y = op.y0, w = op.w0, h = op.h0;
+      const d = op.dir;
+      if (d.includes("e")) w = op.w0 + dx;
+      if (d.includes("w")) { w = op.w0 - dx; x = op.x0 + dx; }
+      if (d.includes("s")) h = op.h0 + dy;
+      if (d.includes("n")) { h = op.h0 - dy; y = op.y0 + dy; }
+      // Clamp min en corrigeant la position pour les handles ouest/nord
+      if (w < MIN_W) {
+        if (d.includes("w")) x -= (MIN_W - w);
+        w = MIN_W;
+      }
+      if (h < MIN_H) {
+        if (d.includes("n")) y -= (MIN_H - h);
+        h = MIN_H;
+      }
+      // Clamp max et bornes écran
+      const maxW = window.innerWidth - 40;
+      const maxH = window.innerHeight - 40;
+      if (w > maxW) {
+        if (d.includes("w")) x += (w - maxW);
+        w = maxW;
+      }
+      if (h > maxH) {
+        if (d.includes("n")) y += (h - maxH);
+        h = maxH;
+      }
+      x = Math.max(0, Math.min(window.innerWidth - w, x));
+      y = Math.max(0, Math.min(window.innerHeight - 40, y));
+      _activityState.x = x;
+      _activityState.y = y;
       _activityState.w = w;
       _activityState.h = h;
-      panel.style.width = w + "px";
+      panel.style.left   = x + "px";
+      panel.style.top    = y + "px";
+      panel.style.width  = w + "px";
       panel.style.height = h + "px";
     }
   });
