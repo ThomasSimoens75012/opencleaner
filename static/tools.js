@@ -2696,9 +2696,71 @@ function deleteSelectedOrphanFolders() {
 
 let _tweaksLoaded = false;
 
-let _tweakItems   = [];
-let _tweakGroups  = [];
-let _tweakFilter  = "all";
+let _tweakItems      = [];
+let _tweakGroups     = [];
+let _tweakFilter     = "all";
+let _windowsVersion  = { major: 11, build: 0, display_version: "", caption: "" };
+
+function _detectedWindowsMajor() {
+  // Mode fake via localStorage pour tester le rendu W10 sur une machine W11.
+  // Depuis la console : localStorage.setItem('pcc-fake-windows','10') puis switchTab('perso')
+  const fake = localStorage.getItem("pcc-fake-windows");
+  if (fake) return parseInt(fake, 10);
+  return _windowsVersion.major || 11;
+}
+
+function fakeWindowsVersion(major) {
+  if (major === null || major === undefined) {
+    localStorage.removeItem("pcc-fake-windows");
+  } else {
+    localStorage.setItem("pcc-fake-windows", String(major));
+  }
+  // Re-render complet si les tweaks sont déjà chargés
+  if (_tweakItems.length) {
+    _renderTweaks();
+    _renderTweakFilters();
+    _renderTweakChart();
+    _renderVersionBanner();
+  }
+}
+
+function _isTweakCompatible(item) {
+  const minWin = item.min_windows || 10;
+  return _detectedWindowsMajor() >= minWin;
+}
+
+function _renderVersionBanner() {
+  const el = document.getElementById("version-banner");
+  if (!el) return;
+  const detected = _detectedWindowsMajor();
+  const real     = _windowsVersion.major || 11;
+  const caption  = _windowsVersion.caption || "Windows";
+  const isFake   = detected !== real;
+  const incompatCount = _tweakItems.filter(i => !_isTweakCompatible(i)).length;
+
+  el.classList.toggle("has-incompat", incompatCount > 0);
+  el.style.display = "flex";
+
+  const fakeLabel = isFake
+    ? ` <span style="color:var(--amber)">[simulé W${detected}]</span>`
+    : "";
+  const incompatNote = incompatCount > 0
+    ? `<span style="color:var(--text-mid)">— ${incompatCount} tweak(s) Windows 11 uniquement sont grisés</span>`
+    : `<span style="color:var(--green)">— tous les tweaks sont compatibles</span>`;
+
+  const fakeBtn = isFake
+    ? `<button class="fake-btn" onclick="fakeWindowsVersion(null)">retirer simulation</button>`
+    : (detected === 11
+        ? `<button class="fake-btn" onclick="fakeWindowsVersion(10)">simuler W10</button>`
+        : `<button class="fake-btn" onclick="fakeWindowsVersion(11)">simuler W11</button>`);
+
+  el.innerHTML = `
+    <span class="vb-icon">détecté</span>
+    <strong>${_escapeHtml(caption)}</strong>${fakeLabel}
+    ${incompatNote}
+    ${fakeBtn}
+  `;
+}
 
 const _TWEAK_TAG_LABELS = {
   "all":             "Tout voir",
@@ -2720,8 +2782,10 @@ async function loadWindowsTweaks() {
     const res  = await fetch("/api/windows-tweaks");
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Erreur serveur");
-    _tweakItems  = data.items || [];
-    _tweakGroups = data.groups || [];
+    _tweakItems     = data.items || [];
+    _tweakGroups    = data.groups || [];
+    _windowsVersion = data.windows_version || { major: 11, build: 0, display_version: "", caption: "" };
+    _renderVersionBanner();
     _renderTweaks();
     _renderTweakFilters();
     _renderTweakChart();
@@ -2772,12 +2836,12 @@ async function applyTweakPreset(presetId) {
       let okCount = 0;
       let failCount = 0;
 
-      // 1. Tweaks (toujours tenté)
+      // 1. Tweaks (filtre aussi les incompatibles avec la version détectée)
       const tweakChanges = tweaksOff
         .map(id => ({ id, active: false }))
         .filter(c => {
           const item = _tweakItems.find(i => i.id === c.id);
-          return item && item.active;
+          return item && item.active && _isTweakCompatible(item);
         });
       if (tweakChanges.length) {
         try {
@@ -2977,7 +3041,9 @@ function _renderTweakFilters() {
   const tags = ["all", "performance", "telemetry", "privacy", "ads", "cosmetic", "security", "services", "scheduled_tasks"];
   const counts = {};
   for (const t of tags) counts[t] = 0;
+  // Ne compter que les tweaks compatibles avec la version détectée
   for (const it of _tweakItems) {
+    if (!_isTweakCompatible(it)) continue;
     counts["all"]++;
     for (const tag of (it.tags || [])) {
       if (tag in counts) counts[tag]++;
@@ -3092,10 +3158,11 @@ function _renderTweakChart() {
   // Baseline = "tout activé" (Windows stock)
   // Projection = "configuration actuelle" (ce qui est encore actif)
   // Les barres diminuent quand l'utilisateur désactive des features.
-  // Inclut les tweaks + services (si chargés). Les tâches planifiées n'ont
-  // pas d'impact RAM direct (elles ne tournent que périodiquement).
+  // Inclut les tweaks compatibles + services (si chargés). Les tâches
+  // planifiées n'ont pas d'impact RAM direct.
   let baseRam = 0, baseProc = 0, projRam = 0, projProc = 0;
   for (const it of _tweakItems) {
+    if (!_isTweakCompatible(it)) continue;  // exclure les W11-only sur W10
     const ram  = (it.impact && it.impact.ram_mb)    || 0;
     const proc = (it.impact && it.impact.processes) || 0;
     baseRam  += ram;
@@ -3118,8 +3185,9 @@ function _renderTweakChart() {
     }
   }
 
-  const tweakTotalCount  = _tweakItems.length;
-  const tweakActiveCount = _tweakItems.filter(i => i.active).length;
+  const compatibleTweaks = _tweakItems.filter(_isTweakCompatible);
+  const tweakTotalCount  = compatibleTweaks.length;
+  const tweakActiveCount = compatibleTweaks.filter(i => i.active).length;
   const svcTotalCount    = svcList.length;
   const svcActiveCount   = svcList.filter(s => s.active).length;
   const taskList = (typeof _scheduledTasks !== "undefined") ? _scheduledTasks.filter(t => t.exists) : [];
@@ -3202,7 +3270,8 @@ function _renderTweakChart() {
 
 function _tweakRow(item) {
   const row = document.createElement("div");
-  row.className = "tweak-row";
+  const compatible = _isTweakCompatible(item);
+  row.className = "tweak-row" + (compatible ? "" : " row-incompatible");
   row.dataset.group = item.group;
   row.dataset.tags  = (item.tags || []).join(",");
   row.dataset.id    = item.id;
@@ -3210,7 +3279,11 @@ function _tweakRow(item) {
   info.className = "tweak-info";
   const lbl = document.createElement("div");
   lbl.className = "tweak-label";
-  lbl.textContent = item.label;
+  if (compatible) {
+    lbl.textContent = item.label;
+  } else {
+    lbl.innerHTML = `${_escapeHtml(item.label)} <span class="incompat-badge">Windows 11 uniquement</span>`;
+  }
   const desc = document.createElement("div");
   desc.className = "tweak-desc";
   desc.textContent = item.desc;
@@ -3221,6 +3294,7 @@ function _tweakRow(item) {
   const cb = document.createElement("input");
   cb.type = "checkbox";
   cb.checked = !!item.active;
+  cb.disabled = !compatible;
   const slider = document.createElement("span");
   slider.className = "slider";
   sw.append(cb, slider);

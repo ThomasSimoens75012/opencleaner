@@ -2113,6 +2113,59 @@ _TWEAK_GROUPS = [
     ("privacy",    "Vie privée & tâches de fond"),
 ]
 
+def get_windows_version():
+    """Retourne les infos de version Windows via le registre.
+
+    Returns : {"major": 10|11, "build": int, "display_version": "25H2"|..., "caption": str}
+    """
+    try:
+        k = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows NT\CurrentVersion")
+        try:
+            build = int(winreg.QueryValueEx(k, "CurrentBuildNumber")[0])
+        except Exception:
+            build = 0
+        try:
+            display_version, _ = winreg.QueryValueEx(k, "DisplayVersion")
+        except FileNotFoundError:
+            display_version = ""
+        try:
+            ubr, _ = winreg.QueryValueEx(k, "UBR")
+        except FileNotFoundError:
+            ubr = 0
+        k.Close()
+    except Exception:
+        return {"major": 11, "build": 0, "display_version": "", "caption": "Windows (version inconnue)"}
+
+    # Windows 11 = build ≥ 22000
+    major = 11 if build >= 22000 else 10
+    caption = f"Windows {major}"
+    if display_version:
+        caption += f" {display_version}"
+    caption += f" (build {build}.{ubr})" if ubr else f" (build {build})"
+    return {
+        "major":           major,
+        "build":           build,
+        "display_version": display_version,
+        "caption":         caption,
+    }
+
+
+# Tweaks réservés à Windows 11 (absents ou inopérants sur W10)
+_TWEAK_W11_ONLY = {
+    "copilot",
+    "copilot_button",
+    "notepad_ai",
+    "start_recommended",
+    "start_iris_recommendations",
+    "start_irisxp",
+    "explorer_recommended",
+    "search_highlights",
+    "taskbar_center",
+    "sub_content_338387",
+    "sub_content_353694",
+}
+
+
 # Catégories d'effet (orthogonales aux groupes d'affichage)
 _TWEAK_TAGS = [
     ("performance", "Performance"),
@@ -2341,6 +2394,8 @@ def get_windows_tweaks():
             source      = "estimate"
             measured_at = None
 
+        min_win = 11 if tid in _TWEAK_W11_ONLY else 10
+
         result["items"].append({
             "id":    t["id"],
             "label": t["label"],
@@ -2348,6 +2403,7 @@ def get_windows_tweaks():
             "group": t["group"],
             "active": active,
             "tags":   tags,
+            "min_windows": min_win,
             "impact": {
                 "ram_mb":      ram_mb,
                 "processes":   procs,
@@ -2355,6 +2411,7 @@ def get_windows_tweaks():
                 "measured_at": measured_at,
             },
         })
+    result["windows_version"] = get_windows_version()
     return result
 
 

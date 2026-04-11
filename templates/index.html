@@ -1661,6 +1661,62 @@
 
     .tweak-row.tweak-hidden { display: none; }
     .tweak-group-title.tweak-hidden { display: none; }
+
+    /* Rows incompatibles avec la version Windows détectée */
+    .tweak-row.row-incompatible {
+      opacity: 0.5;
+      pointer-events: none;
+    }
+    .tweak-row.row-incompatible .sw { pointer-events: none; opacity: 0.4; }
+    .tweak-row.row-incompatible .tweak-label .incompat-badge {
+      display: inline-block;
+      font-size: 9px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      color: var(--text-dim);
+      background: var(--hover);
+      padding: 2px 6px;
+      border-radius: 3px;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+
+    /* Bandeau version détectée en haut de Personnalisation */
+    .version-banner {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 12px;
+      color: var(--text-mid);
+      margin-bottom: 14px;
+    }
+    .version-banner .vb-icon {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-dim);
+      font-weight: 600;
+    }
+    .version-banner strong { color: var(--text); font-weight: 600; }
+    .version-banner.has-incompat { border-left: 3px solid var(--amber); }
+    .version-banner .fake-btn {
+      margin-left: auto;
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      font-family: inherit;
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    .version-banner .fake-btn:hover { color: var(--text); }
     .health-metric-card:hover { background: var(--hover); }
     .hm-icon  { font-size: 18px; flex-shrink: 0; width: 28px; text-align: center; }
     .hm-info  { flex: 1; min-width: 0; }
@@ -2487,6 +2543,9 @@
   <h1 class="page-title">Personnalisation Windows</h1>
   <p class="page-sub">Désactivez les fonctionnalités les plus énervantes de Windows — widgets, pubs, suggestions, Cortana. Tout est réversible en un clic.</p>
 </div>
+
+<!-- Bandeau de version Windows détectée -->
+<div id="version-banner" class="version-banner" style="display:none"></div>
 
 <div class="callout callout-blue" style="margin-bottom:14px">
   <div class="callout-icon">
