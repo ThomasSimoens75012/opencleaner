@@ -11,6 +11,7 @@ history.json
 logs/
 benchmarks.json
 tweak_baseline.json
+gaming_mode.json
 
 # Tests — artefacts générés
 tests/screenshots/
