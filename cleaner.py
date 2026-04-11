@@ -2167,6 +2167,174 @@ def export_tweaks_reg():
     return {"content": content, "filename": filename, "count": count_off}
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# Autoruns — programmes au démarrage de Windows
+# ══════════════════════════════════════════════════════════════════════════════
+
+_AUTORUN_REG_KEYS = [
+    # (hive, subkey, label de la source)
+    (winreg.HKEY_CURRENT_USER,  r"Software\Microsoft\Windows\CurrentVersion\Run",        "HKCU\\Run"),
+    (winreg.HKEY_CURRENT_USER,  r"Software\Microsoft\Windows\CurrentVersion\RunOnce",    "HKCU\\RunOnce"),
+    (winreg.HKEY_LOCAL_MACHINE, r"Software\Microsoft\Windows\CurrentVersion\Run",        "HKLM\\Run"),
+    (winreg.HKEY_LOCAL_MACHINE, r"Software\Microsoft\Windows\CurrentVersion\RunOnce",    "HKLM\\RunOnce"),
+    (winreg.HKEY_LOCAL_MACHINE, r"Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Run", "HKLM\\WOW64\\Run"),
+]
+
+# Dossiers de démarrage Windows
+_AUTORUN_FOLDERS = [
+    (os.path.expandvars(r"%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup"),          "Startup utilisateur"),
+    (os.path.expandvars(r"%ProgramData%\Microsoft\Windows\Start Menu\Programs\StartUp"),      "Startup commun"),
+]
+
+# Clé registre utilisée par Task Manager pour tracker les entrées Run désactivées
+_AUTORUN_DISABLED_KEY_USER    = r"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run"
+_AUTORUN_DISABLED_KEY_USER32  = r"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run32"
+_AUTORUN_DISABLED_KEY_FOLDER  = r"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\StartupFolder"
+
+
+def _read_autorun_disabled_flags():
+    """Lit les flags enabled/disabled stockés par Task Manager sous StartupApproved.
+
+    Format : valeur binaire, premier octet = 02 (enabled) / 03 (disabled).
+    """
+    flags = {}  # {name: "enabled"|"disabled"}
+    for subkey in [_AUTORUN_DISABLED_KEY_USER, _AUTORUN_DISABLED_KEY_USER32, _AUTORUN_DISABLED_KEY_FOLDER]:
+        for hive in [winreg.HKEY_CURRENT_USER, winreg.HKEY_LOCAL_MACHINE]:
+            try:
+                k = winreg.OpenKey(hive, subkey)
+                i = 0
+                while True:
+                    try:
+                        name, val, typ = winreg.EnumValue(k, i)
+                        if typ == winreg.REG_BINARY and val:
+                            first_byte = val[0]
+                            flags[name.lower()] = "disabled" if first_byte in (2, 3) and first_byte == 3 else "enabled"
+                        i += 1
+                    except OSError:
+                        break
+                k.Close()
+            except (FileNotFoundError, OSError):
+                pass
+    return flags
+
+
+def get_autorun_entries():
+    """Liste les programmes qui démarrent avec Windows.
+
+    Retourne une liste d'entrées {id, name, source, command, path, enabled, type}.
+    """
+    entries = []
+    disabled_flags = _read_autorun_disabled_flags()
+
+    # 1. Entrées registre
+    for hive, subkey, label in _AUTORUN_REG_KEYS:
+        try:
+            k = winreg.OpenKey(hive, subkey)
+            i = 0
+            while True:
+                try:
+                    name, val, typ = winreg.EnumValue(k, i)
+                    if not name or not val:
+                        i += 1
+                        continue
+                    command = str(val).strip()
+                    is_disabled = disabled_flags.get(name.lower()) == "disabled"
+                    entries.append({
+                        "id":      f"reg:{label}:{name}",
+                        "name":    name,
+                        "source":  label,
+                        "command": command,
+                        "enabled": not is_disabled,
+                        "type":    "registry",
+                        "hive":    "HKCU" if hive == winreg.HKEY_CURRENT_USER else "HKLM",
+                        "subkey":  subkey,
+                        "reg_name": name,
+                    })
+                    i += 1
+                except OSError:
+                    break
+            k.Close()
+        except (FileNotFoundError, OSError):
+            pass
+
+    # 2. Dossiers Startup (raccourcis .lnk)
+    for folder_path, label in _AUTORUN_FOLDERS:
+        p = Path(folder_path)
+        if not p.exists():
+            continue
+        try:
+            for f in p.iterdir():
+                if f.is_file() and f.suffix.lower() in (".lnk", ".url", ".bat", ".cmd", ".exe"):
+                    is_disabled = disabled_flags.get(f.name.lower()) == "disabled"
+                    entries.append({
+                        "id":       f"folder:{f}",
+                        "name":     f.stem,
+                        "source":   label,
+                        "command":  str(f),
+                        "enabled":  not is_disabled,
+                        "type":     "folder",
+                        "file_path": str(f),
+                    })
+        except (OSError, PermissionError):
+            pass
+
+    entries.sort(key=lambda e: (e["source"], e["name"].lower()))
+    return entries
+
+
+def _set_autorun_approved(subkey_path, hive, value_name, enabled):
+    """Met à jour le flag StartupApproved pour activer/désactiver sans supprimer."""
+    flag_bytes = bytes([0x02 if enabled else 0x03] + [0] * 11)
+    try:
+        try:
+            k = winreg.OpenKey(hive, subkey_path, 0, winreg.KEY_SET_VALUE)
+        except FileNotFoundError:
+            k = winreg.CreateKey(hive, subkey_path)
+        with k:
+            winreg.SetValueEx(k, value_name, 0, winreg.REG_BINARY, flag_bytes)
+        return True, None
+    except (OSError, PermissionError) as e:
+        return False, str(e)
+
+
+def set_autorun_enabled(entry_id, enabled):
+    """Active ou désactive une entrée autorun.
+
+    Pour les entrées registry : modifie StartupApproved\\Run (mécanisme utilisé
+    par Task Manager). Pour les entrées folder : même logique via
+    StartupApproved\\StartupFolder. Cela évite de supprimer l'entrée réelle.
+    """
+    parts = entry_id.split(":", 2)
+    if len(parts) < 2:
+        return False, "ID invalide"
+
+    kind = parts[0]
+    if kind == "reg":
+        # reg:HKCU\Run:NomEntry
+        src_label = parts[1] if len(parts) >= 2 else ""
+        name = parts[2] if len(parts) >= 3 else ""
+        # Trouver la source correspondante
+        match = next((k for k in _AUTORUN_REG_KEYS if k[2] == src_label), None)
+        if not match:
+            return False, f"Source inconnue: {src_label}"
+        hive = match[0]
+        if hive == winreg.HKEY_CURRENT_USER:
+            approved_path = _AUTORUN_DISABLED_KEY_USER
+        elif "WOW6432Node" in match[1]:
+            approved_path = _AUTORUN_DISABLED_KEY_USER32
+        else:
+            approved_path = _AUTORUN_DISABLED_KEY_USER
+        return _set_autorun_approved(approved_path, hive, name, enabled)
+    elif kind == "folder":
+        # folder:<file_path>
+        file_path = parts[1] if len(parts) >= 2 else ""
+        if len(parts) > 2:
+            file_path += ":" + parts[2]
+        file_name = Path(file_path).name
+        return _set_autorun_approved(_AUTORUN_DISABLED_KEY_FOLDER, winreg.HKEY_CURRENT_USER, file_name, enabled)
+    return False, "Type inconnu"
+
+
 def run_self_check():
     """Exécute un diagnostic rapide de l'état de l'app.
 

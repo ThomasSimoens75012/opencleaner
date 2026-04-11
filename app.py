@@ -45,6 +45,7 @@ from cleaner import (
     get_scheduled_tasks_state, set_scheduled_task_enabled,
     list_repair_actions, run_repair_action, run_repair_action_stream,
     run_self_check, export_tweaks_reg,
+    get_autorun_entries, set_autorun_enabled,
 )
 
 
@@ -89,15 +90,29 @@ def _load_history():
     return []
 
 
-def _save_history_entry(freed_bytes):
+def _save_history_entry(freed_bytes, kind="clean", label="Nettoyage", tasks=None, details=None):
+    """Sauvegarde une entrée dans history.json.
+
+    kind : clean | uninstall | delete | repair | tweak
+    label : libellé lisible
+    tasks : liste optionnelle de task IDs (pour le nettoyage principal)
+    details : dict libre (ex: nombre de fichiers supprimés, process killed, etc.)
+    """
     history = _load_history()
-    history.insert(0, {
-        "date":       datetime.now().isoformat(),
-        "freed_bytes": freed_bytes,
-        "freed_fmt":  fmt_size(freed_bytes),
-    })
+    entry = {
+        "date":        datetime.now().isoformat(),
+        "kind":        kind,
+        "label":       label,
+        "freed_bytes": int(freed_bytes or 0),
+        "freed_fmt":   fmt_size(freed_bytes or 0),
+    }
+    if tasks:
+        entry["tasks"] = tasks
+    if details:
+        entry["details"] = details
+    history.insert(0, entry)
     with open(HISTORY_FILE, "w") as f:
-        json.dump(history[:50], f, indent=2)
+        json.dump(history[:100], f, indent=2)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -137,6 +152,30 @@ def api_self_check():
     except Exception as e:
         app.logger.exception("self-check error")
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/autoruns")
+def api_autoruns():
+    try:
+        return jsonify(get_autorun_entries())
+    except Exception as e:
+        app.logger.exception("autoruns error")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/autoruns/set", methods=["POST"])
+def api_autoruns_set():
+    data = request.get_json(force=True) or {}
+    entry_id = data.get("id")
+    enabled = bool(data.get("enabled"))
+    if not entry_id:
+        return jsonify({"ok": False, "error": "id manquant"}), 400
+    if not is_admin() and entry_id.startswith("reg:HKLM"):
+        return jsonify({"ok": False, "error": "Droits administrateur requis pour HKLM"}), 403
+    ok, err = set_autorun_enabled(entry_id, enabled)
+    if not ok:
+        return jsonify({"ok": False, "error": err}), 500
+    return jsonify({"ok": True})
 
 
 @app.route("/favicon.ico")
@@ -297,6 +336,7 @@ def api_duplicates_delete():
         return rejected
     freed, errors = delete_duplicate_files(paths)
     _log_delete("duplicates/delete", f"{len(paths)} fichier(s), {fmt_size(freed)} libérés", errors)
+    _save_history_entry(freed, kind="delete", label="Fichiers dupliqués", details={"count": len(paths), "errors": len(errors or [])})
     return jsonify({"freed": freed, "freed_fmt": fmt_size(freed), "errors": errors})
 
 
@@ -324,6 +364,7 @@ def api_duplicate_folders_delete():
         return rejected
     freed, errors = delete_duplicate_folders(paths)
     _log_delete("duplicate-folders/delete", f"{len(paths)} dossier(s), {fmt_size(freed)} libérés", errors)
+    _save_history_entry(freed, kind="delete", label="Dossiers dupliqués", details={"count": len(paths), "errors": len(errors or [])})
     return jsonify({"freed": freed, "freed_fmt": fmt_size(freed), "errors": errors})
 
 
@@ -396,6 +437,7 @@ def api_shortcuts_delete():
         return rejected
     deleted, errors = delete_shortcuts(paths)
     _log_delete("shortcuts/delete", f"{deleted} supprimé(s)", errors)
+    _save_history_entry(0, kind="delete", label="Raccourcis cassés", details={"count": deleted, "errors": len(errors or [])})
     return jsonify({"deleted": deleted, "errors": errors})
 
 
@@ -459,6 +501,7 @@ def api_empty_folders_delete():
         return rejected
     deleted, errors = delete_empty_folders(paths)
     _log_delete("empty-folders/delete", f"{deleted} supprimé(s)", errors)
+    _save_history_entry(0, kind="delete", label="Dossiers vides", details={"count": deleted, "errors": len(errors or [])})
     return jsonify({"ok": deleted > 0, "deleted": deleted, "errors": errors})
 
 
@@ -496,6 +539,7 @@ def api_orphan_folders_delete():
         return jsonify({"error": "Aucun chemin fourni."}), 400
     deleted, errors = delete_orphan_folders(paths)
     _log_delete("orphan-folders/delete", f"{deleted} supprimé(s)", errors)
+    _save_history_entry(0, kind="delete", label="Dossiers orphelins", details={"count": deleted, "errors": len(errors or [])})
     return jsonify({"ok": deleted > 0, "deleted": deleted, "errors": errors})
 
 
@@ -625,6 +669,7 @@ def api_old_installers_delete():
         return rejected
     freed, errors = delete_installer_files(paths)
     _log_delete("old-installers/delete", f"{len(paths)} fichier(s), {fmt_size(freed)} libérés", errors)
+    _save_history_entry(freed, kind="delete", label="Anciens installers", details={"count": len(paths), "errors": len(errors or [])})
     return jsonify({"ok": freed > 0 or not errors, "freed": freed,
                     "freed_fmt": fmt_size(freed), "errors": errors})
 
@@ -1052,7 +1097,8 @@ def _run_job(job_id, task_ids):
             log(f"  Erreur dans '{task['label']}' : {e}")
 
     if total_freed > 0:
-        _save_history_entry(total_freed)
+        task_labels = [t["label"] for t in selected]
+        _save_history_entry(total_freed, kind="clean", label="Nettoyage principal", tasks=task_labels)
     q.put({"type": "done", "msg": f"Terminé — {fmt_size(total_freed)} libérés.",
            "freed_bytes": total_freed, "freed_fmt": fmt_size(total_freed)})
     job["done"] = True

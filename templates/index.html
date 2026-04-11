@@ -2270,7 +2270,7 @@
     <div class="section-head">
       <div>
         <div class="tool-section-title">Programmes au démarrage</div>
-        <div class="tool-section-sub">Activez ou désactivez les programmes qui se lancent avec Windows</div>
+        <div class="tool-section-sub">Registre HKCU/HKLM + dossiers Startup. Activation/désactivation non destructive (StartupApproved).</div>
       </div>
       <button class="btn-primary" onclick="loadStartup()">Analyser</button>
     </div>
@@ -2781,18 +2781,49 @@
           </div>`;
         return;
       }
+      const kindIcons = {
+        clean:     '🧹',
+        delete:    '🗑️',
+        uninstall: '📦',
+        repair:    '🔧',
+        tweak:     '⚙️',
+      };
+      const kindLabels = {
+        clean:     "Nettoyage",
+        delete:    "Suppression",
+        uninstall: "Désinstallation",
+        repair:    "Réparation",
+        tweak:     "Tweak",
+      };
       list.innerHTML = data.map(entry => {
         const d = new Date(entry.date);
         const dateStr = d.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
         const timeStr = d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-        const taskCount = (entry.tasks || []).length;
+        const kind = entry.kind || "clean";
+        const kindLabel = kindLabels[kind] || kind;
+        const label = entry.label || kindLabel;
+        const freedHtml = (entry.freed_bytes || 0) > 0
+          ? `<div style="font-size:14px;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums">${entry.freed_fmt || "0 o"}</div>`
+          : "";
+        let sub = "";
+        if (entry.tasks && entry.tasks.length) {
+          sub = `${entry.tasks.length} tâche${entry.tasks.length > 1 ? "s" : ""} · ${entry.tasks.join(", ")}`;
+        } else if (entry.details) {
+          const parts = [];
+          if (entry.details.count != null) parts.push(`${entry.details.count} élément(s)`);
+          if (entry.details.errors) parts.push(`${entry.details.errors} erreur(s)`);
+          sub = parts.join(" · ");
+        }
         return `
           <div style="padding:14px 0;border-bottom:1px solid var(--border)">
             <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px">
-              <div style="font-weight:600;font-size:14px">${dateStr} à ${timeStr}</div>
-              <div style="font-size:14px;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums">${entry.freed_fmt || "0 o"}</div>
+              <div style="font-weight:600;font-size:14px">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px;margin-right:6px">${kindLabel}</span>
+                ${label}
+              </div>
+              ${freedHtml}
             </div>
-            <div style="font-size:12px;color:var(--text-mid);margin-top:2px">${taskCount} tâche${taskCount > 1 ? "s" : ""} · ${(entry.tasks || []).join(", ") || "—"}</div>
+            <div style="font-size:12px;color:var(--text-mid);margin-top:2px">${dateStr} à ${timeStr}${sub ? " · " + sub : ""}</div>
           </div>`;
       }).join("");
     } catch (e) {

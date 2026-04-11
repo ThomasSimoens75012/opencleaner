@@ -233,8 +233,10 @@ async function loadStartup() {
   const el = document.getElementById("startup-list");
   el.innerHTML = _skeleton(4);
   try {
-    const res = await fetch("/api/startup");
-    _startupEntries = await res.json();
+    const res = await fetch("/api/autoruns");
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    _startupEntries = data;
     renderStartup();
   } catch (e) {
     el.innerHTML = `<div class="tool-error">Erreur de chargement.</div>`;
@@ -247,13 +249,17 @@ function renderStartup() {
     el.innerHTML = `<div class="tool-empty">Aucun résultat.</div>`;
     return;
   }
-  const sorted = [..._startupEntries].sort((a, b) =>
-    a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
-  );
+  const isAdmin = window.IS_ADMIN === true || document.body.dataset.admin === "1";
+  const sorted = [..._startupEntries].sort((a, b) => {
+    const s = (a.source || "").localeCompare(b.source || "");
+    return s || a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+  });
   el.innerHTML = "";
   sorted.forEach(e => {
     const row = document.createElement("div");
     row.className = "tool-row";
+    const needsAdmin = (e.id || "").startsWith("reg:HKLM");
+    if (needsAdmin && !isAdmin) row.classList.add("tool-row-locked");
 
     const info = document.createElement("div");
     info.className = "tool-info";
@@ -264,11 +270,23 @@ function renderStartup() {
     const meta  = document.createElement("div"); meta.className = "tool-meta";
     const badge = document.createElement("span"); badge.className = "source-badge"; badge.textContent = e.source;
     meta.appendChild(badge);
+    if (needsAdmin && !isAdmin) {
+      const adm = document.createElement("span");
+      adm.className = "source-badge";
+      adm.textContent = "admin";
+      adm.title = "Relancez en administrateur pour modifier";
+      meta.appendChild(adm);
+    }
 
     const sw = document.createElement("div");
     sw.className = "switch" + (e.enabled ? " on" : "");
-    sw.title = e.enabled ? "Désactiver" : "Activer";
-    sw.addEventListener("click", () => toggleStartup(e, sw));
+    if (needsAdmin && !isAdmin) {
+      sw.classList.add("disabled");
+      sw.title = "Droits administrateur requis";
+    } else {
+      sw.title = e.enabled ? "Désactiver" : "Activer";
+      sw.addEventListener("click", () => toggleStartup(e, sw));
+    }
 
     row.append(info, meta, sw);
     el.appendChild(row);
@@ -280,10 +298,10 @@ async function toggleStartup(entry, swEl) {
   const newEnabled = !swEl.classList.contains("on");
   swEl.dataset.busy = "1";
   try {
-    const res  = await fetch("/api/startup/toggle", {
+    const res  = await fetch("/api/autoruns/set", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: entry.name, source: entry.source, enabled: newEnabled }),
+      body: JSON.stringify({ id: entry.id, enabled: newEnabled }),
     });
     const data = await res.json();
     if (!res.ok || !data.ok) throw new Error(data.error || "Erreur registre");
