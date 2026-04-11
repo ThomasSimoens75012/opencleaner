@@ -2696,6 +2696,94 @@ def set_gaming_mode(enabled):
     return {"ok": True, "restored": restored, "errors": errors}
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# Suppression sécurisée — vers la Corbeille Windows (annulable)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def send_to_recycle_bin(paths):
+    """Envoie une liste de chemins à la corbeille via SHFileOperationW.
+
+    Retourne {moved: int, failed: int, errors: [str]}.
+    """
+    import ctypes
+    from ctypes import wintypes
+
+    if not paths:
+        return {"moved": 0, "failed": 0, "errors": []}
+
+    # Filtrer les chemins existants
+    existing = [str(Path(p)) for p in paths if Path(p).exists()]
+    if not existing:
+        return {"moved": 0, "failed": 0, "errors": []}
+
+    # SHFileOperation attend une chaîne double-null-terminated
+    FO_DELETE             = 0x0003
+    FOF_ALLOWUNDO         = 0x0040
+    FOF_NOCONFIRMATION    = 0x0010
+    FOF_NOERRORUI         = 0x0400
+    FOF_SILENT            = 0x0004
+    FOF_NOCONFIRMMKDIR    = 0x0200
+
+    class SHFILEOPSTRUCTW(ctypes.Structure):
+        _fields_ = [
+            ("hwnd",          wintypes.HWND),
+            ("wFunc",         wintypes.UINT),
+            ("pFrom",         wintypes.LPCWSTR),
+            ("pTo",           wintypes.LPCWSTR),
+            ("fFlags",        ctypes.c_ushort),
+            ("fAnyOperationsAborted", wintypes.BOOL),
+            ("hNameMappings", ctypes.c_void_p),
+            ("lpszProgressTitle",     wintypes.LPCWSTR),
+        ]
+
+    buffer = "\0".join(existing) + "\0\0"
+
+    op = SHFILEOPSTRUCTW()
+    op.hwnd   = 0
+    op.wFunc  = FO_DELETE
+    op.pFrom  = buffer
+    op.pTo    = None
+    op.fFlags = FOF_ALLOWUNDO | FOF_NOCONFIRMATION | FOF_NOERRORUI | FOF_SILENT | FOF_NOCONFIRMMKDIR
+
+    try:
+        res = ctypes.windll.shell32.SHFileOperationW(ctypes.byref(op))
+    except Exception as e:
+        return {"moved": 0, "failed": len(existing), "errors": [str(e)]}
+
+    # SHFileOperationW renvoie 0 en cas de succès global
+    if res != 0:
+        return {"moved": 0, "failed": len(existing), "errors": [f"SHFileOperation code {res}"]}
+
+    moved = sum(1 for p in existing if not Path(p).exists())
+    return {"moved": moved, "failed": len(existing) - moved, "errors": []}
+
+
+def open_recycle_bin():
+    """Ouvre la Corbeille Windows dans l'Explorateur."""
+    try:
+        subprocess.Popen(["explorer.exe", "shell:RecycleBinFolder"],
+                         creationflags=0x08000000)
+        return True, None
+    except Exception as e:
+        return False, str(e)
+
+
+def get_last_cleanup_info():
+    """Retourne les informations de la dernière opération de nettoyage depuis history.json."""
+    hist_path = Path(__file__).parent / "history.json"
+    if not hist_path.exists():
+        return None
+    try:
+        with open(hist_path, "r", encoding="utf-8") as f:
+            history = json.load(f)
+    except Exception:
+        return None
+    for entry in history:
+        if entry.get("kind") in ("clean", "delete"):
+            return entry
+    return None
+
+
 def generate_global_report():
     """Génère un rapport HTML autonome résumant l'état du PC.
 

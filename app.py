@@ -51,7 +51,27 @@ from cleaner import (
     get_update_center,
     get_browser_data_breakdown, clean_browser_data,
     generate_global_report,
+    send_to_recycle_bin, open_recycle_bin, get_last_cleanup_info,
 )
+
+
+def _safe_delete_or(paths, normal_fn):
+    """Si `safe` est dans le body JSON, envoie à la corbeille au lieu d'appeler normal_fn.
+
+    normal_fn(paths) doit renvoyer (freed_bytes, errors_list).
+    Retourne (freed_bytes, errors_list).
+    """
+    data = request.get_json(silent=True) or {}
+    if data.get("safe"):
+        total = 0
+        for p in paths:
+            try:
+                total += Path(p).stat().st_size if Path(p).is_file() else 0
+            except Exception:
+                pass
+        res = send_to_recycle_bin(paths)
+        return total, res.get("errors", [])
+    return normal_fn(paths)
 
 
 def _log_delete(op, summary, errors):
@@ -219,6 +239,35 @@ def api_config_import():
             "errors":  len(result.get("errors", [])),
         },
     )
+    return jsonify(result)
+
+
+@app.route("/api/undo/last")
+def api_undo_last():
+    info = get_last_cleanup_info()
+    return jsonify({"last": info, "has_undo": info is not None})
+
+
+@app.route("/api/undo/open-recycle-bin", methods=["POST"])
+def api_open_recycle_bin():
+    ok, err = open_recycle_bin()
+    return jsonify({"ok": ok, "error": err})
+
+
+@app.route("/api/recycle-bin/send", methods=["POST"])
+def api_recycle_bin_send():
+    data = request.get_json(force=True) or {}
+    paths = data.get("paths") or []
+    if not paths:
+        return jsonify({"error": "Aucun chemin"}), 400
+    reject = _reject_if_admin_paths(paths)
+    if reject is not None:
+        return reject
+    try:
+        result = send_to_recycle_bin(paths)
+    except Exception as e:
+        app.logger.exception("recycle-bin/send error")
+        return jsonify({"error": str(e)}), 500
     return jsonify(result)
 
 
@@ -460,7 +509,7 @@ def api_duplicates_delete():
     rejected = _reject_if_admin_paths(paths)
     if rejected:
         return rejected
-    freed, errors = delete_duplicate_files(paths)
+    freed, errors = _safe_delete_or(paths, delete_duplicate_files)
     _log_delete("duplicates/delete", f"{len(paths)} fichier(s), {fmt_size(freed)} libérés", errors)
     _save_history_entry(freed, kind="delete", label="Fichiers dupliqués", details={"count": len(paths), "errors": len(errors or [])})
     return jsonify({"freed": freed, "freed_fmt": fmt_size(freed), "errors": errors})
@@ -488,7 +537,7 @@ def api_duplicate_folders_delete():
     rejected = _reject_if_admin_paths(paths)
     if rejected:
         return rejected
-    freed, errors = delete_duplicate_folders(paths)
+    freed, errors = _safe_delete_or(paths, delete_duplicate_folders)
     _log_delete("duplicate-folders/delete", f"{len(paths)} dossier(s), {fmt_size(freed)} libérés", errors)
     _save_history_entry(freed, kind="delete", label="Dossiers dupliqués", details={"count": len(paths), "errors": len(errors or [])})
     return jsonify({"freed": freed, "freed_fmt": fmt_size(freed), "errors": errors})
@@ -561,7 +610,11 @@ def api_shortcuts_delete():
     rejected = _reject_if_admin_paths(paths)
     if rejected:
         return rejected
-    deleted, errors = delete_shortcuts(paths)
+    if (data.get("safe")):
+        r = send_to_recycle_bin(paths)
+        deleted, errors = r["moved"], r["errors"]
+    else:
+        deleted, errors = delete_shortcuts(paths)
     _log_delete("shortcuts/delete", f"{deleted} supprimé(s)", errors)
     _save_history_entry(0, kind="delete", label="Raccourcis cassés", details={"count": deleted, "errors": len(errors or [])})
     return jsonify({"deleted": deleted, "errors": errors})
@@ -625,7 +678,11 @@ def api_empty_folders_delete():
     rejected = _reject_if_admin_paths(paths)
     if rejected:
         return rejected
-    deleted, errors = delete_empty_folders(paths)
+    if data.get("safe"):
+        r = send_to_recycle_bin(paths)
+        deleted, errors = r["moved"], r["errors"]
+    else:
+        deleted, errors = delete_empty_folders(paths)
     _log_delete("empty-folders/delete", f"{deleted} supprimé(s)", errors)
     _save_history_entry(0, kind="delete", label="Dossiers vides", details={"count": deleted, "errors": len(errors or [])})
     return jsonify({"ok": deleted > 0, "deleted": deleted, "errors": errors})
@@ -663,7 +720,11 @@ def api_orphan_folders_delete():
     paths = data.get("paths", [])
     if not paths:
         return jsonify({"error": "Aucun chemin fourni."}), 400
-    deleted, errors = delete_orphan_folders(paths)
+    if data.get("safe"):
+        r = send_to_recycle_bin(paths)
+        deleted, errors = r["moved"], r["errors"]
+    else:
+        deleted, errors = delete_orphan_folders(paths)
     _log_delete("orphan-folders/delete", f"{deleted} supprimé(s)", errors)
     _save_history_entry(0, kind="delete", label="Dossiers orphelins", details={"count": deleted, "errors": len(errors or [])})
     return jsonify({"ok": deleted > 0, "deleted": deleted, "errors": errors})
@@ -793,7 +854,7 @@ def api_old_installers_delete():
     rejected = _reject_if_admin_paths(paths)
     if rejected:
         return rejected
-    freed, errors = delete_installer_files(paths)
+    freed, errors = _safe_delete_or(paths, delete_installer_files)
     _log_delete("old-installers/delete", f"{len(paths)} fichier(s), {fmt_size(freed)} libérés", errors)
     _save_history_entry(freed, kind="delete", label="Anciens installers", details={"count": len(paths), "errors": len(errors or [])})
     return jsonify({"ok": freed > 0 or not errors, "freed": freed,
