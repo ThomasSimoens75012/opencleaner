@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>OpenCleaner</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -149,6 +150,303 @@
       height: 100vh;
       overflow-y: auto;
     }
+
+    /* ══════════════════════════════════════════
+       PANNEAU D'ACTIVITÉ — flottant, drag + resize
+    ══════════════════════════════════════════ */
+    .activity {
+      position: fixed;
+      top: auto; left: auto;
+      bottom: 24px; right: 24px;
+      width: 300px; height: 280px;
+      min-width: 220px; min-height: 140px;
+      max-width: 640px; max-height: calc(100vh - 32px);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      box-shadow: 0 8px 24px rgba(15,15,15,.08), 0 2px 6px rgba(15,15,15,.04);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+      z-index: 200;
+      transition: width .25s cubic-bezier(.4,0,.2,1),
+                  height .25s cubic-bezier(.4,0,.2,1),
+                  top .25s cubic-bezier(.4,0,.2,1),
+                  right .25s cubic-bezier(.4,0,.2,1),
+                  left .25s cubic-bezier(.4,0,.2,1);
+    }
+    .activity.dragging, .activity.resizing {
+      transition: none;
+      user-select: none;
+      box-shadow: 0 16px 40px rgba(15,15,15,.14), 0 4px 10px rgba(15,15,15,.06);
+    }
+
+    .activity-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-dim);
+      font-weight: 600;
+      overflow: hidden;
+      flex-shrink: 0;
+      cursor: grab;
+    }
+    .activity.dragging .activity-head { cursor: grabbing; }
+    .activity-head .label {
+      white-space: nowrap;
+      pointer-events: none;
+    }
+    .activity-head .head-actions {
+      display: flex; gap: 2px;
+    }
+    .activity-head button {
+      background: none; border: none; cursor: pointer;
+      color: var(--text-dim);
+      padding: 2px 4px; line-height: 1;
+      display: flex; align-items: center;
+      transition: color .15s;
+    }
+    .activity-head button:hover { color: var(--text); }
+    .activity-head button svg { width: 14px; height: 14px; }
+
+    .activity-full {
+      flex: 1 1 auto;
+      overflow-y: auto;
+      min-height: 0;
+      transition: opacity .18s;
+    }
+    .activity-empty {
+      padding: 20px 14px;
+      font-size: 12px;
+      color: var(--text-dim);
+      text-align: center;
+      font-style: italic;
+    }
+    .activity-row {
+      padding: 8px 12px;
+      display: flex; align-items: center; gap: 8px;
+      font-size: 12px;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    .activity-row:last-child { border-bottom: none; }
+    .activity-row .mark {
+      flex-shrink: 0;
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 14px; height: 14px;
+    }
+    .activity-row .mark .dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--text);
+      animation: ac-pulse 1.4s ease infinite;
+    }
+    .activity-row .mark .check-wrap {
+      width: 14px; height: 14px; border-radius: 50%;
+      border: 1px solid var(--green);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .activity-row .mark .check-wrap svg {
+      width: 9px; height: 9px;
+      color: var(--green);
+    }
+    .activity-row.fail .mark {
+      color: var(--text-dim);
+      font-size: 13px;
+      line-height: 1;
+    }
+    .activity-row .name {
+      flex: 1; min-width: 0;
+      overflow: hidden; text-overflow: ellipsis;
+      color: var(--text);
+    }
+    .activity-row .meta {
+      font-family: 'IBM Plex Mono', 'SFMono-Regular', monospace;
+      font-size: 11px;
+      color: var(--text-dim);
+      text-align: right;
+    }
+    .activity-row .time {
+      color: var(--text-dim);
+      font-size: 10px;
+      min-width: 36px;
+      text-align: right;
+    }
+    .activity-row .actions {
+      display: flex; gap: 2px;
+      flex-shrink: 0;
+      opacity: 0;
+      margin-left: 2px;
+      transition: opacity .15s;
+    }
+    .activity-row:hover .actions { opacity: 1; }
+    .activity-row .act-btn {
+      background: none; border: none; cursor: pointer;
+      color: var(--text-dim);
+      width: 18px; height: 18px;
+      padding: 0;
+      display: inline-flex; align-items: center; justify-content: center;
+      border-radius: 3px;
+      transition: color .15s, background .15s;
+    }
+    .activity-row .act-btn svg { width: 11px; height: 11px; }
+    .activity-row .act-btn:hover { color: var(--text); background: var(--hover-strong); }
+    .activity-row.clickable { cursor: pointer; }
+    .activity-row.clickable:hover { background: var(--hover); }
+    .activity-row:hover .time { display: none; }
+
+    /* Groupes accordéon */
+    .activity-group { border-bottom: 1px solid var(--border); }
+    .activity-group:last-child { border-bottom: none; }
+    .activity-group-head {
+      padding: 9px 12px;
+      font-size: 12px; font-weight: 500;
+      color: var(--text);
+      display: flex; align-items: center;
+      cursor: pointer;
+      gap: 6px;
+      user-select: none;
+    }
+    .activity-group-head:hover { background: var(--hover); }
+    .activity-group-head .chev {
+      color: var(--text-dim);
+      display: inline-block;
+      width: 10px;
+      font-size: 10px;
+      transition: transform .2s;
+    }
+    .activity-group.open .activity-group-head .chev { transform: rotate(90deg); }
+    .activity-group-head .group-label { flex-shrink: 0; }
+    .activity-group-head .mini-dots {
+      display: flex; gap: 3px;
+      margin-left: auto;
+      margin-right: 8px;
+    }
+    .activity-group-head .mini-dot {
+      width: 5px; height: 5px; border-radius: 50%;
+      background: var(--text-dim);
+      opacity: .45;
+    }
+    .activity-group-head .mini-dot.run {
+      background: var(--text);
+      opacity: 1;
+      animation: ac-pulse 1.4s ease infinite;
+    }
+    .activity-group-head .mini-dot.done {
+      background: var(--text-mid);
+      opacity: .7;
+    }
+    .activity-group-head .mini-dot.fail {
+      background: transparent;
+      border: 1px solid var(--text-dim);
+      width: 5px; height: 5px;
+    }
+    .activity-group-head .group-count {
+      font-family: 'IBM Plex Mono', 'SFMono-Regular', monospace;
+      font-size: 10px;
+      color: var(--text-dim);
+      font-weight: 400;
+    }
+    .activity-row.done .name { color: var(--text-mid); }
+    .activity-row.fail .name { color: var(--text-mid); text-decoration: line-through; text-decoration-color: var(--text-dim); }
+    .activity-row.fresh { animation: activity-fresh .6s ease; }
+    .activity-row .progress-bar {
+      position: absolute;
+      left: 0; bottom: 0;
+      height: 2px;
+      background: var(--text);
+      opacity: .7;
+      transition: width .3s ease;
+      pointer-events: none;
+    }
+    .activity-row { position: relative; }
+
+    /* Flash visuel sur la cible quand on clique "aller à la tâche" */
+    @keyframes activity-flash-anim {
+      0%   { box-shadow: 0 0 0 3px var(--hover-strong); }
+      100% { box-shadow: 0 0 0 3px transparent; }
+    }
+    .activity-flash { animation: activity-flash-anim 1.2s ease-out; border-radius: 4px; }
+    @keyframes activity-fresh {
+      0%   { background: var(--hover-strong); }
+      100% { background: transparent; }
+    }
+
+    .activity-collapsed {
+      display: none;
+      flex-direction: column;
+      align-items: center; gap: 14px;
+      padding: 14px 0;
+    }
+    .ac-line {
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      font-size: 13px; font-weight: 600;
+    }
+    .ac-line svg { width: 14px; height: 14px; }
+    .ac-line.run { color: var(--text); }
+    .ac-line.run svg { animation: ac-pulse 1.4s ease infinite; }
+    .ac-line.ok { color: var(--text-mid); }
+    @keyframes ac-pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+    .activity-foot {
+      padding: 8px 14px;
+      border-top: 1px solid var(--border);
+      font-size: 10px;
+      color: var(--text-dim);
+      display: flex; justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .activity-foot button {
+      background: none; border: none; cursor: pointer;
+      color: var(--text-dim); font-family: inherit; font-size: 10px;
+      padding: 0;
+    }
+    .activity-foot button:hover { color: var(--text); }
+
+    /* Poignée de redimensionnement bas-droit */
+    .activity-resize {
+      position: absolute;
+      right: 0; bottom: 0;
+      width: 16px; height: 16px;
+      cursor: nwse-resize;
+      z-index: 2;
+    }
+    .activity-resize::after {
+      content: '';
+      position: absolute;
+      right: 3px; bottom: 3px;
+      width: 8px; height: 8px;
+      border-right: 1.5px solid var(--text-dim);
+      border-bottom: 1.5px solid var(--text-dim);
+      opacity: .5;
+    }
+
+    /* État ancré (dock à droite) */
+    .activity.docked {
+      top: 140px !important;
+      right: 0 !important;
+      left: auto !important;
+      bottom: auto !important;
+      width: 44px !important;
+      height: auto !important;
+      min-width: 44px; min-height: auto;
+      max-height: calc(100vh - 180px);
+      border-radius: 6px 0 0 6px;
+      border-right: none;
+    }
+    .activity.docked .activity-head {
+      padding: 10px 0;
+      justify-content: center;
+      cursor: pointer;
+      border-bottom: 1px solid var(--border);
+    }
+    .activity.docked .activity-head .label,
+    .activity.docked .activity-full,
+    .activity.docked .activity-foot,
+    .activity.docked .activity-resize { display: none; }
+    .activity.docked .activity-collapsed { display: flex; }
+    .activity:not(.docked) .btn-dock svg { transform: rotate(180deg); }
 
     .main-topbar {
       display: flex; align-items: center; justify-content: space-between;
@@ -683,8 +981,27 @@
     .tweak-row {
       display: flex; align-items: center; gap: 14px;
       padding: 12px 6px; border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+      transition: background .3s;
     }
     .tweak-row:last-child { border-bottom: none; }
+    .tweak-row.tweak-ok { animation: tweak-ok-flash .6s ease; }
+    @keyframes tweak-ok-flash {
+      0%   { background: var(--hover-strong); }
+      100% { background: transparent; }
+    }
+    .tweak-row.tweak-error {
+      background: rgba(196, 112, 79, 0.06);
+      border-left: 2px solid #c4704f;
+      padding-left: 10px;
+    }
+    .tweak-row .tweak-err-msg {
+      flex-basis: 100%;
+      font-size: 11px;
+      color: #c4704f;
+      padding-top: 4px;
+      font-family: 'IBM Plex Mono', 'SFMono-Regular', monospace;
+    }
     .tweak-info { flex: 1; min-width: 0; }
     .tweak-label { font-size: 13px; font-weight: 600; color: var(--text); }
     .tweak-desc  { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
@@ -692,7 +1009,31 @@
       font-size: 11px; text-transform: uppercase; letter-spacing: .5px;
       color: var(--text-mid); font-weight: 600;
       padding: 18px 6px 6px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px;
     }
+    .tweak-group-title .bulk {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      text-transform: none;
+      letter-spacing: 0;
+      font-weight: 400;
+    }
+    .tweak-group-title .bulk button {
+      background: none;
+      border: none;
+      font-family: inherit;
+      font-size: 11px;
+      color: var(--text-dim);
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 3px;
+      transition: color .12s, background .12s;
+    }
+    .tweak-group-title .bulk button:hover { color: var(--text); background: var(--hover); }
+    .tweak-group-title .bulk button:disabled { opacity: .4; cursor: wait; }
+    .tweak-group-title .bulk .sep { color: var(--text-dim); opacity: .5; }
 
     /* Pilotes — rows et group headers */
     .driver-row {
@@ -859,6 +1200,14 @@
       text-transform: uppercase; letter-spacing: .04em;
       margin-left: 8px; flex-shrink: 0;
     }
+    .btn-admin-mini {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 3px 8px; background: var(--amber-bg);
+      border: 1px solid var(--amber); color: var(--amber);
+      border-radius: 4px; font-size: 11px; font-weight: 500;
+      vertical-align: middle; white-space: nowrap;
+    }
+    .btn-admin-mini .icon { width: 11px; height: 11px; }
     .dupe-row.row-locked { opacity: .55; }
     .dupe-row.row-locked input[type=checkbox] { cursor: not-allowed; }
 
@@ -891,6 +1240,34 @@
     /* Scan bars (doublons, gros fichiers, installeurs, etc.) */
     .dupe-scan-bar {
       display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    }
+    .dupe-mode-tabs {
+      display: inline-flex;
+      gap: 2px;
+      padding: 2px;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      margin-bottom: 10px;
+    }
+    .dupe-mode-btn {
+      background: none;
+      border: none;
+      padding: 5px 14px;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-mid);
+      cursor: pointer;
+      border-radius: 3px;
+      transition: background .15s, color .15s;
+    }
+    .dupe-mode-btn:hover { color: var(--text); }
+    .dupe-mode-btn.active {
+      background: var(--bg);
+      color: var(--text);
+      font-weight: 600;
+      box-shadow: 0 1px 2px rgba(15,15,15,.05);
     }
     .dupe-folder-input {
       flex: 1; min-width: 200px; padding: 7px 12px;
@@ -1145,6 +1522,145 @@
       transition: background .12s;
     }
     .health-metric-card:last-child { border-bottom: none; }
+
+    /* ─── Chart prédictif Personnalisation ─── */
+    .tweak-chart-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 18px 24px 10px;
+      border-bottom: 1px solid var(--border);
+      gap: 14px;
+    }
+    .tweak-chart-note {
+      font-family: 'IBM Plex Mono', 'SFMono-Regular', monospace;
+      font-size: 11px;
+      color: var(--text-dim);
+      flex-shrink: 0;
+      text-align: right;
+      line-height: 1.5;
+    }
+    .tweak-chart-body { padding: 24px 24px 20px; }
+
+    .tweak-chart {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      align-items: end;
+      min-height: 200px;
+    }
+    .tweak-col-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+    }
+    .tweak-bars {
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+      height: 150px;
+      width: 100%;
+      justify-content: center;
+      position: relative;
+    }
+    .tweak-col {
+      width: 26px;
+      background: var(--text-dim);
+      border-radius: 2px 2px 0 0;
+      position: relative;
+      transition: height .4s cubic-bezier(.4,0,.2,1), background .3s;
+    }
+    .tweak-col.after { background: var(--text); }
+    .tweak-col .v {
+      position: absolute;
+      top: -18px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-family: 'IBM Plex Mono', 'SFMono-Regular', monospace;
+      font-size: 11px;
+      color: var(--text-dim);
+      white-space: nowrap;
+    }
+    .tweak-col.after .v { color: var(--text); font-weight: 600; }
+    .tweak-lbl-col {
+      font-size: 12px;
+      text-align: center;
+      color: var(--text-mid);
+      margin-top: 14px;
+      line-height: 1.3;
+      font-weight: 500;
+    }
+    .tweak-delta {
+      font-family: 'IBM Plex Mono', 'SFMono-Regular', monospace;
+      font-size: 11px;
+      color: var(--green);
+      font-weight: 600;
+      margin-top: 4px;
+    }
+    .tweak-chart-legend {
+      display: flex;
+      gap: 24px;
+      justify-content: center;
+      margin-top: 24px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+      font-size: 11px;
+      color: var(--text-mid);
+    }
+    .tweak-chart-legend .leg-dot {
+      display: inline-block;
+      width: 10px; height: 10px;
+      border-radius: 2px;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+    .tweak-chart-legend .leg-dot.b { background: var(--text-dim); }
+    .tweak-chart-legend .leg-dot.a { background: var(--text); }
+
+    /* ─── Pills de filtre par catégorie ─── */
+    .tweak-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 14px;
+      padding: 8px;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+    }
+    .tweak-filter-btn {
+      background: none;
+      border: none;
+      padding: 6px 12px;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-mid);
+      cursor: pointer;
+      border-radius: 4px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: background .15s, color .15s;
+    }
+    .tweak-filter-btn:hover { color: var(--text); background: var(--hover); }
+    .tweak-filter-btn.active {
+      background: var(--bg);
+      color: var(--text);
+      font-weight: 600;
+      box-shadow: 0 1px 2px rgba(15,15,15,.05);
+    }
+    .tweak-filter-btn .c {
+      font-family: 'IBM Plex Mono', 'SFMono-Regular', monospace;
+      font-size: 10px;
+      color: var(--text-dim);
+      font-weight: 400;
+    }
+    .tweak-filter-btn.active .c { color: var(--text-mid); }
+
+    .tweak-row.tweak-hidden { display: none; }
+    .tweak-group-title.tweak-hidden { display: none; }
     .health-metric-card:hover { background: var(--hover); }
     .hm-icon  { font-size: 18px; flex-shrink: 0; width: 28px; text-align: center; }
     .hm-info  { flex: 1; min-width: 0; }
@@ -1173,16 +1689,6 @@
     .sb-admin:hover { background: var(--amber); color: var(--bg); }
     .sb-admin:hover .icon { color: var(--bg); }
 
-    /* ══════════════════════════════════════════
-       FOOTER — Notion
-    ══════════════════════════════════════════ */
-    footer {
-      text-align: center; padding: 20px; font-size: 12px;
-      color: var(--text-dim); background: transparent;
-      border-top: 1px solid var(--border); margin-top: auto;
-    }
-    footer span { color: var(--green); font-weight: 500; }
-
     /* Scrollbar — fine et discrète */
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
@@ -1201,7 +1707,7 @@
 <!-- ════════════════════ SIDEBAR GAUCHE ════════════════════ -->
 <aside class="sidebar">
   <div class="sb-brand">
-    <svg class="icon" viewBox="0 0 24 24"><path d="m9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>
+    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="6"/></svg>
     OpenCleaner
   </div>
 
@@ -1289,19 +1795,15 @@
         <svg class="icon icon-2xl" viewBox="0 0 24 24"><path d="m9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>
       </div>
       <div class="page-title">Nettoyage</div>
-      <div class="page-properties">
-        <div class="prop">
-          <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          Dernier scan <strong id="prop-last-scan">…</strong>
-        </div>
-        <div class="prop">
-          <svg class="icon" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 12 15 16 10"/></svg>
-          Mode <strong>{% if is_admin %}Administrateur{% else %}Standard{% endif %}</strong>
-        </div>
-        <div class="prop">
-          <svg class="icon" viewBox="0 0 24 24"><line x1="22" y1="12" x2="2" y2="12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
-          <strong id="prop-disks-count">…</strong> disques détectés
-        </div>
+    </div>
+
+    <div class="callout callout-green" style="margin-bottom:18px">
+      <div class="callout-icon">
+        <svg class="icon icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+      </div>
+      <div class="callout-content">
+        <div style="font-weight:600;color:var(--text);margin-bottom:2px">Mots de passe et cookies <span style="color:#ef4444">protégés</span></div>
+        <div style="color:var(--text-mid)">OpenCleaner ne supprime jamais vos identifiants de connexion ni vos sessions de navigateur.</div>
       </div>
     </div>
 
@@ -1330,16 +1832,6 @@
         </div>
         <div class="stat-value dim" id="stat-history">—</div>
         <div class="stat-meta" id="stat-history-meta">Aucun historique</div>
-      </div>
-    </div>
-
-    <!-- Callout de réassurance (sous les stats) -->
-    <div class="callout callout-blue" style="margin-top:24px">
-      <div class="callout-icon">
-        <svg class="icon icon-lg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-      </div>
-      <div class="callout-content">
-        <strong>OpenCleaner ne touche jamais</strong> à vos mots de passe enregistrés ni à vos cookies de session. Vous resterez connecté à tous vos sites après le nettoyage.
       </div>
     </div>
 
@@ -1393,23 +1885,28 @@
           <svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           Tout décocher
         </button>
-        <button class="btn-ghost" id="btn-refresh" onclick="loadSizes()">
+        <button class="btn-ghost" id="btn-refresh" data-no-activity onclick="loadSizes()">
           <svg class="icon" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
           Réanalyser
         </button>
       </div>
 
-      <!-- Toggle block "Pourquoi admin" -->
-      <div class="toggle-block" onclick="this.classList.toggle('open')">
-        <div class="toggle-head">
-          <svg class="icon chev" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
-          Pourquoi certaines tâches nécessitent les droits administrateur ?
+      {% if not is_admin %}
+      <div class="callout callout-yellow">
+        <div class="callout-icon">
+          <svg class="icon icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 12 15 16 10"/></svg>
         </div>
-        <div class="toggle-body">
-          Le fichier d'hibernation, les anciens points de restauration et le nettoyage du registre touchent à des composants protégés de Windows.
-          Pour les utiliser, vous devez relancer OpenCleaner en mode administrateur (clic-droit sur l'application → « Exécuter en tant qu'administrateur »).
+        <div class="callout-content">
+          <strong>Certaines tâches nécessitent les droits administrateur.</strong><br>
+          Le fichier d'hibernation, les points de restauration et le nettoyage du registre touchent à des composants protégés de Windows. Cliquez sur
+          <span class="btn-admin-mini">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 12 15 16 10"/></svg>
+            Passer en administrateur
+          </span>
+          en bas à gauche pour relancer OpenCleaner avec les droits nécessaires.
         </div>
       </div>
+      {% endif %}
 
       <div id="history-hint" class="history-hint" style="display:none"></div>
 
@@ -1515,22 +2012,26 @@
     </div>
   </div>
 
-  <!-- Doublons -->
+  <!-- Doublons (fichiers + dossiers) -->
   <div>
     <div class="section-head">
       <div>
         <div class="tool-section-title">Recherche de doublons</div>
-        <div class="tool-section-sub">Trouve les fichiers identiques pour libérer de l'espace</div>
+        <div class="tool-section-sub">Fichiers ou sous-dossiers identiques dans un même parent</div>
       </div>
     </div>
     <div class="card">
       <div class="card-body">
+        <div class="dupe-mode-tabs">
+          <button class="dupe-mode-btn active" id="dupe-mode-files" onclick="setDupeMode('files')">Fichiers</button>
+          <button class="dupe-mode-btn" id="dupe-mode-folders" onclick="setDupeMode('folders')">Dossiers</button>
+        </div>
         <div class="dupe-scan-bar">
           <input class="dupe-folder-input" id="dupe-folder" placeholder="Ex: C:\Users\thoma\Documents" value="C:\Users\thoma\Downloads">
           <button class="btn-ghost" onclick="browseFolder('dupe-folder')">Parcourir…</button>
           <input class="dupe-size-input" id="dupe-minsize" type="number" value="100" title="Taille minimale en Ko">
-          <span style="font-size:12px;color:var(--text-dim);white-space:nowrap">Ko min.</span>
-          <button class="btn-primary" id="btn-scan-dupes" data-log-target="dupe-log" onclick="startDuplicateScan()">Analyser</button>
+          <span id="dupe-minsize-label" style="font-size:12px;color:var(--text-dim);white-space:nowrap">Ko min.</span>
+          <button class="btn-primary" id="btn-scan-dupes" data-activity="Recherche de doublons" data-log-target="dupe-log" onclick="startDuplicateUnifiedScan()">Analyser</button>
         </div>
       </div>
       <div class="log-body" id="dupe-log"></div>
@@ -1551,8 +2052,6 @@
         <div class="dupe-scan-bar">
           <input class="dupe-folder-input" id="inst-folder" placeholder="Dossier à analyser" value="{{ downloads_folder }}">
           <button class="btn-ghost" onclick="browseFolder('inst-folder')">Parcourir…</button>
-          <input class="dupe-size-input" id="inst-age" type="number" value="90" min="7" title="Âge minimum en jours">
-          <span style="font-size:12px;color:var(--text-dim);white-space:nowrap">jours min.</span>
           <button class="btn-primary" id="btn-scan-inst" onclick="startInstallerScan()">Analyser</button>
         </div>
       </div>
@@ -1929,8 +2428,14 @@
   <p class="page-sub">Nom, fabricant, version et date de chaque pilote matériel installé sur le système.</p>
 </div>
 
-<div style="display:flex;justify-content:flex-end;margin-bottom:10px">
-  <button class="btn-primary" id="btn-scan-drivers" data-log-target="drivers-log" onclick="startDriversScan()">Analyser</button>
+<div style="display:flex;justify-content:flex-end;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+  <span style="font-size:12px;color:var(--text-mid);margin-right:2px">Exporter :</span>
+  <button class="btn-ghost" onclick="exportDriversReport('html')" title="Rapport HTML lisible dans un navigateur">HTML</button>
+  <button class="btn-ghost" onclick="exportDriversReport('txt')" title="Texte brut, lisible partout">TXT</button>
+  <button class="btn-ghost" onclick="exportDriversReport('json')" title="Données structurées pour traitement automatique">JSON</button>
+  <span style="width:8px"></span>
+  <button class="btn-ghost" id="btn-wu-scan" data-activity="Recherche pilotes (Windows Update)" onclick="scanWindowsUpdateDrivers()" title="Rechercher des mises à jour de pilotes via Windows Update">Chercher via Windows Update</button>
+  <button class="btn-primary" id="btn-scan-drivers" data-activity="Analyse des pilotes" data-log-target="drivers-log" onclick="startDriversScan()">Analyser</button>
 </div>
 <div class="card">
   <div class="log-body" id="drivers-log"><div class="tool-empty">Cliquez sur « Analyser » pour lancer le scan.</div></div>
@@ -1961,6 +2466,40 @@
   </div>
 </div>
 
+<!-- Chart prédictif (bar chart variant 4) -->
+<div class="card" style="margin-bottom:14px">
+  <div class="tweak-chart-head">
+    <div>
+      <div class="tool-section-title">Impact estimé</div>
+      <div class="tool-section-sub">Baseline « tout activé » comparé à ta configuration actuelle. Le chart évolue en temps réel à chaque toggle.</div>
+    </div>
+    <div class="tweak-chart-note" id="tweak-chart-note">Chargement…</div>
+  </div>
+  <div id="tweak-chart" class="tweak-chart-body">
+    <div class="tool-empty">Chargement du chart…</div>
+  </div>
+</div>
+
+<!-- Filtres par catégorie d'effet -->
+<div class="tweak-filters" id="tweak-filters">
+  <button class="tweak-filter-btn active" data-filter="all">Tout voir <span class="c"></span></button>
+</div>
+
+<div class="card" style="margin-bottom:14px">
+  <div class="card-body">
+    <div class="section-head" style="padding:0">
+      <div>
+        <div class="tool-section-title">Widgets &amp; actualités de la barre des tâches</div>
+        <div class="tool-section-sub">Depuis Windows 11 24H2, ces options ne sont plus modifiables par le registre — Microsoft les gère désormais uniquement via l'application Paramètres.</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="btn-ghost" onclick="openSettingsUri('ms-settings:taskbar')">Ouvrir les paramètres Barre des tâches</button>
+      <button class="btn-ghost" onclick="openSettingsUri('ms-settings:widgets')">Paramètres Widgets</button>
+    </div>
+  </div>
+</div>
+
 <div class="card">
   <div id="tweaks-list"><div class="tool-loading">Chargement…</div></div>
 </div>
@@ -1968,12 +2507,37 @@
 </div>
 </div>
 
-<!-- ── Footer ── -->
-<footer>
-  OpenCleaner &nbsp;·&nbsp; <span>Mots de passe et cookies jamais supprimés</span>
-</footer>
-
 </div><!-- /.main -->
+
+<!-- ════════════════════ PANNEAU D'ACTIVITÉ ════════════════════ -->
+<aside class="activity" id="activity-panel">
+  <div class="activity-head" id="activity-drag-handle">
+    <span class="label">Activité</span>
+    <div class="head-actions">
+      <button class="btn-dock" onclick="toggleActivityDock()" title="Ancrer à droite / Libérer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+    </div>
+  </div>
+  <div class="activity-full" id="activity-list">
+    <div class="activity-empty">Aucune activité pour l'instant.</div>
+  </div>
+  <div class="activity-collapsed" id="activity-collapsed">
+    <div class="ac-line run" id="ac-run" style="display:none">
+      <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="6"/></svg>
+      <span id="ac-run-n">0</span>
+    </div>
+    <div class="ac-line ok" id="ac-ok" style="display:none">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg>
+      <span id="ac-ok-n">0</span>
+    </div>
+  </div>
+  <div class="activity-foot">
+    <span id="activity-count">0 entrée</span>
+    <button onclick="clearActivity()">Effacer</button>
+  </div>
+  <div class="activity-resize" id="activity-resize-handle"></div>
+</aside>
 
 <script>
   var TASKS = {{ tasks_json | safe }};

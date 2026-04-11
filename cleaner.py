@@ -5,6 +5,7 @@ cleaner.py — Fonctions de nettoyage + outils système Windows
 import hashlib
 import json
 import os
+import re
 import shutil
 import sqlite3
 import subprocess
@@ -61,6 +62,8 @@ _ADMIN_PATH_PREFIXES = tuple(
         os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)"),
         os.environ.get("SystemRoot",        r"C:\Windows"),
         r"C:\ProgramData",
+        r"C:\Users\Default",     # profil template Windows, propriété SYSTEM
+        r"C:\Users\Public",      # partagé entre utilisateurs, ACL restrictive
     )
 )
 
@@ -958,14 +961,84 @@ def find_duplicates(folder, min_size_kb=100, log=None):
                     "needs_admin": is_admin_path(path),
                 })
 
-    duplicates = {h: files for h, files in hashes.items() if len(files) > 1}
+    # Double filtre de sûreté :
+    # 1. Mêmes dossier parent obligatoire (évite runtimes/DLL partagés inter-apps)
+    # 2. Tous les noms doivent collapser vers une même "base" une fois les
+    #    suffixes de copie stripés — sinon c'est probablement un multi-call
+    #    binary (bash/sh, vim/rvim/ex...) ou deux fichiers distincts au contenu
+    #    identique mais référencés par leurs noms respectifs (openssl.cnf +
+    #    openssl.cnf.dist par exemple).
+    duplicates = {}
+    skipped_cross = 0
+    skipped_names = 0
+    for h, files in hashes.items():
+        if len(files) < 2:
+            continue
+        parents = {str(Path(f["path"]).parent) for f in files}
+        if len(parents) != 1:
+            skipped_cross += 1
+            continue
+        bases = {_strip_copy_suffix(Path(f["path"]).name) for f in files}
+        if len(bases) != 1:
+            skipped_names += 1
+            continue
+        duplicates[h] = files
+
     total_wasted = sum(
         sum(f["size"] for f in files[1:])
         for files in duplicates.values()
     )
     if log:
-        log(f"{len(duplicates)} groupe(s) de doublons — {fmt_size(total_wasted)} récupérables.")
+        log(f"{len(duplicates)} groupe(s) de doublons confirmés — {fmt_size(total_wasted)} récupérables.")
+        if skipped_cross:
+            log(f"{skipped_cross} groupe(s) inter-dossiers ignorés (risque runtimes/DLL partagés).")
+        if skipped_names:
+            log(f"{skipped_names} groupe(s) à noms distincts ignorés (risque multi-call binaries).")
     return duplicates
+
+
+_EXT_COPY_PATTERNS = [
+    re.compile(r"\.bak$", re.I),   # config.bak -> config
+    re.compile(r"\.old$", re.I),   # config.old -> config
+    re.compile(r"~$"),              # notes~     -> notes
+]
+_STEM_COPY_PATTERNS = [
+    re.compile(r" \(\d+\)$"),                       # photo (1)
+    re.compile(r" - Copie(?: \(\d+\))?$", re.I),    # doc - Copie, - Copie (2)
+    re.compile(r" - Copy(?: \(\d+\))?$", re.I),     # doc - Copy
+    re.compile(r" copy(?: \d+)?$", re.I),            # doc copy
+    re.compile(r"_copy(?:_\d+)?$", re.I),            # doc_copy
+]
+
+
+def _strip_copy_suffix(name):
+    """Retire les suffixes de copie du nom de fichier pour obtenir la 'base'.
+
+    photo (1).jpg  -> photo.jpg
+    doc - Copie.pdf -> doc.pdf
+    notes~         -> notes
+    config.bak     -> config
+    bash.exe       -> bash.exe (inchangé)
+    """
+    # 1. Extensions-suffixes appliquées sur le nom complet
+    for pat in _EXT_COPY_PATTERNS:
+        new, n = pat.subn("", name)
+        if n:
+            name = new
+            break
+    # 2. Suffixes appliqués sur le stem (avant l'extension)
+    stem = Path(name).stem
+    ext = Path(name).suffix
+    changed = True
+    while changed:
+        changed = False
+        for pat in _STEM_COPY_PATTERNS:
+            new_stem, n = pat.subn("", stem)
+            if n and new_stem != stem:
+                stem = new_stem
+                changed = True
+                break
+    return stem + ext
 
 
 def delete_duplicate_files(paths):
@@ -979,6 +1052,185 @@ def delete_duplicate_files(paths):
             p.unlink()
         except Exception as e:
             errors.append(str(e))
+    return freed, errors
+
+
+def find_duplicate_folders(folder, log=None):
+    """Détecte les dossiers enfants d'un même parent qui ont un contenu identique.
+
+    Stratégie :
+      1. Walk l'arbre, calcule pour chaque dossier la liste récursive (rel, size, path)
+      2. Pré-filtre : groupe les dossiers frères par (count, size, liste (rel,size))
+      3. Hash complet uniquement des fichiers dans les groupes candidats
+      4. Confirme avec la signature complète incluant les hashes
+
+    Retourne {"groups": [...], "total": int, "total_fmt": str}.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+    import hashlib
+
+    root = Path(folder)
+    if not root.is_dir():
+        return {"groups": [], "total": 0, "total_fmt": "0 o"}
+
+    SKIP = {"$Recycle.Bin", "System Volume Information", ".git",
+            "node_modules", "__pycache__", ".venv", "venv"}
+
+    if log:
+        log("Analyse de l'arborescence…")
+
+    # Walk : collecte tous les dossiers
+    all_dirs = []
+    for dirpath, dirnames, _filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if d not in SKIP]
+        all_dirs.append(Path(dirpath))
+
+    # Bottom-up : contenus récursifs par dossier
+    all_dirs.sort(key=lambda p: len(p.parts), reverse=True)
+    dir_content = {}  # Path -> list of (rel_path, size, abs_path)
+    for d in all_dirs:
+        items = []
+        try:
+            with os.scandir(d) as it:
+                for entry in it:
+                    try:
+                        if entry.is_file(follow_symlinks=False):
+                            sz = entry.stat(follow_symlinks=False).st_size
+                            items.append((entry.name, sz, entry.path))
+                        elif entry.is_dir(follow_symlinks=False):
+                            if entry.name in SKIP:
+                                continue
+                            sub = Path(entry.path)
+                            sub_items = dir_content.get(sub, [])
+                            for rel, sz, path in sub_items:
+                                items.append((f"{entry.name}/{rel}", sz, path))
+                    except (OSError, PermissionError):
+                        pass
+        except (OSError, PermissionError):
+            pass
+        dir_content[d] = items
+
+    # Pré-filtre : groupe les dossiers par (parent, count, total_size, signature rapide)
+    sibling_groups = defaultdict(list)
+    for d in all_dirs:
+        if d == root:
+            continue
+        items = dir_content.get(d, [])
+        if not items:
+            continue
+        total_size = sum(sz for _, sz, _ in items)
+        if total_size == 0:
+            continue
+        quick_parts = tuple(sorted((rel, sz) for rel, sz, _ in items))
+        key = (str(d.parent), len(items), total_size, quick_parts)
+        sibling_groups[key].append(d)
+
+    candidates = [dirs for dirs in sibling_groups.values() if len(dirs) > 1]
+    if not candidates:
+        if log:
+            log("Aucun dossier dupliqué trouvé.")
+        return {"groups": [], "total": 0, "total_fmt": "0 o"}
+
+    if log:
+        log(f"{len(candidates)} groupe(s) candidats — vérification par hash…")
+
+    # Collecte tous les fichiers à hasher
+    files_to_hash = set()
+    for group in candidates:
+        for d in group:
+            for _, _, path in dir_content[d]:
+                files_to_hash.add(path)
+
+    hash_cache = {}
+
+    def _hf(p):
+        try:
+            return p, _hash_full(p)
+        except (OSError, PermissionError):
+            return p, None
+
+    workers = min(8, max(1, len(files_to_hash)))
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        for p, h in pool.map(_hf, files_to_hash):
+            hash_cache[p] = h
+
+    # Regroupe par signature complète (incluant les hashes)
+    duplicate_groups = []
+    total_wasted = 0
+    skipped_names = 0
+    for group in candidates:
+        by_full = defaultdict(list)
+        for d in group:
+            full_parts = tuple(sorted(
+                (rel, sz, hash_cache.get(path, ""))
+                for rel, sz, path in dir_content[d]
+            ))
+            sig = hashlib.md5(repr(full_parts).encode("utf-8", errors="replace")).hexdigest()
+            by_full[sig].append(d)
+
+        for sig, dirs in by_full.items():
+            if len(dirs) < 2:
+                continue
+            # Filtre sûreté : les noms de dossiers doivent collapser vers la
+            # même base après strip des suffixes de copie (évite les cas type
+            # nb/no qui sont des locales distinctes au contenu identique).
+            bases = {_strip_copy_suffix(d.name) for d in dirs}
+            if len(bases) != 1:
+                skipped_names += 1
+                continue
+            size = sum(sz for _, sz, _ in dir_content[dirs[0]])
+            count = len(dir_content[dirs[0]])
+            total_wasted += size * (len(dirs) - 1)
+            duplicate_groups.append({
+                "folders": [{
+                    "path": str(d),
+                    "size": size,
+                    "size_fmt": fmt_size(size),
+                    "file_count": count,
+                    "needs_admin": is_admin_path(str(d)),
+                } for d in sorted(dirs, key=str)],
+                "size": size,
+                "size_fmt": fmt_size(size),
+                "file_count": count,
+            })
+
+    duplicate_groups.sort(key=lambda g: -g["size"])
+
+    if log:
+        log(f"{len(duplicate_groups)} dossier(s) dupliqué(s) — {fmt_size(total_wasted)} récupérables.")
+        if skipped_names:
+            log(f"{skipped_names} groupe(s) à noms distincts ignorés (risque locales/versions).")
+
+    return {
+        "groups": duplicate_groups,
+        "total": total_wasted,
+        "total_fmt": fmt_size(total_wasted),
+    }
+
+
+def delete_duplicate_folders(paths):
+    """Supprime récursivement une liste de dossiers."""
+    import shutil
+    freed = 0
+    errors = []
+    for path in paths:
+        try:
+            p = Path(path)
+            if not p.is_dir():
+                errors.append(f"{path}: n'est pas un dossier")
+                continue
+            # Calcule la taille avant suppression
+            size = 0
+            for r, _dirs, files in os.walk(p):
+                for f in files:
+                    try:
+                        size += (Path(r) / f).stat().st_size
+                    except Exception:
+                        pass
+            shutil.rmtree(p)
+            freed += size
+        except Exception as e:
+            errors.append(f"{path}: {e}")
     return freed, errors
 
 
@@ -1329,7 +1581,10 @@ def find_large_files(folder, min_size_bytes, log=None):
 
 def find_empty_folders(folder, log=None):
     _SKIP = {"$Recycle.Bin", "System Volume Information", "Windows", "Program Files",
-             "Program Files (x86)", "ProgramData"}
+             "Program Files (x86)", "ProgramData",
+             "Default", "Public",          # profils Windows protégés
+             "collab_low", "Low",           # sandboxes low-integrity (Chrome/Edge)
+             ".git", "node_modules"}
     results = []
 
     try:
@@ -1679,12 +1934,11 @@ def get_disk_smart():
 
 _WINDOWS_TWEAKS = [
     # Barre des tâches
-    {"id": "widgets", "label": "Widgets", "desc": "Icône météo et actualités à gauche de la barre des tâches (Windows 11)",
-     "group": "taskbar", "path": r"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced",
-     "name": "TaskbarDa", "on_val": 1, "off_val": 0, "default_on": True},
-    {"id": "news_interests", "label": "Actualités et centres d'intérêt", "desc": "Panneau météo/news sur la barre des tâches (Windows 10)",
-     "group": "taskbar", "path": r"Software\Microsoft\Windows\CurrentVersion\Feeds",
-     "name": "ShellFeedsTaskbarViewMode", "on_val": 0, "off_val": 2, "default_on": True},
+    # Note : les tweaks "widgets" (TaskbarDa) et "news_interests"
+    # (ShellFeedsTaskbarViewMode) ont été retirés car Windows 11 24H2+ a
+    # verrouillé ces valeurs du registre au niveau Microsoft. Aucune méthode
+    # (HKCU, HKLM, reg.exe, PowerShell, même en admin) ne permet de les modifier.
+    # Un bouton "Ouvrir les paramètres Widgets" est exposé à la place.
     {"id": "chat_teams", "label": "Chat Teams", "desc": "Icône bulle Teams dans la barre des tâches",
      "group": "taskbar", "path": r"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced",
      "name": "TaskbarMn", "on_val": 1, "off_val": 0, "default_on": True},
@@ -1694,6 +1948,12 @@ _WINDOWS_TWEAKS = [
     {"id": "search_box", "label": "Barre de recherche large", "desc": "Grande barre de recherche → icône uniquement",
      "group": "taskbar", "path": r"Software\Microsoft\Windows\CurrentVersion\Search",
      "name": "SearchboxTaskbarMode", "on_val": 2, "off_val": 1, "default_on": True},
+    {"id": "taskbar_center", "label": "Barre des tâches centrée (style W11)", "desc": "Icônes centrées. OFF pour les aligner à gauche comme Windows 10",
+     "group": "taskbar", "path": r"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced",
+     "name": "TaskbarAl", "on_val": 1, "off_val": 0, "default_on": True},
+    {"id": "hide_seconds_clock", "label": "Masquer les secondes dans l'horloge", "desc": "État par défaut. OFF pour afficher les secondes en continu (+CPU)",
+     "group": "taskbar", "path": r"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced",
+     "name": "ShowSecondsInSystemClock", "on_val": 0, "off_val": 1, "default_on": True},
 
     # Recherche
     {"id": "bing_search", "label": "Suggestions Bing dans le menu Démarrer", "desc": "Recherches web Bing qui polluent les résultats locaux",
@@ -1702,6 +1962,44 @@ _WINDOWS_TWEAKS = [
     {"id": "cortana", "label": "Cortana", "desc": "Assistant vocal Microsoft",
      "group": "search", "path": r"Software\Microsoft\Windows\CurrentVersion\Search",
      "name": "BingSearchEnabled", "on_val": 1, "off_val": 0, "default_on": True},
+    {"id": "search_highlights", "label": "Tendances de recherche", "desc": "Icône globe avec trendings du jour / événements historiques dans la barre de recherche",
+     "group": "search", "path": r"Software\Microsoft\Windows\CurrentVersion\SearchSettings",
+     "name": "IsDynamicSearchBoxEnabled", "on_val": 1, "off_val": 0, "default_on": True},
+
+    # IA & contenus imposés ("Winslop")
+    {"id": "copilot", "label": "Copilot Windows", "desc": "Assistant IA Microsoft qui tourne en arrière-plan et consomme RAM/CPU",
+     "group": "ai", "path": r"Software\Policies\Microsoft\Windows\WindowsCopilot",
+     "name": "TurnOffWindowsCopilot", "on_val": 0, "off_val": 1, "default_on": True},
+    {"id": "copilot_button", "label": "Bouton Copilot dans la barre des tâches", "desc": "Icône Copilot à côté de l'horloge",
+     "group": "ai", "path": r"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced",
+     "name": "ShowCopilotButton", "on_val": 1, "off_val": 0, "default_on": True},
+    {"id": "edge_startup_boost", "label": "Préchargement Edge au démarrage", "desc": "Edge se charge en mémoire dès que Windows démarre",
+     "group": "ai", "path": r"Software\Policies\Microsoft\Edge",
+     "name": "StartupBoostEnabled", "on_val": 1, "off_val": 0, "default_on": True},
+    {"id": "edge_background", "label": "Edge en arrière-plan après fermeture", "desc": "Edge continue de tourner en tâche de fond même après avoir fermé toutes les fenêtres",
+     "group": "ai", "path": r"Software\Policies\Microsoft\Edge",
+     "name": "BackgroundModeEnabled", "on_val": 1, "off_val": 0, "default_on": True},
+    {"id": "ad_id", "label": "Identifiant publicitaire", "desc": "ID unique utilisé par les apps pour te pister entre usages",
+     "group": "ai", "path": r"Software\Microsoft\Windows\CurrentVersion\AdvertisingInfo",
+     "name": "Enabled", "on_val": 1, "off_val": 0, "default_on": True},
+    {"id": "tailored_experiences", "label": "Expériences personnalisées Microsoft", "desc": "Pubs et suggestions basées sur les données diagnostiques remontées par Windows",
+     "group": "ai", "path": r"Software\Microsoft\Windows\CurrentVersion\Privacy",
+     "name": "TailoredExperiencesWithDiagnosticDataEnabled", "on_val": 1, "off_val": 0, "default_on": True},
+    {"id": "app_launch_tracking", "label": "Suivi des applications lancées", "desc": "Historique des apps pour les suggestions du menu Démarrer",
+     "group": "ai", "path": r"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced",
+     "name": "Start_TrackProgs", "on_val": 1, "off_val": 0, "default_on": True},
+    {"id": "notepad_ai", "label": "IA dans le Bloc-notes", "desc": "Rewrite et suggestions IA dans Notepad",
+     "group": "ai", "path": r"Software\Microsoft\Notepad",
+     "name": "CoCreatorDisabled", "on_val": 0, "off_val": 1, "default_on": True},
+    {"id": "edge_hub_sidebar", "label": "Edge — barre latérale Copilot/Outils", "desc": "Sidebar à droite dans Edge avec Copilot, jeux, outils",
+     "group": "ai", "path": r"Software\Policies\Microsoft\Edge",
+     "name": "HubsSidebarEnabled", "on_val": 1, "off_val": 0, "default_on": True},
+    {"id": "edge_shopping", "label": "Edge — assistant d'achat", "desc": "Suggestions de coupons et comparaisons de prix intégrées à Edge",
+     "group": "ai", "path": r"Software\Policies\Microsoft\Edge",
+     "name": "EdgeShoppingAssistantEnabled", "on_val": 1, "off_val": 0, "default_on": True},
+    {"id": "edge_personalization_reporting", "label": "Edge — ciblage publicitaire", "desc": "Personnalisation des pubs basée sur ton historique Edge",
+     "group": "ai", "path": r"Software\Policies\Microsoft\Edge",
+     "name": "PersonalizationReportingEnabled", "on_val": 1, "off_val": 0, "default_on": True},
 
     # Menu Démarrer & pubs
     {"id": "silent_apps", "label": "Installations silencieuses d'apps", "desc": "Candy Crush, TikTok et autres installés automatiquement",
@@ -1713,6 +2011,24 @@ _WINDOWS_TWEAKS = [
     {"id": "settings_suggestions", "label": "Contenu suggéré dans Paramètres", "desc": "Pubs et astuces dans l'application Paramètres",
      "group": "start", "path": r"Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager",
      "name": "SubscribedContent-338393Enabled", "on_val": 1, "off_val": 0, "default_on": True},
+    {"id": "start_recommended", "label": "Fichiers recommandés dans le menu Démarrer", "desc": "Section « Recommandé » qui affiche vos fichiers et apps récents (Windows 11)",
+     "group": "start", "path": r"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced",
+     "name": "Start_TrackDocs", "on_val": 1, "off_val": 0, "default_on": True},
+    {"id": "start_account_notifs", "label": "Notifications de compte dans Démarrer", "desc": "Bannières OneDrive / compte Microsoft dans le menu Démarrer",
+     "group": "start", "path": r"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced",
+     "name": "Start_AccountNotifications", "on_val": 1, "off_val": 0, "default_on": True},
+    {"id": "start_irisxp", "label": "Suggestions aléatoires Démarrer (IrisXP)", "desc": "Promos rotatives dans le menu Démarrer",
+     "group": "start", "path": r"Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager",
+     "name": "SubscribedContent-338388Enabled", "on_val": 1, "off_val": 0, "default_on": True},
+    {"id": "preinstalled_apps", "label": "Pré-installation d'apps après mises à jour", "desc": "Empêche Windows de recharger Candy Crush etc. à chaque update",
+     "group": "start", "path": r"Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager",
+     "name": "PreInstalledAppsEnabled", "on_val": 1, "off_val": 0, "default_on": True},
+    {"id": "oem_preinstalled", "label": "Apps OEM pré-installées", "desc": "Empêche la réinstallation d'apps partenaires OEM",
+     "group": "start", "path": r"Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager",
+     "name": "OEMPreInstalledAppsEnabled", "on_val": 1, "off_val": 0, "default_on": True},
+    {"id": "start_iris_recommendations", "label": "Recommandations Iris personnalisées", "desc": "Suggestions dynamiques basées sur l'usage dans le menu Démarrer",
+     "group": "start", "path": r"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced",
+     "name": "Start_IrisRecommendations", "on_val": 1, "off_val": 0, "default_on": True},
 
     # Écran de verrouillage & notifications
     {"id": "lockscreen_tips", "label": "Astuces sur l'écran de verrouillage", "desc": "Texte promo Windows Spotlight sur l'écran de verrouillage",
@@ -1721,6 +2037,27 @@ _WINDOWS_TWEAKS = [
     {"id": "soft_landing", "label": "Notifications « Conseils Windows »", "desc": "Popups de suggestions et astuces pendant l'utilisation",
      "group": "lockscreen", "path": r"Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager",
      "name": "SoftLandingEnabled", "on_val": 1, "off_val": 0, "default_on": True},
+    {"id": "spotlight_lockscreen", "label": "Windows Spotlight (écran de verrouillage)", "desc": "Images rotatives Bing et pubs sur l'écran de verrouillage",
+     "group": "lockscreen", "path": r"Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager",
+     "name": "RotatingLockScreenEnabled", "on_val": 1, "off_val": 0, "default_on": True},
+    {"id": "welcome_experience", "label": "Écran d'accueil après mises à jour", "desc": "Plus d'écran « Welcome after update » vantant les nouveautés",
+     "group": "lockscreen", "path": r"Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager",
+     "name": "SubscribedContent-310093Enabled", "on_val": 1, "off_val": 0, "default_on": True},
+    {"id": "finish_setup", "label": "Invite « Terminer la configuration »", "desc": "Écran post-MAJ qui force la liaison OneDrive / compte Microsoft",
+     "group": "lockscreen", "path": r"Software\Microsoft\Windows\CurrentVersion\UserProfileEngagement",
+     "name": "ScoobeSystemSettingEnabled", "on_val": 1, "off_val": 0, "default_on": True},
+    {"id": "tips_tricks", "label": "Notifications « Astuces et conseils »", "desc": "Popups aléatoires avec des tips Windows",
+     "group": "lockscreen", "path": r"Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager",
+     "name": "SubscribedContent-338389Enabled", "on_val": 1, "off_val": 0, "default_on": True},
+    {"id": "general_content_delivery", "label": "Livraison de contenu global", "desc": "Master switch pour bloquer toutes les pubs système Microsoft",
+     "group": "lockscreen", "path": r"Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager",
+     "name": "ContentDeliveryAllowed", "on_val": 1, "off_val": 0, "default_on": True},
+    {"id": "sub_content_338387", "label": "Astuces amusantes sur l'écran de verrouillage", "desc": "Faits insolites et astuces affichés sous l'heure (ID 338387)",
+     "group": "lockscreen", "path": r"Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager",
+     "name": "SubscribedContent-338387Enabled", "on_val": 1, "off_val": 0, "default_on": True},
+    {"id": "sub_content_353694", "label": "Suggestions d'apps dans Paramètres", "desc": "Bannière d'apps suggérées dans l'app Paramètres (ID 353694)",
+     "group": "lockscreen", "path": r"Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager",
+     "name": "SubscribedContent-353694Enabled", "on_val": 1, "off_val": 0, "default_on": True},
 
     # Explorateur
     {"id": "onedrive_ads", "label": "Pubs OneDrive dans l'Explorateur", "desc": "Notifications pour passer à OneDrive premium",
@@ -1732,15 +2069,229 @@ _WINDOWS_TWEAKS = [
     {"id": "show_frequent", "label": "Dossiers fréquents dans Accès rapide", "desc": "Dossiers les plus consultés dans l'Explorateur",
      "group": "explorer", "path": r"Software\Microsoft\Windows\CurrentVersion\Explorer",
      "name": "ShowFrequent", "on_val": 1, "off_val": 0, "default_on": True},
+    {"id": "explorer_recommended", "label": "Recommandations dans l'Explorateur", "desc": "Section « Recommandé » de la page Accueil de l'Explorateur",
+     "group": "explorer", "path": r"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced",
+     "name": "ShowRecommendations", "on_val": 1, "off_val": 0, "default_on": True},
+    {"id": "hide_file_ext", "label": "Masquer les extensions des fichiers connus", "desc": "Cache .exe, .pdf, .docx. OFF recommandé (sécurité anti-phishing)",
+     "group": "explorer", "path": r"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced",
+     "name": "HideFileExt", "on_val": 1, "off_val": 0, "default_on": True},
+    {"id": "hide_hidden_files", "label": "Masquer les fichiers cachés", "desc": "Cache les fichiers avec l'attribut Hidden. OFF pour les voir",
+     "group": "explorer", "path": r"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced",
+     "name": "Hidden", "on_val": 2, "off_val": 1, "default_on": True},
+    {"id": "launch_to_home", "label": "Ouvrir l'Explorateur sur Accueil", "desc": "OFF pour ouvrir sur « Ce PC » (plus sobre, pas de cloud/récents)",
+     "group": "explorer", "path": r"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced",
+     "name": "LaunchTo", "on_val": 2, "off_val": 1, "default_on": True},
+
+    # Vie privée & tâches de fond
+    {"id": "activity_history", "label": "Historique d'activité (Timeline)", "desc": "Publication au cloud de tes activités pour la Timeline",
+     "group": "privacy", "path": r"Software\Microsoft\Windows\CurrentVersion\Privacy",
+     "name": "PublishUserActivities", "on_val": 1, "off_val": 0, "default_on": True},
+    {"id": "cloud_clipboard", "label": "Presse-papiers cloud", "desc": "Synchronisation cross-device du presse-papiers via le compte MS",
+     "group": "privacy", "path": r"Software\Microsoft\Clipboard",
+     "name": "EnableCloudClipboard", "on_val": 1, "off_val": 0, "default_on": True},
+    {"id": "inking_typing", "label": "Personnalisation saisie et écriture", "desc": "Envoi de données d'écriture manuscrite et frappe clavier à Microsoft",
+     "group": "privacy", "path": r"Software\Microsoft\InputPersonalization",
+     "name": "RestrictImplicitTextCollection", "on_val": 0, "off_val": 1, "default_on": True},
+    {"id": "online_speech", "label": "Reconnaissance vocale en ligne", "desc": "Envoi de ta voix aux serveurs Microsoft pour la dictée cloud",
+     "group": "privacy", "path": r"Software\Microsoft\Speech_OneCore\Settings\OnlineSpeechPrivacy",
+     "name": "HasAccepted", "on_val": 1, "off_val": 0, "default_on": True},
+    {"id": "game_dvr", "label": "Enregistrement Game DVR en arrière-plan", "desc": "Xbox Game Bar enregistre tes parties en continu",
+     "group": "privacy", "path": r"System\GameConfigStore",
+     "name": "GameDVR_Enabled", "on_val": 1, "off_val": 0, "default_on": True},
+    {"id": "game_bar", "label": "Xbox Game Bar", "desc": "Overlay Win+G des jeux Xbox",
+     "group": "privacy", "path": r"Software\Microsoft\GameBar",
+     "name": "UseNexusForGameBarEnabled", "on_val": 1, "off_val": 0, "default_on": True},
 ]
 
 _TWEAK_GROUPS = [
+    ("ai",         "IA & contenus imposés"),
     ("taskbar",    "Barre des tâches"),
     ("search",     "Recherche & Cortana"),
     ("start",      "Menu Démarrer & pubs"),
     ("lockscreen", "Notifications & écran de verrouillage"),
     ("explorer",   "Explorateur de fichiers"),
+    ("privacy",    "Vie privée & tâches de fond"),
 ]
+
+# Catégories d'effet (orthogonales aux groupes d'affichage)
+_TWEAK_TAGS = [
+    ("performance", "Performance"),
+    ("privacy",     "Confidentialité"),
+    ("ads",         "Publicités"),
+    ("cosmetic",    "Cosmétique"),
+    ("security",    "Sécurité"),
+]
+
+# Mapping tweak → noms de processus Windows associés (en minuscules).
+# Sert à mesurer la RAM réelle via psutil. On ne mappe que les features dont
+# les processus sont clairement attribuables (pas msedge.exe qui est partagé
+# avec le navigateur utilisateur, pas SearchHost.exe qui sert aussi à la
+# recherche Windows générale).
+_TWEAK_PROCESSES = {
+    "copilot":   ["copilot.exe", "microsoft.copilot.native.exe", "copilotruntime.exe"],
+    "game_dvr":  ["broadcastdvrserver.exe", "gamesvr.exe"],
+    "game_bar":  ["gamebar.exe", "gamebarft.exe", "gamebarelevatedft_plus.exe"],
+}
+
+_BASELINE_PATH = Path(__file__).parent / "tweak_baseline.json"
+_LIVE_SCAN_CACHE = {"value": None, "at": 0}
+_LIVE_SCAN_TTL = 30  # secondes
+
+
+def _scan_live_tweak_measurements():
+    """Scanne les processus actifs et retourne {tid: {ram_mb, procs}}.
+
+    Cache résultat pendant _LIVE_SCAN_TTL secondes pour limiter la latence.
+    """
+    import time
+    now = time.time()
+    cache = _LIVE_SCAN_CACHE
+    if cache["value"] is not None and (now - cache["at"]) < _LIVE_SCAN_TTL:
+        return cache["value"]
+
+    import psutil
+    by_name = {}
+    for proc in psutil.process_iter(["name", "memory_info"]):
+        try:
+            info = proc.info
+            name = (info.get("name") or "").lower()
+            mem  = info.get("memory_info")
+            if name and mem:
+                by_name.setdefault(name, []).append(mem.rss)
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            pass
+
+    result = {}
+    for tid, names in _TWEAK_PROCESSES.items():
+        total_rss   = 0
+        total_procs = 0
+        for n in names:
+            for rss in by_name.get(n.lower(), []):
+                total_rss   += rss
+                total_procs += 1
+        if total_procs > 0:
+            result[tid] = {
+                "ram_mb": round(total_rss / (1024 * 1024)),
+                "procs":  total_procs,
+            }
+
+    cache["value"] = result
+    cache["at"]    = now
+    return result
+
+
+def _load_tweak_baseline():
+    try:
+        if _BASELINE_PATH.exists():
+            return json.loads(_BASELINE_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+    return {}
+
+
+def _save_tweak_baseline(data):
+    try:
+        _BASELINE_PATH.write_text(
+            json.dumps(data, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+    except Exception:
+        pass
+
+
+def _refresh_tweak_baseline():
+    """Met à jour baseline.json avec les mesures live actuelles.
+
+    Règle importante : on n'écrase jamais une mesure existante par 0.
+    Si un process était là avant (et mesuré), sa valeur reste dans le fichier
+    même si l'utilisateur l'a depuis désactivé.
+    """
+    from datetime import datetime
+    live     = _scan_live_tweak_measurements()
+    baseline = _load_tweak_baseline()
+    updated  = False
+    for tid, measurement in live.items():
+        if measurement["ram_mb"] > 0:
+            baseline[tid] = {
+                "ram_mb":      measurement["ram_mb"],
+                "procs":       measurement["procs"],
+                "measured_at": datetime.now().isoformat(timespec="seconds"),
+            }
+            updated = True
+    if updated:
+        _save_tweak_baseline(baseline)
+    return baseline
+
+
+# Impact estimé par tweak : (ram_mb, processes, tags)
+# Les chiffres sont des estimations moyennes basées sur des mesures publiques.
+# Écrasés par les mesures live réelles si le process est matchable par
+# _TWEAK_PROCESSES et actuellement actif (voir _refresh_tweak_baseline).
+_TWEAK_IMPACTS = {
+    # IA — impact performance majeur
+    "copilot":                     (250, 2, ["performance", "privacy"]),
+    "copilot_button":              (0,   0, ["cosmetic"]),
+    "edge_startup_boost":          (350, 1, ["performance"]),
+    "edge_background":             (150, 0, ["performance"]),
+    "edge_hub_sidebar":            (0,   0, ["privacy"]),
+    "edge_shopping":               (0,   0, ["privacy", "ads"]),
+    "edge_personalization_reporting": (0, 0, ["privacy"]),
+    "ad_id":                       (0,   0, ["privacy"]),
+    "tailored_experiences":        (0,   0, ["privacy"]),
+    "app_launch_tracking":         (0,   0, ["privacy"]),
+    "notepad_ai":                  (0,   0, ["privacy"]),
+
+    # Taskbar — cosmétique
+    "chat_teams":                  (0,   0, ["cosmetic"]),
+    "task_view":                   (0,   0, ["cosmetic"]),
+    "search_box":                  (0,   0, ["cosmetic"]),
+    "taskbar_center":              (0,   0, ["cosmetic"]),
+    "hide_seconds_clock":          (0,   0, ["cosmetic"]),
+
+    # Search — Cortana = vrai process en background
+    "bing_search":                 (0,   0, ["privacy", "ads"]),
+    "cortana":                     (120, 1, ["performance", "privacy"]),
+    "search_highlights":           (0,   0, ["privacy", "ads"]),
+
+    # Start — principalement pubs
+    "silent_apps":                 (0,   0, ["ads"]),
+    "start_suggestions":           (0,   0, ["ads"]),
+    "settings_suggestions":        (0,   0, ["ads"]),
+    "start_recommended":           (0,   0, ["privacy", "ads"]),
+    "start_account_notifs":        (0,   0, ["ads"]),
+    "start_irisxp":                (0,   0, ["ads"]),
+    "preinstalled_apps":           (0,   0, ["ads"]),
+    "oem_preinstalled":            (0,   0, ["ads"]),
+    "start_iris_recommendations":  (0,   0, ["privacy", "ads"]),
+
+    # Lockscreen — pubs et notifications
+    "lockscreen_tips":             (0,   0, ["ads"]),
+    "soft_landing":                (0,   0, ["ads"]),
+    "spotlight_lockscreen":        (0,   0, ["ads"]),
+    "welcome_experience":          (0,   0, ["ads"]),
+    "finish_setup":                (0,   0, ["ads"]),
+    "tips_tricks":                 (0,   0, ["ads"]),
+    "general_content_delivery":    (0,   0, ["ads"]),
+    "sub_content_338387":          (0,   0, ["ads"]),
+    "sub_content_353694":          (0,   0, ["ads"]),
+
+    # Explorer — cosmétique + sécurité
+    "onedrive_ads":                (0,   0, ["ads"]),
+    "show_recent":                 (0,   0, ["privacy", "cosmetic"]),
+    "show_frequent":               (0,   0, ["privacy", "cosmetic"]),
+    "explorer_recommended":        (0,   0, ["privacy", "ads"]),
+    "hide_file_ext":               (0,   0, ["security", "cosmetic"]),
+    "hide_hidden_files":           (0,   0, ["cosmetic"]),
+    "launch_to_home":              (0,   0, ["cosmetic"]),
+
+    # Vie privée & tâches de fond — Game Bar/DVR = vrais process
+    "activity_history":            (5,   0, ["privacy"]),
+    "cloud_clipboard":             (10,  0, ["privacy"]),
+    "inking_typing":               (0,   0, ["privacy"]),
+    "online_speech":               (0,   0, ["privacy"]),
+    "game_dvr":                    (80,  1, ["performance", "privacy"]),
+    "game_bar":                    (100, 1, ["performance"]),
+}
 
 
 def get_windows_tweaks():
@@ -1767,17 +2318,48 @@ def get_windows_tweaks():
             for t in tweaks:
                 values[t["id"]] = None
 
+    # Rafraîchit la baseline depuis les mesures live (process actuellement en
+    # mémoire). N'écrase jamais une valeur existante par 0.
+    baseline = _refresh_tweak_baseline()
+
     for t in _WINDOWS_TWEAKS:
         current = values.get(t["id"])
         active = bool(t.get("default_on", True)) if current is None else (current == t["on_val"])
+        est_ram, est_procs, tags = _TWEAK_IMPACTS.get(t["id"], (0, 0, []))
+
+        # Priorité des sources : baseline mesurée > estimation hardcodée
+        tid = t["id"]
+        if tid in baseline:
+            ram_mb      = baseline[tid].get("ram_mb", est_ram)
+            procs       = baseline[tid].get("procs", est_procs)
+            source      = "measured"
+            measured_at = baseline[tid].get("measured_at")
+        else:
+            ram_mb      = est_ram
+            procs       = est_procs
+            source      = "estimate"
+            measured_at = None
+
         result["items"].append({
             "id":    t["id"],
             "label": t["label"],
             "desc":  t["desc"],
             "group": t["group"],
             "active": active,
+            "tags":   tags,
+            "impact": {
+                "ram_mb":      ram_mb,
+                "processes":   procs,
+                "source":      source,
+                "measured_at": measured_at,
+            },
         })
     return result
+
+
+def get_tweak_tags():
+    """Retourne la liste des catégories d'effet pour les filtres UI."""
+    return [{"id": tid, "label": lbl} for tid, lbl in _TWEAK_TAGS]
 
 
 def set_windows_tweak(tweak_id, active):
@@ -1861,6 +2443,376 @@ def get_drivers():
         })
     result.sort(key=lambda x: x["date"], reverse=True)
     return result
+
+
+def _collect_drivers_data():
+    """Collecte les infos système et la liste des pilotes. Retourne un dict brut."""
+    ps_cmd = r"""
+    $sys  = Get-CimInstance Win32_ComputerSystem | Select-Object Manufacturer, Model, SystemFamily, TotalPhysicalMemory
+    $bios = Get-CimInstance Win32_BIOS | Select-Object SMBIOSBIOSVersion, ReleaseDate, Manufacturer, SerialNumber
+    $cpu  = Get-CimInstance Win32_Processor | Select-Object -First 1 Name, NumberOfCores, NumberOfLogicalProcessors
+    $os   = Get-CimInstance Win32_OperatingSystem | Select-Object Caption, Version, BuildNumber, OSArchitecture
+    $mb   = Get-CimInstance Win32_BaseBoard | Select-Object Manufacturer, Product, Version
+    $drv  = Get-CimInstance Win32_PnPSignedDriver | Where-Object { $_.DeviceName } |
+      Select-Object @{n='name';e={$_.DeviceName}},
+                    @{n='manufacturer';e={$_.Manufacturer}},
+                    @{n='version';e={$_.DriverVersion}},
+                    @{n='date';e={if($_.DriverDate){$_.DriverDate.ToString('yyyy-MM-dd')}else{''}}},
+                    @{n='class';e={$_.DeviceClass}},
+                    @{n='hwid';e={$_.DeviceID}},
+                    @{n='inf';e={$_.InfName}}
+    @{ sys=$sys; bios=$bios; cpu=$cpu; os=$os; mb=$mb; drv=@($drv) } | ConvertTo-Json -Depth 4 -Compress
+    """
+    try:
+        r = subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command",
+             "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; " + ps_cmd],
+            capture_output=True, timeout=60, creationflags=0x08000000,
+        )
+        raw = r.stdout.decode("utf-8", errors="replace").strip()
+        raw_data = json.loads(raw) if raw else {}
+    except Exception:
+        raw_data = {}
+
+    def _fmt_bytes(n):
+        try:
+            n = int(n)
+        except Exception:
+            return ""
+        for u in ["o", "Ko", "Mo", "Go", "To"]:
+            if n < 1024:
+                return f"{n:.0f} {u}"
+            n /= 1024
+        return f"{n:.0f} Po"
+
+    sys_info  = raw_data.get("sys")  or {}
+    bios_info = raw_data.get("bios") or {}
+    cpu_info  = raw_data.get("cpu")  or {}
+    os_info   = raw_data.get("os")   or {}
+    mb_info   = raw_data.get("mb")   or {}
+    drivers   = raw_data.get("drv")  or []
+
+    drivers = sorted(drivers, key=lambda d: ((d.get("class") or "Autre"), (d.get("name") or "").lower()))
+
+    machine = {
+        "manufacturer":  sys_info.get("Manufacturer"),
+        "model":         sys_info.get("Model"),
+        "family":        sys_info.get("SystemFamily"),
+        "serial":        bios_info.get("SerialNumber"),
+        "memory":        _fmt_bytes(sys_info.get("TotalPhysicalMemory")),
+        "cpu":           cpu_info.get("Name"),
+        "cpu_cores":     cpu_info.get("NumberOfCores"),
+        "cpu_logical":   cpu_info.get("NumberOfLogicalProcessors"),
+        "motherboard":   (f'{mb_info.get("Manufacturer") or ""} {mb_info.get("Product") or ""}').strip() or None,
+        "bios":          bios_info.get("SMBIOSBIOSVersion"),
+        "os":            os_info.get("Caption"),
+        "os_arch":       os_info.get("OSArchitecture"),
+        "os_version":    os_info.get("Version"),
+        "os_build":      os_info.get("BuildNumber"),
+    }
+
+    return {"machine": machine, "drivers": drivers}
+
+
+def _render_drivers_html(data):
+    from datetime import datetime
+
+    def esc(v):
+        s = "" if v is None else str(v)
+        return (s.replace("&", "&amp;").replace("<", "&lt;")
+                 .replace(">", "&gt;").replace('"', "&quot;"))
+
+    m = data["machine"]
+    drivers = data["drivers"]
+
+    by_class = defaultdict(list)
+    for d in drivers:
+        by_class[(d.get("class") or "Autre").strip() or "Autre"].append(d)
+
+    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+
+    def row(label, value):
+        if not value:
+            return ""
+        return f'<tr><th>{esc(label)}</th><td>{esc(value)}</td></tr>'
+
+    cores_str = (f'{m.get("cpu_cores") or ""} physiques / {m.get("cpu_logical") or ""} logiques'
+                 if m.get("cpu_cores") else "")
+    machine_rows = "".join([
+        row("Fabricant",       m.get("manufacturer")),
+        row("Modèle",          m.get("model")),
+        row("Famille",         m.get("family")),
+        row("Numéro de série", m.get("serial")),
+        row("Mémoire",         m.get("memory")),
+        row("Processeur",      m.get("cpu")),
+        row("Cœurs",           cores_str),
+        row("Carte mère",      m.get("motherboard")),
+        row("BIOS",            m.get("bios")),
+        row("Système",         f'{m.get("os") or ""} ({m.get("os_arch") or ""})' if m.get("os") else ""),
+        row("Build",           f'{m.get("os_version") or ""} — {m.get("os_build") or ""}' if m.get("os_version") else ""),
+    ])
+
+    sections = []
+    for cls in sorted(by_class.keys()):
+        items = by_class[cls]
+        rows_html = "".join(
+            f'<tr>'
+            f'<td class="n">{esc(d.get("name"))}</td>'
+            f'<td>{esc(d.get("manufacturer"))}</td>'
+            f'<td class="m">{esc(d.get("version"))}</td>'
+            f'<td class="m">{esc(d.get("date"))}</td>'
+            f'<td class="hw">{esc(d.get("hwid"))}</td>'
+            f'</tr>'
+            for d in items
+        )
+        sections.append(
+            f'<h3>{esc(cls)} <span class="count">{len(items)}</span></h3>'
+            f'<table class="drv"><thead><tr>'
+            f'<th>Nom</th><th>Fabricant</th><th>Version</th><th>Date</th><th>Hardware ID</th>'
+            f'</tr></thead><tbody>{rows_html}</tbody></table>'
+        )
+
+    hwids = "\n".join(d.get("hwid") or "" for d in drivers if d.get("hwid"))
+
+    return f"""<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Rapport pilotes — {esc(m.get("model") or "PC")}</title>
+<style>
+  * {{ box-sizing: border-box; }}
+  body {{
+    font-family: -apple-system, 'Segoe UI', sans-serif;
+    background: #f7f6f3; color: #37352f;
+    max-width: 1100px; margin: 0 auto; padding: 40px 32px 80px;
+    font-size: 14px; line-height: 1.55;
+  }}
+  h1 {{ font-size: 24px; margin-bottom: 4px; }}
+  .meta {{ color: #9b9a97; font-size: 12px; margin-bottom: 32px; }}
+  h2 {{ font-size: 16px; margin: 32px 0 12px; font-weight: 600; }}
+  h3 {{ font-size: 13px; margin: 24px 0 8px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: #6b6b6b; }}
+  h3 .count {{ color: #9b9a97; font-weight: 400; margin-left: 6px; }}
+  table {{ width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #e9e9e7; border-radius: 4px; overflow: hidden; }}
+  th, td {{ padding: 8px 12px; text-align: left; border-bottom: 1px solid #f0eeea; font-size: 12px; vertical-align: top; }}
+  thead th {{ background: #fafaf8; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .3px; color: #6b6b6b; }}
+  tbody tr:last-child td {{ border-bottom: none; }}
+  table.info th {{ width: 180px; color: #6b6b6b; font-weight: 500; background: #fafaf8; }}
+  table.drv td.n {{ font-weight: 500; }}
+  table.drv td.m, table.drv td.hw {{ font-family: 'Consolas', 'SF Mono', monospace; font-size: 11px; color: #6b6b6b; }}
+  table.drv td.hw {{ word-break: break-all; max-width: 340px; }}
+  pre {{
+    background: #fff; border: 1px solid #e9e9e7; border-radius: 4px;
+    padding: 14px; font-size: 11px; overflow-x: auto;
+    font-family: 'Consolas', 'SF Mono', monospace;
+  }}
+</style>
+</head>
+<body>
+  <h1>Rapport pilotes</h1>
+  <div class="meta">Généré par OpenCleaner · {esc(now)}</div>
+
+  <h2>Informations système</h2>
+  <table class="info"><tbody>{machine_rows}</tbody></table>
+
+  <h2>Pilotes installés ({len(drivers)})</h2>
+  {"".join(sections) if sections else "<p>Aucun pilote récupéré.</p>"}
+
+  <h2>Liste des Hardware IDs</h2>
+  <pre>{esc(hwids)}</pre>
+</body>
+</html>"""
+
+
+def _render_drivers_txt(data):
+    from datetime import datetime
+
+    m = data["machine"]
+    drivers = data["drivers"]
+    out = []
+    out.append("=" * 70)
+    out.append("  RAPPORT PILOTES — OpenCleaner")
+    out.append("  " + datetime.now().strftime("%Y-%m-%d %H:%M"))
+    out.append("=" * 70)
+    out.append("")
+
+    out.append("INFORMATIONS SYSTÈME")
+    out.append("-" * 70)
+    def line(label, value):
+        if value:
+            out.append(f"  {label:<18}{value}")
+    line("Fabricant",       m.get("manufacturer"))
+    line("Modèle",          m.get("model"))
+    line("Famille",         m.get("family"))
+    line("Numéro de série", m.get("serial"))
+    line("Mémoire",         m.get("memory"))
+    line("Processeur",      m.get("cpu"))
+    if m.get("cpu_cores"):
+        line("Cœurs", f'{m.get("cpu_cores")} physiques / {m.get("cpu_logical")} logiques')
+    line("Carte mère",      m.get("motherboard"))
+    line("BIOS",            m.get("bios"))
+    if m.get("os"):
+        line("Système", f'{m.get("os")} ({m.get("os_arch") or ""})')
+    if m.get("os_version"):
+        line("Build",   f'{m.get("os_version")} — {m.get("os_build") or ""}')
+    out.append("")
+
+    by_class = defaultdict(list)
+    for d in drivers:
+        by_class[(d.get("class") or "Autre").strip() or "Autre"].append(d)
+
+    out.append(f"PILOTES INSTALLÉS ({len(drivers)})")
+    out.append("-" * 70)
+    for cls in sorted(by_class.keys()):
+        items = by_class[cls]
+        out.append("")
+        out.append(f"[{cls}] — {len(items)}")
+        for d in items:
+            name = d.get("name") or ""
+            mfr  = d.get("manufacturer") or ""
+            ver  = d.get("version") or ""
+            dt   = d.get("date") or ""
+            hwid = d.get("hwid") or ""
+            out.append(f"  • {name}")
+            if mfr:  out.append(f"      Fabricant : {mfr}")
+            if ver:  out.append(f"      Version   : {ver}")
+            if dt:   out.append(f"      Date      : {dt}")
+            if hwid: out.append(f"      HWID      : {hwid}")
+    out.append("")
+
+    hwids = [d.get("hwid") for d in drivers if d.get("hwid")]
+    out.append("HARDWARE IDS (copier-coller)")
+    out.append("-" * 70)
+    out.extend(hwids)
+    out.append("")
+    return "\n".join(out)
+
+
+def _render_drivers_json(data):
+    from datetime import datetime
+    payload = {
+        "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "generator":    "OpenCleaner",
+        "machine":      data["machine"],
+        "drivers":      data["drivers"],
+    }
+    return json.dumps(payload, ensure_ascii=False, indent=2)
+
+
+def capture_benchmark():
+    """Capture un snapshot des métriques système à un instant t.
+
+    CPU est sampled sur 2 secondes pour plus de stabilité.
+    """
+    import psutil
+    from datetime import datetime
+
+    cpu_pct = psutil.cpu_percent(interval=2.0)
+    mem = psutil.virtual_memory()
+    proc_count = len(psutil.pids())
+    boot_time = psutil.boot_time()
+    uptime_s = max(0, int(datetime.now().timestamp() - boot_time))
+
+    # Top 5 processus par RAM
+    top_procs = []
+    for p in psutil.process_iter(["name", "memory_info"]):
+        try:
+            info = p.info
+            rss = info.get("memory_info").rss if info.get("memory_info") else 0
+            if rss > 0:
+                top_procs.append({"name": info.get("name") or "?", "rss": rss})
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            pass
+    top_procs.sort(key=lambda x: -x["rss"])
+    top_procs = top_procs[:5]
+    for p in top_procs:
+        p["rss_fmt"] = fmt_size(p["rss"])
+
+    return {
+        "timestamp":      datetime.now().isoformat(timespec="seconds"),
+        "mem_total":      mem.total,
+        "mem_available":  mem.available,
+        "mem_used_pct":   round(mem.percent, 1),
+        "cpu_pct":        round(cpu_pct, 1),
+        "process_count":  proc_count,
+        "uptime_seconds": uptime_s,
+        "top_processes":  top_procs,
+    }
+
+
+def export_drivers_report(fmt="html"):
+    """Génère un rapport des pilotes dans le format demandé.
+
+    fmt ∈ {"html", "txt", "json"}. Retourne {"content", "filename", "mimetype"}.
+    """
+    from datetime import datetime
+
+    data = _collect_drivers_data()
+    stamp = datetime.now().strftime("%Y%m%d-%H%M")
+
+    if fmt == "txt":
+        return {
+            "content":  _render_drivers_txt(data),
+            "filename": f"rapport-pilotes-{stamp}.txt",
+            "mimetype": "text/plain; charset=utf-8",
+        }
+    if fmt == "json":
+        return {
+            "content":  _render_drivers_json(data),
+            "filename": f"rapport-pilotes-{stamp}.json",
+            "mimetype": "application/json; charset=utf-8",
+        }
+    return {
+        "content":  _render_drivers_html(data),
+        "filename": f"rapport-pilotes-{stamp}.html",
+        "mimetype": "text/html; charset=utf-8",
+    }
+
+
+def scan_windows_update_drivers():
+    """Recherche les mises à jour de pilotes via l'API COM Windows Update.
+
+    Retourne {"updates": [...], "error": str|None}.
+    """
+    ps_cmd = r"""
+    $ErrorActionPreference = 'Stop'
+    try {
+      $s = New-Object -ComObject Microsoft.Update.Session
+      $searcher = $s.CreateUpdateSearcher()
+      $searcher.ServerSelection = 3
+      $searcher.ServiceID = '7971f918-a847-4430-9279-4a52d1efe18d'
+      $result = $searcher.Search("IsInstalled=0 and Type='Driver'")
+      $out = @()
+      foreach ($u in $result.Updates) {
+        $out += [PSCustomObject]@{
+          title        = $u.Title
+          description  = $u.Description
+          driverClass  = $u.DriverClass
+          driverModel  = $u.DriverModel
+          driverDate   = if ($u.DriverVerDate) { $u.DriverVerDate.ToString('yyyy-MM-dd') } else { '' }
+          sizeBytes    = [int64]$u.MaxDownloadSize
+        }
+      }
+      @{ updates = @($out); error = $null } | ConvertTo-Json -Depth 4 -Compress
+    } catch {
+      @{ updates = @(); error = $_.Exception.Message } | ConvertTo-Json -Depth 4 -Compress
+    }
+    """
+    try:
+        r = subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command",
+             "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; " + ps_cmd],
+            capture_output=True, timeout=180, creationflags=0x08000000,
+        )
+        raw = r.stdout.decode("utf-8", errors="replace").strip()
+        if not raw:
+            return {"updates": [], "error": "Réponse vide du service Windows Update."}
+        data = json.loads(raw)
+        data["updates"] = data.get("updates") or []
+        return data
+    except subprocess.TimeoutExpired:
+        return {"updates": [], "error": "La recherche a dépassé 3 minutes."}
+    except Exception as e:
+        return {"updates": [], "error": str(e)}
 
 
 def get_software_updates():

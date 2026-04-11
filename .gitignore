@@ -9,6 +9,8 @@ venv/
 # Données runtime
 history.json
 logs/
+benchmarks.json
+tweak_baseline.json
 
 # Tests — artefacts générés
 tests/screenshots/

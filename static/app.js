@@ -144,6 +144,7 @@ function updateSidebar() { /* legacy : remplacé par updateStatTotal() */ }
 function updateStatTotal() {
   const checked     = TASKS.filter(t => t.checked);
   const totalBytes  = checked.reduce((s, t) => s + (sizes[t.id]?.bytes || 0), 0);
+  const maxBytes    = TASKS.reduce((s, t) => s + (sizes[t.id]?.bytes || 0), 0);
   const sizeKnown   = TASKS.some(t => sizes[t.id]);
 
   const statVal     = document.getElementById("stat-total");
@@ -160,8 +161,8 @@ function updateStatTotal() {
   }
 
   if (statVal) {
-    if (totalBytes > 0) {
-      statVal.innerHTML = fmtBytes(totalBytes).replace(/ ([^\s]+)$/, '<span class="unit"> $1</span>');
+    if (maxBytes > 0) {
+      statVal.innerHTML = fmtBytes(maxBytes).replace(/ ([^\s]+)$/, '<span class="unit"> $1</span>');
       statVal.classList.remove("dim");
     } else {
       statVal.textContent = "0 Go";
@@ -169,9 +170,7 @@ function updateStatTotal() {
     }
   }
   if (statMeta) {
-    statMeta.textContent = checked.length === 0
-      ? "Aucune tâche sélectionnée"
-      : `${checked.length} tâche${checked.length > 1 ? "s" : ""} sélectionnée${checked.length > 1 ? "s" : ""}`;
+    statMeta.textContent = `sur ${TASKS.length} tâche${TASKS.length > 1 ? "s" : ""} au total`;
   }
 
   if (calloutT) {
@@ -261,21 +260,6 @@ function renderDisk(drives) {
     sv.classList.remove("dim");
   }
   if (sm) sm.textContent = `${main.device} · ${main.free_fmt} libres sur ${main.total_fmt}`;
-
-  // Mise à jour de la propriété "X disque(s) détecté(s)" dans le page-header
-  const propCount = document.getElementById("prop-disks-count");
-  if (propCount) {
-    const n = drives.length;
-    propCount.textContent = n;
-    const wrapper = propCount.closest(".prop");
-    if (wrapper) {
-      // remplacer le texte après le <strong> pour gérer le pluriel
-      const lastNode = wrapper.lastChild;
-      if (lastNode && lastNode.nodeType === Node.TEXT_NODE) {
-        lastNode.textContent = ` disque${n > 1 ? "s" : ""} détecté${n > 1 ? "s" : ""}`;
-      }
-    }
-  }
 }
 
 // ── Historique ────────────────────────────────────────────────────────────────
@@ -288,18 +272,14 @@ async function loadHistory() {
 }
 
 function renderHistoryHint(data) {
+  const sb = document.getElementById("sb-last-scan");
   if (!data || !data.length) {
-    // Pas d'historique : remet les propriétés sur "Jamais"
-    const prop = document.getElementById("prop-last-scan");
-    if (prop) prop.textContent = "jamais";
-    const sb = document.getElementById("sb-last-scan");
     if (sb) sb.textContent = "jamais";
     return;
   }
   const last = data[0];
   const ago  = fmtAgo(new Date(last.date));
 
-  // Stat "Dernier nettoyage"
   const sv = document.getElementById("stat-history");
   const sm = document.getElementById("stat-history-meta");
   if (sv) {
@@ -308,15 +288,7 @@ function renderHistoryHint(data) {
   }
   if (sm) sm.textContent = `${last.freed_fmt} libérés`;
 
-  // Propriétés du page-header + sidebar
-  const prop = document.getElementById("prop-last-scan");
-  if (prop) prop.textContent = ago;
-  const sb = document.getElementById("sb-last-scan");
   if (sb) sb.textContent = ago;
-
-  // Ancien hint (caché — info redondante avec les stats/props)
-  const el = document.getElementById("history-hint");
-  if (el) el.style.display = "none";
 }
 
 function fmtAgo(date) {
@@ -345,25 +317,389 @@ function _closeConfirm() {
   if (el) el.style.display = "none";
 }
 
-// ── Toast ─────────────────────────────────────────────────────────────────────
-function showToast(title, sub, type = "success", duration = 4500) {
-  document.querySelectorAll(".toast").forEach(t => t.remove());
-  const icons = { success: "✓", warn: "!", error: "✕", info: "i" };
-  const toast = document.createElement("div");
-  toast.className = `toast toast-${type}`;
-  toast.innerHTML = `
-    <span class="toast-icon">${icons[type] ?? "✓"}</span>
-    <div class="toast-body">
-      <div class="toast-title">${title}</div>
-      ${sub ? `<div class="toast-sub">${sub}</div>` : ""}
-    </div>
-    <span class="toast-close" onclick="this.parentElement.remove()">×</span>`;
-  document.body.appendChild(toast);
+// ── Panneau d'activité ────────────────────────────────────────────────────────
+const ACTIVITY_MAX = 20;
+let _activity = [];
+let _activitySeq = 0;
+
+function _activityFmtTime(ms) {
+  const s = Math.round(ms / 1000);
+  if (s < 60) return s + " s";
+  const m = Math.round(s / 60);
+  if (m < 60) return m + " min";
+  return Math.round(m / 60) + " h";
+}
+
+const ACTIVITY_TAB_LABELS = {
+  nettoyage: "Nettoyage",
+  outils:    "Outils",
+  sante:     "Santé",
+  pilotes:   "Pilotes",
+  perso:     "Personnalisation",
+};
+
+function _activityCategoryFor(target) {
+  if (!target || !target.closest) return { id: "autres", label: "Autres" };
+  const panel = target.closest(".tab-panel");
+  if (!panel) return { id: "autres", label: "Autres" };
+  const id = panel.id.replace(/^tab-/, "");
+  return { id, label: ACTIVITY_TAB_LABELS[id] || id };
+}
+
+function _activityGroupsMap() {
+  try { return JSON.parse(localStorage.getItem("pcc-activity-groups") || "{}") || {}; }
+  catch (e) { return {}; }
+}
+function _activityGroupOpen(catId) {
+  return _activityGroupsMap()[catId] !== false;
+}
+function activityToggleGroup(catId) {
+  const map = _activityGroupsMap();
+  map[catId] = _activityGroupOpen(catId) ? false : true;
+  try { localStorage.setItem("pcc-activity-groups", JSON.stringify(map)); } catch (e) {}
+  _activityRender();
+}
+
+function _activityMarkHtml(status) {
+  if (status === "run") {
+    return `<span class="mark"><span class="dot"></span></span>`;
+  }
+  if (status === "fail") {
+    return `<span class="mark">×</span>`;
+  }
+  return `<span class="mark"><span class="check-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 12 10 17 19 7"/></svg></span></span>`;
+}
+
+const _ICON_RELAUNCH = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>`;
+const _ICON_GOTO     = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 17L17 7M9 7h8v8"/></svg>`;
+const _ICON_DISMISS  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 6l12 12M6 18L18 6"/></svg>`;
+
+function _activityRowHtml(a, now) {
+  const cls = a.status === "run" ? "" : a.status === "fail" ? "fail" : "done";
+  const hasProgress = a.status === "run" && typeof a.progress === "number";
+  const metaText = a.meta || (a.status === "run" ? "en cours" : a.status === "fail" ? "échec" : "");
+  const meta = hasProgress ? `${Math.round(a.progress)}%` : metaText;
+  const time = a.doneAt ? _activityFmtTime(now - a.doneAt) : "";
+  const fresh = a._fresh ? " fresh" : "";
+  const clickable = a.target ? " clickable" : "";
+  const onclick = a.target ? ` onclick="activityGoto(${a.id})"` : "";
+  const bar = hasProgress
+    ? `<div class="progress-bar" style="width:${a.progress}%"></div>`
+    : "";
+
+  const btns = [];
+  const isClickable = a.target && a.target.tagName === "BUTTON";
+  if (a.status === "run") {
+    if (a.target) btns.push(`<button class="act-btn" onclick="event.stopPropagation();activityGoto(${a.id})" title="Aller à la tâche">${_ICON_GOTO}</button>`);
+    btns.push(`<button class="act-btn" onclick="event.stopPropagation();activityDismiss(${a.id})" title="Annuler">${_ICON_DISMISS}</button>`);
+  } else {
+    if (isClickable) {
+      btns.push(`<button class="act-btn" onclick="event.stopPropagation();activityRelaunch(${a.id})" title="Relancer">${_ICON_RELAUNCH}</button>`);
+    }
+    if (a.target) {
+      btns.push(`<button class="act-btn" onclick="event.stopPropagation();activityGoto(${a.id})" title="Aller à la tâche">${_ICON_GOTO}</button>`);
+    }
+    btns.push(`<button class="act-btn" onclick="event.stopPropagation();activityDismiss(${a.id})" title="Retirer">${_ICON_DISMISS}</button>`);
+  }
+
+  return `<div class="activity-row ${cls}${fresh}${clickable}" data-id="${a.id}"${onclick}>
+    ${_activityMarkHtml(a.status)}
+    <span class="name">${_activityEscape(a.name)}</span>
+    <span class="meta">${_activityEscape(meta)}</span>
+    <span class="time">${time}</span>
+    <span class="actions">${btns.join("")}</span>
+    ${bar}
+  </div>`;
+}
+
+function _activityRender() {
+  const list = document.getElementById("activity-list");
+  const count = document.getElementById("activity-count");
+  if (!list) return;
+  if (!_activity.length) {
+    list.innerHTML = `<div class="activity-empty">Aucune activité pour l'instant.</div>`;
+  } else {
+    const groups = new Map();
+    const order = [];
+    for (const a of _activity) {
+      const cat = _activityCategoryFor(a.target);
+      if (!groups.has(cat.id)) {
+        groups.set(cat.id, { id: cat.id, label: cat.label, items: [] });
+        order.push(cat.id);
+      }
+      groups.get(cat.id).items.push(a);
+    }
+    const now = Date.now();
+    list.innerHTML = order.map(cid => {
+      const g = groups.get(cid);
+      const isOpen = _activityGroupOpen(cid);
+      const miniDots = g.items.slice(0, 5).map(a => {
+        const c = a.status === "run" ? "run" : a.status === "fail" ? "fail" : "done";
+        return `<span class="mini-dot ${c}"></span>`;
+      }).join("");
+      const body = isOpen
+        ? `<div class="activity-group-body">${g.items.map(a => _activityRowHtml(a, now)).join("")}</div>`
+        : "";
+      return `<div class="activity-group ${isOpen ? "open" : ""}" data-cat="${cid}">
+        <div class="activity-group-head" onclick="activityToggleGroup('${cid}')">
+          <span class="chev">▸</span>
+          <span class="group-label">${_activityEscape(g.label)}</span>
+          <div class="mini-dots">${miniDots}</div>
+          <span class="group-count">${g.items.length}</span>
+        </div>
+        ${body}
+      </div>`;
+    }).join("");
+    _activity.forEach(a => { a._fresh = false; });
+  }
+  count.textContent = _activity.length + (_activity.length > 1 ? " entrées" : " entrée");
+
+  const running = _activity.filter(a => a.status === "run").length;
+  const ok = _activity.filter(a => a.status === "done").length;
+  const runEl = document.getElementById("ac-run");
+  const okEl  = document.getElementById("ac-ok");
+  runEl.style.display = running ? "flex" : "none";
+  okEl.style.display  = ok ? "flex" : "none";
+  document.getElementById("ac-run-n").textContent = running;
+  document.getElementById("ac-ok-n").textContent  = ok;
+}
+
+function _activityEscape(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+function activityPush(name, status = "run", meta = "", target = null) {
+  const id = ++_activitySeq;
+  _activity.unshift({
+    id, name, status, meta, target,
+    progress: null,
+    startedAt: Date.now(),
+    doneAt: status !== "run" ? Date.now() : null,
+    _fresh: true,
+  });
+  if (_activity.length > ACTIVITY_MAX) _activity.length = ACTIVITY_MAX;
+  _activityRender();
+  return id;
+}
+
+function activityProgress(id, pct, meta) {
+  const a = _activity.find(x => x.id === id);
+  if (!a) return;
+  a.progress = Math.max(0, Math.min(100, pct));
+  if (meta !== undefined) a.meta = meta;
+  _activityRender();
+}
+
+function activityDismiss(id) {
+  const i = _activity.findIndex(a => a.id === id);
+  if (i >= 0) {
+    _activity.splice(i, 1);
+    _activityRender();
+  }
+}
+
+function activityGoto(id) {
+  const a = _activity.find(x => x.id === id);
+  if (!a || !a.target) return;
+  const el = a.target;
+  const panel = el.closest?.(".tab-panel");
+  if (panel) {
+    const tabId = panel.id.replace(/^tab-/, "");
+    const sbBtn = document.querySelector(`.sb-item[data-tab="${tabId}"]`);
+    if (sbBtn && typeof switchTab === "function") {
+      switchTab(tabId, sbBtn);
+    }
+  }
   setTimeout(() => {
-    if (!toast.parentElement) return;
-    toast.style.animation = "toast-in .35s ease reverse forwards";
-    setTimeout(() => toast.remove(), 340);
-  }, duration);
+    try {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add("activity-flash");
+      setTimeout(() => el.classList.remove("activity-flash"), 1200);
+    } catch (e) {}
+  }, 60);
+}
+
+function activityRelaunch(id) {
+  const a = _activity.find(x => x.id === id);
+  if (!a || !a.target) return;
+  const el = a.target;
+  const panel = el.closest?.(".tab-panel");
+  if (panel) {
+    const tabId = panel.id.replace(/^tab-/, "");
+    const sbBtn = document.querySelector(`.sb-item[data-tab="${tabId}"]`);
+    if (sbBtn && typeof switchTab === "function") {
+      switchTab(tabId, sbBtn);
+    }
+  }
+  activityDismiss(id);
+  setTimeout(() => { try { el.click(); } catch (e) {} }, 80);
+}
+
+function activityUpdate(id, meta) {
+  const a = _activity.find(x => x.id === id);
+  if (!a) return;
+  a.meta = meta;
+  _activityRender();
+}
+
+function activityDone(id, meta, status = "done") {
+  const a = _activity.find(x => x.id === id);
+  if (!a) return;
+  a.status = status;
+  a.meta = meta ?? a.meta;
+  a.doneAt = Date.now();
+  a._fresh = true;
+  _activityRender();
+}
+
+function activityLog(name, meta = "", status = "done") {
+  // Utilise l'onglet actif comme contexte par défaut pour que l'entrée
+  // tombe dans la bonne catégorie au lieu de "Autres".
+  const activeTab = document.querySelector(".tab-panel.active");
+  activityPush(name, status, meta, activeTab || null);
+}
+
+function clearActivity() {
+  _activity = [];
+  _activityRender();
+}
+
+// ── État flottant : position, taille, dock ────────────────────────────────────
+const ACTIVITY_STATE_KEY = "pcc-activity-state";
+const ACTIVITY_DEFAULTS = { x: null, y: null, w: 300, h: 280, docked: true };
+let _activityState = { ...ACTIVITY_DEFAULTS };
+
+function _saveActivityState() {
+  try { localStorage.setItem(ACTIVITY_STATE_KEY, JSON.stringify(_activityState)); } catch (e) {}
+}
+function _loadActivityState() {
+  try {
+    const raw = localStorage.getItem(ACTIVITY_STATE_KEY);
+    if (raw) Object.assign(_activityState, JSON.parse(raw));
+  } catch (e) {}
+}
+function _applyActivityState() {
+  const panel = document.getElementById("activity-panel");
+  if (!panel) return;
+  panel.classList.toggle("docked", !!_activityState.docked);
+  if (_activityState.docked) {
+    panel.style.left = "";
+    panel.style.top = "";
+    panel.style.right = "";
+    panel.style.bottom = "";
+    panel.style.width = "";
+    panel.style.height = "";
+    return;
+  }
+  const w = _activityState.w;
+  const h = _activityState.h;
+  const x = _activityState.x != null
+    ? _activityState.x
+    : Math.max(0, window.innerWidth - w - 24);
+  const y = _activityState.y != null
+    ? _activityState.y
+    : Math.max(0, window.innerHeight - h - 24);
+  panel.style.left = x + "px";
+  panel.style.top = y + "px";
+  panel.style.right = "auto";
+  panel.style.bottom = "auto";
+  panel.style.width = w + "px";
+  panel.style.height = h + "px";
+}
+
+function toggleActivityDock() {
+  _activityState.docked = !_activityState.docked;
+  _applyActivityState();
+  _saveActivityState();
+}
+
+function _initActivityInteractions() {
+  const panel = document.getElementById("activity-panel");
+  if (!panel) return;
+  const head = document.getElementById("activity-drag-handle");
+  const resize = document.getElementById("activity-resize-handle");
+  let op = null;
+
+  head.addEventListener("mousedown", (e) => {
+    if (_activityState.docked) return;
+    if (e.target.closest("button")) return;
+    const rect = panel.getBoundingClientRect();
+    op = { type: "drag", offX: e.clientX - rect.left, offY: e.clientY - rect.top };
+    panel.classList.add("dragging");
+    e.preventDefault();
+  });
+
+  resize.addEventListener("mousedown", (e) => {
+    if (_activityState.docked) return;
+    const rect = panel.getBoundingClientRect();
+    op = { type: "resize", startX: e.clientX, startY: e.clientY, w0: rect.width, h0: rect.height };
+    panel.classList.add("resizing");
+    e.preventDefault();
+    e.stopPropagation();
+  });
+
+  document.addEventListener("mousemove", (e) => {
+    if (!op) return;
+    if (op.type === "drag") {
+      let x = e.clientX - op.offX;
+      let y = e.clientY - op.offY;
+      const maxX = window.innerWidth - panel.offsetWidth;
+      const maxY = window.innerHeight - 40;
+      x = Math.max(0, Math.min(maxX, x));
+      y = Math.max(0, Math.min(maxY, y));
+      _activityState.x = x;
+      _activityState.y = y;
+      panel.style.left = x + "px";
+      panel.style.top = y + "px";
+      panel.style.right = "auto";
+    } else if (op.type === "resize") {
+      let w = op.w0 + (e.clientX - op.startX);
+      let h = op.h0 + (e.clientY - op.startY);
+      w = Math.max(220, Math.min(window.innerWidth - 40, w));
+      h = Math.max(140, Math.min(window.innerHeight - 40, h));
+      _activityState.w = w;
+      _activityState.h = h;
+      panel.style.width = w + "px";
+      panel.style.height = h + "px";
+    }
+  });
+
+  document.addEventListener("mouseup", () => {
+    if (!op) return;
+    op = null;
+    panel.classList.remove("dragging", "resizing");
+    _saveActivityState();
+  });
+
+  // Clic sur la tête ancrée → libère
+  head.addEventListener("click", (e) => {
+    if (!_activityState.docked) return;
+    if (e.target.closest("button")) return;
+    toggleActivityDock();
+  });
+}
+
+(function _activityInit() {
+  _loadActivityState();
+  _applyActivityState();
+  _initActivityInteractions();
+  setInterval(() => { if (_activity.some(a => a.doneAt)) _activityRender(); }, 15000);
+})();
+
+// ── Toast (compatibilité — tout est routé vers le panneau d'activité) ────────
+function showToast(title, sub, type = "success", duration = 4500) {
+  const status = (type === "warn" || type === "error") ? "fail" : "done";
+  activityLog(title, sub || "", status);
+  // Si le panneau est replié et qu'une erreur arrive, on le déplie brièvement
+  // pour que l'utilisateur ne rate pas un échec.
+  if (status === "fail") {
+    const panel = document.getElementById("activity-panel");
+    if (panel?.classList.contains("docked")) {
+      _activityState.docked = false;
+      _applyActivityState();
+      _saveActivityState();
+    }
+  }
 }
 
 // ── Animation disque ──────────────────────────────────────────────────────────
@@ -460,6 +796,8 @@ async function _doClean() {
   setCleaningUI(true);
   clearLog();
 
+  const activityId = activityPush("Nettoyage", "run", "démarrage…", document.getElementById("btn-clean"));
+
   let jobId;
   try {
     const res  = await fetch("/api/clean", {
@@ -467,28 +805,49 @@ async function _doClean() {
       body: JSON.stringify({ tasks: selected }),
     });
     const data = await res.json();
-    if (data.error) { addLog(data.error, "warn"); setCleaningUI(false); cleaning = false; return; }
+    if (data.error) {
+      addLog(data.error, "warn");
+      activityDone(activityId, "échec", "fail");
+      setCleaningUI(false); cleaning = false; return;
+    }
     jobId = data.job_id;
   } catch (e) {
-    addLog("Erreur de connexion au serveur.", "warn"); setCleaningUI(false); cleaning = false; return;
+    addLog("Erreur de connexion au serveur.", "warn");
+    activityDone(activityId, "échec", "fail");
+    setCleaningUI(false); cleaning = false; return;
   }
 
   const es = new EventSource(`/api/stream/${jobId}`);
   es.onmessage = (e) => {
     const item = JSON.parse(e.data);
-    if (item.type === "start")    { addLog(item.msg); setProgress(0, item.msg); }
-    else if (item.type === "progress") { setProgress(Math.round((item.step / item.total) * 100), item.label + "…"); }
+    if (item.type === "start") {
+      addLog(item.msg); setProgress(0, item.msg);
+      activityProgress(activityId, 0, item.msg);
+    }
+    else if (item.type === "progress") {
+      const pct = Math.round((item.step / item.total) * 100);
+      setProgress(pct, item.label + "…");
+      activityProgress(activityId, pct, item.label);
+    }
     else if (item.type === "log")  { addLog(item.msg); }
     else if (item.type === "done") {
       setProgress(100, "Terminé");
       addLog(item.msg, "ok");
+      const freed = item.freed_bytes || 0;
+      activityDone(activityId, freed > 0 ? fmtBytes(freed) + " libérés" : "déjà propre");
       es.close();
-      onCleanDone(item.freed_bytes || 0);
+      onCleanDone(freed);
     } else if (item.type === "error") {
-      addLog(item.msg, "warn"); es.close(); setCleaningUI(false); cleaning = false;
+      addLog(item.msg, "warn");
+      activityDone(activityId, "échec", "fail");
+      es.close(); setCleaningUI(false); cleaning = false;
     }
   };
-  es.onerror = () => { addLog("Connexion SSE interrompue.", "warn"); es.close(); setCleaningUI(false); cleaning = false; };
+  es.onerror = () => {
+    addLog("Connexion SSE interrompue.", "warn");
+    activityDone(activityId, "connexion perdue", "fail");
+    es.close(); setCleaningUI(false); cleaning = false;
+  };
 }
 
 function onCleanDone(freedBytes) {
@@ -514,12 +873,6 @@ function onCleanDone(freedBytes) {
   renderTasks();
   loadDisk().then(animateDiskBars);
   loadHistory();
-
-  if (freedBytes > 0) {
-    showToast("Nettoyage terminé", fmtBytes(freedBytes) + " libérés sur votre disque", "success");
-  } else {
-    showToast("Nettoyage terminé", "Le système était déjà propre", "success");
-  }
 
   window._healthCache = null;
   if (typeof healthInitialized !== "undefined") healthInitialized = false;

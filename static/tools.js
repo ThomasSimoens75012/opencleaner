@@ -55,6 +55,21 @@ async function browseFolder(inputId) {
 
 // ── Helpers animation boutons ─────────────────────────────────────────────────
 
+function _activityLabelFor(btn) {
+  if (!btn) return "Analyse";
+  if (btn.dataset.activity) return btn.dataset.activity;
+  const section = btn.closest("section, .card, div")?.parentElement;
+  let el = btn;
+  while (el && el !== document.body) {
+    const t = el.querySelector?.(".tool-section-title");
+    if (t && t.textContent.trim()) return t.textContent.trim();
+    el = el.parentElement;
+  }
+  const tabPanel = btn.closest(".tab-panel");
+  const title = tabPanel?.querySelector(".page-title");
+  return title ? title.textContent.trim() : "Analyse";
+}
+
 function _btnScan(btn, label = "Analyse…") {
   if (!btn) return;
   btn.dataset.idle = btn.innerHTML;
@@ -62,6 +77,9 @@ function _btnScan(btn, label = "Analyse…") {
   btn.classList.add("btn-running");
   btn.disabled = true;
   _scanSpinnerShow(btn);
+  if (typeof activityPush === "function" && !btn.hasAttribute("data-no-activity")) {
+    btn._activityId = activityPush(_activityLabelFor(btn), "run", "en cours…", btn);
+  }
 }
 
 function _scanSpinnerShow(btn) {
@@ -113,6 +131,10 @@ function _btnDone(btn, label) {
   _scanSpinnerHide(btn);
   btn.innerHTML = `<span class="btn-icon">✓</span><span>${label}</span>`;
   btn.classList.add("btn-success");
+  if (btn._activityId != null && typeof activityDone === "function") {
+    activityDone(btn._activityId, label || "terminé");
+    btn._activityId = null;
+  }
   setTimeout(() => {
     btn.innerHTML = btn.dataset.idle || label;
     btn.classList.remove("btn-success");
@@ -125,6 +147,10 @@ function _btnReset(btn) {
   btn.classList.remove("btn-running", "btn-success");
   if (btn.dataset.idle) btn.innerHTML = btn.dataset.idle;
   _scanSpinnerHide(btn);
+  if (btn._activityId != null && typeof activityDone === "function") {
+    activityDone(btn._activityId, "terminé");
+    btn._activityId = null;
+  }
 }
 
 // ── Skeleton loader ───────────────────────────────────────────────────────────
@@ -412,7 +438,38 @@ async function uninstallApp(uninstallString, name, btn) {
   );
 }
 
-// ── Doublons ──────────────────────────────────────────────────────────────────
+function openSettingsUri(uri) {
+  fetch("/api/open-settings", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ uri }),
+  }).catch(() => {});
+}
+
+// ── Doublons (fichiers + dossiers unifiés) ───────────────────────────────────
+
+let _dupeMode = "files"; // "files" | "folders"
+
+function setDupeMode(mode) {
+  _dupeMode = mode;
+  document.getElementById("dupe-mode-files").classList.toggle("active", mode === "files");
+  document.getElementById("dupe-mode-folders").classList.toggle("active", mode === "folders");
+  const sizeInput = document.getElementById("dupe-minsize");
+  const sizeLabel = document.getElementById("dupe-minsize-label");
+  const show = mode === "files";
+  sizeInput.style.display = show ? "" : "none";
+  sizeLabel.style.display = show ? "" : "none";
+  // Reset résultats quand on change de mode
+  document.getElementById("dupe-results").innerHTML = "";
+  document.getElementById("dupe-log").innerHTML = "";
+}
+
+function startDuplicateUnifiedScan() {
+  if (_dupeMode === "folders") {
+    startDuplicateFolderScan();
+  } else {
+    startDuplicateScan();
+  }
+}
 
 let duplicateGroups = [];
 
@@ -517,6 +574,113 @@ function renderDuplicates(groups, totalFmt) {
     renderRows();
     return group;
   }, el);
+}
+
+// ── Dossiers dupliqués ────────────────────────────────────────────────────────
+
+let duplicateFolderGroups = [];
+
+async function startDuplicateFolderScan() {
+  const folder = document.getElementById("dupe-folder").value.trim();
+  if (!folder) { showToast("Dossier requis", "Entrez un dossier à analyser.", "warn"); return; }
+
+  const resultEl = document.getElementById("dupe-results");
+  const btnEl    = document.getElementById("btn-scan-dupes");
+
+  document.getElementById("dupe-log").innerHTML = "";
+  resultEl.innerHTML = "";
+  duplicateFolderGroups = [];
+  _btnScan(btnEl, "Analyse…");
+  _logAppend("dupe-log", "Scan en cours (peut prendre une minute sur un gros dossier)…");
+
+  try {
+    const res  = await fetch("/api/duplicate-folders", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ folder }),
+    });
+    const data = await res.json();
+    if (!res.ok) { _logAppend("dupe-log", "Erreur : " + (data.error || res.status)); _btnReset(btnEl); return; }
+    _btnReset(btnEl);
+    renderDuplicateFolders(data.groups || [], data.total_fmt || "0 o");
+  } catch (e) {
+    _logAppend("dupe-log", "Erreur : " + e.message);
+    _btnReset(btnEl);
+  }
+}
+
+function renderDuplicateFolders(groups, totalFmt) {
+  duplicateFolderGroups = groups;
+  const el = document.getElementById("dupe-results");
+  if (!groups.length) {
+    el.innerHTML = "";
+    _logAppend("dupe-log", "Aucun résultat.");
+    return;
+  }
+  _logAppend("dupe-log", `${groups.length} groupe(s) trouvé(s) — ${totalFmt} récupérables.`);
+
+  el.innerHTML = "";
+  el.appendChild(_makeSelHeader(el, {
+    countText: `${groups.length} groupe(s) — ${totalFmt} récupérables`,
+    deleteId:  "btn-delete-dupdir",
+    deleteFn:  deleteSelectedDupeFolders,
+  }));
+
+  _watchSelSize(el, document.getElementById("btn-delete-dupdir"));
+  _renderBatched(groups, (g, gi) => {
+    const group = document.createElement("div");
+    group.className = "dupe-group";
+    group.innerHTML = `<div class="dupe-group-title">${g.folders.length} dossiers identiques — ${g.file_count} fichier(s) — ${g.size_fmt}</div>`;
+    let keptIdx = 0;
+    const renderRows = () => {
+      [...group.querySelectorAll(".dupe-row")].forEach(r => r.remove());
+      g.folders.forEach((f, fi) => {
+        const row = document.createElement("div"); row.className = "dupe-row";
+        const cbId = `dupdir-${gi}-${fi}`; const isKept = fi === keptIdx;
+        const cb = document.createElement("input");
+        cb.type = "checkbox"; cb.id = cbId; cb.dataset.path = f.path; cb.dataset.size = f.size;
+        cb.checked = !isKept; cb.disabled = isKept;
+        cb.title = isKept ? "Ce dossier sera conservé" : "";
+        const lbl = document.createElement("label"); lbl.htmlFor = cbId; lbl.className = "dupe-path"; lbl.style.opacity = isKept ? "0.55" : "";
+        const sizeSpan = document.createElement("span"); sizeSpan.className = "dupe-size"; sizeSpan.textContent = f.size_fmt;
+        lbl.appendChild(sizeSpan); lbl.appendChild(document.createTextNode(" " + f.path));
+        if (isKept) {
+          const badge = document.createElement("span"); badge.className = "source-badge";
+          badge.style.cssText = "margin-left:6px;color:var(--green);border-color:var(--green)"; badge.textContent = "↩ conservé";
+          lbl.appendChild(badge); row.append(cb, lbl);
+        } else {
+          const keepBtn = document.createElement("button"); keepBtn.className = "btn-ghost"; keepBtn.textContent = "Conserver celui-ci";
+          keepBtn.style.cssText = "font-size:11px;padding:2px 8px;margin-left:8px;flex-shrink:0";
+          keepBtn.addEventListener("click", (e) => { e.preventDefault(); keptIdx = fi; renderRows(); });
+          row.append(cb, lbl, keepBtn);
+        }
+        _applyAdminLock(row, cb, f.needs_admin);
+        group.appendChild(row);
+      });
+    };
+    renderRows();
+    return group;
+  }, el);
+}
+
+function deleteSelectedDupeFolders() {
+  _deleteSelected({
+    resultsId: "dupe-results",
+    btnId:     "btn-delete-dupdir",
+    endpoint:  "/api/duplicate-folders/delete",
+    confirmBody: (n, size) =>
+      `${n} dossier(s) seront définitivement supprimés avec tout leur contenu. Espace récupéré estimé : ${fmtBytesTools(size)}.`,
+    preCheck: () => {
+      for (const group of document.querySelectorAll("#dupe-results .dupe-group")) {
+        const all = group.querySelectorAll("input[type=checkbox]");
+        const checkedIn = group.querySelectorAll("input[type=checkbox]:checked:not(.sel-all)");
+        if (all.length > 0 && checkedIn.length >= all.length) {
+          showToast("Action impossible", "Vous ne pouvez pas supprimer tous les dossiers d'un groupe.", "warn");
+          return false;
+        }
+      }
+      return true;
+    },
+  });
 }
 
 function deleteSelectedDupes() {
@@ -1460,7 +1624,6 @@ function _setDefaultInstallerFolder() {
 
 async function startInstallerScan() {
   const folder  = document.getElementById("inst-folder").value.trim();
-  const maxAge  = parseInt(document.getElementById("inst-age").value) || 90;
   if (!folder) { showToast("Dossier requis", "Entrez un dossier à analyser.", "warn"); return; }
 
   const resultEl = document.getElementById("inst-results");
@@ -1471,7 +1634,7 @@ async function startInstallerScan() {
   try {
     const res = await fetch("/api/old-installers", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ folder, max_age_days: maxAge }),
+      body: JSON.stringify({ folder }),
     });
     const data = await res.json();
     if (!res.ok) { showToast("Erreur", data.error, "warn"); _btnReset(btnEl); return; }
@@ -1872,6 +2035,19 @@ function deleteSelectedOrphanFolders() {
 
 let _tweaksLoaded = false;
 
+let _tweakItems   = [];
+let _tweakGroups  = [];
+let _tweakFilter  = "all";
+
+const _TWEAK_TAG_LABELS = {
+  "all":         "Tout voir",
+  "performance": "Performance",
+  "privacy":     "Confidentialité",
+  "ads":         "Publicités",
+  "cosmetic":    "Cosmétique",
+  "security":    "Sécurité",
+};
+
 async function loadWindowsTweaks() {
   if (_tweaksLoaded) return;
   const el = document.getElementById("tweaks-list");
@@ -1880,30 +2056,241 @@ async function loadWindowsTweaks() {
     const res  = await fetch("/api/windows-tweaks");
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Erreur serveur");
-    _renderTweaks(data);
+    _tweakItems  = data.items || [];
+    _tweakGroups = data.groups || [];
+    _renderTweaks();
+    _renderTweakFilters();
+    _renderTweakChart();
     _tweaksLoaded = true;
   } catch (e) {
     el.innerHTML = `<div class="tool-error">Erreur : ${e.message}</div>`;
   }
 }
 
-function _renderTweaks(data) {
+function _renderTweaks() {
   const el = document.getElementById("tweaks-list");
   el.innerHTML = "";
-  data.groups.forEach(g => {
-    const items = data.items.filter(i => i.group === g.id);
+  _tweakGroups.forEach(g => {
+    const items = _tweakItems.filter(i => i.group === g.id);
     if (!items.length) return;
     const gh = document.createElement("div");
     gh.className = "tweak-group-title";
-    gh.textContent = g.label;
+    gh.dataset.group = g.id;
+    gh.innerHTML = `
+      <span>${_escapeHtml(g.label)}</span>
+      <span class="bulk">
+        <button onclick="bulkToggleGroup('${g.id}', false)">tout désactiver</button>
+        <span class="sep">·</span>
+        <button onclick="bulkToggleGroup('${g.id}', true)">tout activer</button>
+      </span>
+    `;
     el.appendChild(gh);
     items.forEach(it => el.appendChild(_tweakRow(it)));
   });
+  _applyTweakFilter();
+}
+
+async function bulkToggleGroup(groupId, targetActive) {
+  // Récupère les items du groupe qui sont (a) dans _tweakItems, (b) visibles
+  // selon le filtre courant, et (c) dans un état différent de la cible.
+  const rows = [...document.querySelectorAll(`#tweaks-list .tweak-row[data-group="${groupId}"]`)]
+    .filter(r => !r.classList.contains("tweak-hidden"));
+  const changes = [];
+  for (const row of rows) {
+    const id = row.dataset.id;
+    const item = _tweakItems.find(i => i.id === id);
+    if (!item) continue;
+    if (item.active !== targetActive) {
+      changes.push({ id, active: targetActive });
+    }
+  }
+  if (!changes.length) return;
+
+  // Trouve et désactive temporairement les boutons bulk du groupe
+  const btns = document.querySelectorAll(`#tweaks-list .tweak-group-title[data-group="${groupId}"] .bulk button`);
+  btns.forEach(b => b.disabled = true);
+
+  try {
+    const res = await fetch("/api/windows-tweaks/set-batch", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ changes }),
+    });
+    const data = await res.json();
+    (data.results || []).forEach(r => {
+      if (!r.ok) return;
+      const item = _tweakItems.find(i => i.id === r.id);
+      if (item) item.active = r.active;
+      // Met à jour le checkbox DOM correspondant
+      const row = document.querySelector(`#tweaks-list .tweak-row[data-id="${r.id}"]`);
+      if (row) {
+        const cb = row.querySelector("input[type=checkbox]");
+        if (cb) cb.checked = !!r.active;
+        row.classList.add("tweak-ok");
+        setTimeout(() => row.classList.remove("tweak-ok"), 600);
+      }
+    });
+    _renderTweakChart();
+    if (data.fail_count > 0) {
+      showToast("Bulk partiel", `${data.ok_count} appliqué(s), ${data.fail_count} échec(s)`, "warn");
+    }
+  } catch (e) {
+    showToast("Erreur batch", e.message, "warn");
+  } finally {
+    btns.forEach(b => b.disabled = false);
+  }
+}
+
+function _escapeHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+function _renderTweakFilters() {
+  const el = document.getElementById("tweak-filters");
+  if (!el) return;
+  const tags = ["all", "performance", "privacy", "ads", "cosmetic", "security"];
+  const counts = {};
+  for (const t of tags) counts[t] = 0;
+  for (const it of _tweakItems) {
+    counts["all"]++;
+    for (const tag of (it.tags || [])) {
+      if (tag in counts) counts[tag]++;
+    }
+  }
+  el.innerHTML = tags.map(t => {
+    const label = _TWEAK_TAG_LABELS[t] || t;
+    const cls = t === _tweakFilter ? "active" : "";
+    return `<button class="tweak-filter-btn ${cls}" data-filter="${t}" onclick="setTweakFilter('${t}')">${label} <span class="c">${counts[t]}</span></button>`;
+  }).join("");
+}
+
+function setTweakFilter(tag) {
+  _tweakFilter = tag;
+  document.querySelectorAll(".tweak-filter-btn").forEach(b => {
+    b.classList.toggle("active", b.dataset.filter === tag);
+  });
+  _applyTweakFilter();
+}
+
+function _applyTweakFilter() {
+  const rows = document.querySelectorAll("#tweaks-list .tweak-row");
+  rows.forEach(r => {
+    if (_tweakFilter === "all") {
+      r.classList.remove("tweak-hidden");
+      return;
+    }
+    const tags = (r.dataset.tags || "").split(",");
+    r.classList.toggle("tweak-hidden", !tags.includes(_tweakFilter));
+  });
+  // Masquer les titres de groupe qui n'ont plus d'items visibles
+  document.querySelectorAll(".tweak-group-title").forEach(gh => {
+    const groupId = gh.dataset.group;
+    if (!groupId) return;
+    const hasVisible = [...document.querySelectorAll(`#tweaks-list .tweak-row[data-group="${groupId}"]`)]
+      .some(r => !r.classList.contains("tweak-hidden"));
+    gh.classList.toggle("tweak-hidden", !hasVisible);
+  });
+}
+
+function _renderTweakChart() {
+  const chart = document.getElementById("tweak-chart");
+  const note  = document.getElementById("tweak-chart-note");
+  if (!chart) return;
+
+  // Baseline = "tout activé" (Windows stock)
+  // Projection = "configuration actuelle" (ce qui est encore actif)
+  // Les barres diminuent quand l'utilisateur désactive des features.
+  let baseRam = 0, baseProc = 0, projRam = 0, projProc = 0;
+  for (const it of _tweakItems) {
+    const ram  = (it.impact && it.impact.ram_mb)    || 0;
+    const proc = (it.impact && it.impact.processes) || 0;
+    baseRam  += ram;
+    baseProc += proc;
+    if (it.active) {
+      projRam  += ram;
+      projProc += proc;
+    }
+  }
+
+  const totalCount   = _tweakItems.length;
+  const activeCount  = _tweakItems.filter(i => i.active).length;
+  const savedRam     = baseRam  - projRam;
+  const savedProc    = baseProc - projProc;
+  const savedCount   = totalCount - activeCount;
+
+  const metrics = [
+    {
+      label: "RAM bloat<br>(Mo)",
+      before: baseRam,
+      after:  projRam,
+      max:    Math.max(baseRam, 100),
+      fmt:    v => Math.round(v).toString(),
+      suffix: " Mo",
+      saved:  savedRam,
+      savedFmt: v => `-${Math.round(v)} Mo`,
+    },
+    {
+      label: "Processus<br>bloat",
+      before: baseProc,
+      after:  projProc,
+      max:    Math.max(baseProc, 4),
+      fmt:    v => Math.round(v).toString(),
+      suffix: "",
+      saved:  savedProc,
+      savedFmt: v => `-${Math.round(v)}`,
+    },
+    {
+      label: "Fonctions<br>actives",
+      before: totalCount,
+      after:  activeCount,
+      max:    totalCount,
+      fmt:    v => `${Math.round(v)}`,
+      suffix: "",
+      saved:  savedCount,
+      savedFmt: v => `-${Math.round(v)}`,
+    },
+  ];
+
+  chart.innerHTML = `
+    <div class="tweak-chart">
+      ${metrics.map(m => {
+        const hBefore = Math.max(1, (m.before / m.max) * 100);
+        const hAfter  = Math.max(1, (m.after  / m.max) * 100);
+        const deltaHtml = m.saved > 0
+          ? `<div class="tweak-delta">${m.savedFmt(m.saved)}</div>`
+          : `<div class="tweak-delta" style="color:var(--text-dim);font-weight:400">—</div>`;
+        return `
+          <div class="tweak-col-group">
+            <div class="tweak-bars">
+              <div class="tweak-col" style="height:${hBefore}%"><span class="v">${m.fmt(m.before)}${m.suffix}</span></div>
+              <div class="tweak-col after" style="height:${hAfter}%"><span class="v">${m.fmt(m.after)}${m.suffix}</span></div>
+            </div>
+            <div class="tweak-lbl-col">${m.label}</div>
+            ${deltaHtml}
+          </div>
+        `;
+      }).join("")}
+    </div>
+    <div class="tweak-chart-legend">
+      <span><span class="leg-dot b"></span>Windows stock (tout activé)</span>
+      <span><span class="leg-dot a"></span>Ta configuration actuelle</span>
+    </div>
+  `;
+
+  if (note) {
+    const measured = _tweakItems.filter(i => i.impact && i.impact.source === "measured").length;
+    const sourceLabel = measured > 0
+      ? `<span style="color:var(--green)">${measured} valeur(s) mesurée(s) sur ta machine</span>`
+      : `<span style="color:var(--text-dim)">estimations moyennes en ligne</span>`;
+    note.innerHTML = `${savedCount} / ${totalCount} fonctions désactivées<br>≈ ${Math.round(savedRam)} Mo libérés<br>${sourceLabel}`;
+  }
 }
 
 function _tweakRow(item) {
   const row = document.createElement("div");
   row.className = "tweak-row";
+  row.dataset.group = item.group;
+  row.dataset.tags  = (item.tags || []).join(",");
+  row.dataset.id    = item.id;
   const info = document.createElement("div");
   info.className = "tweak-info";
   const lbl = document.createElement("div");
@@ -1918,14 +2305,17 @@ function _tweakRow(item) {
   sw.className = "sw";
   const cb = document.createElement("input");
   cb.type = "checkbox";
-  cb.checked = !item.active;
+  cb.checked = !!item.active;
   const slider = document.createElement("span");
   slider.className = "slider";
   sw.append(cb, slider);
 
   cb.addEventListener("change", async () => {
     sw.classList.add("busy");
-    const active = !cb.checked;
+    row.classList.remove("tweak-error");
+    const errEl = row.querySelector(".tweak-err-msg");
+    if (errEl) errEl.remove();
+    const active = cb.checked;
     try {
       const res = await fetch("/api/windows-tweaks/set", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -1934,10 +2324,23 @@ function _tweakRow(item) {
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.error || "Échec");
       item.active = active;
-      showToast(active ? "Réactivé" : "Désactivé", item.label, "success", 2500);
+      // Feedback inline : flash discret de validation sur la ligne
+      row.classList.add("tweak-ok");
+      setTimeout(() => row.classList.remove("tweak-ok"), 600);
+      // Recalcule le chart prédictif (impact estimé)
+      if (typeof _renderTweakChart === "function") _renderTweakChart();
     } catch (e) {
       cb.checked = !cb.checked;
-      showToast("Erreur", e.message, "warn");
+      // Feedback inline d'erreur : bordure rouge + message sous la ligne
+      row.classList.add("tweak-error");
+      const msg = document.createElement("div");
+      msg.className = "tweak-err-msg";
+      msg.textContent = "Échec : " + e.message;
+      row.appendChild(msg);
+      setTimeout(() => {
+        row.classList.remove("tweak-error");
+        msg.remove();
+      }, 5000);
     } finally {
       sw.classList.remove("busy");
     }
@@ -2010,6 +2413,80 @@ async function startDriversScan() {
     resultEl.innerHTML = "";
   }
   _btnReset(btnEl);
+}
+
+async function exportDriversReport(fmt = "html") {
+  const label = fmt.toUpperCase();
+  const target = document.getElementById("btn-scan-drivers");
+  const jobId = activityPush(`Export rapport pilotes (${label})`, "run", "génération…", target);
+  _logAppend("drivers-log", `Génération du rapport ${label}…`);
+  try {
+    const res = await fetch("/api/drivers/export?format=" + encodeURIComponent(fmt));
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || ("HTTP " + res.status));
+    }
+    const disp = res.headers.get("Content-Disposition") || "";
+    const m = disp.match(/filename="([^"]+)"/);
+    const filename = m ? m[1] : "rapport-pilotes." + fmt;
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    activityDone(jobId, "téléchargé");
+    _logAppend("drivers-log", "Rapport exporté : " + filename);
+  } catch (e) {
+    activityDone(jobId, "échec", "fail");
+    _logAppend("drivers-log", "Erreur export : " + e.message);
+    showToast("Export impossible", e.message, "warn");
+  }
+}
+
+async function scanWindowsUpdateDrivers() {
+  const btn = document.getElementById("btn-wu-scan");
+  _btnScan(btn, "Recherche…");
+  _logAppend("drivers-log", "Interrogation de Windows Update (peut prendre 1 à 2 minutes)…");
+  let finalMeta = "terminé";
+  let finalStatus = "done";
+  try {
+    const res = await fetch("/api/drivers/wu-scan", { method: "POST" });
+    const data = await res.json();
+    if (data.error) {
+      finalMeta = "échec"; finalStatus = "fail";
+      _logAppend("drivers-log", "Erreur : " + data.error);
+      showToast("Windows Update", data.error, "warn");
+      return;
+    }
+    const updates = data.updates || [];
+    if (!updates.length) {
+      finalMeta = "0 résultat";
+      _logAppend("drivers-log", "Aucune mise à jour de pilote proposée par Windows Update.");
+      return;
+    }
+    finalMeta = updates.length + " trouvé" + (updates.length > 1 ? "s" : "");
+    _logAppend("drivers-log", updates.length + " mise(s) à jour trouvée(s) :");
+    updates.forEach(u => {
+      const size = u.sizeBytes ? " · " + fmtBytes(u.sizeBytes) : "";
+      const date = u.driverDate ? " · " + u.driverDate : "";
+      _logAppend("drivers-log", "  · " + u.title + size + date);
+    });
+    _logAppend("drivers-log", "Pour installer : ouvrez Paramètres → Windows Update → Options avancées → Mises à jour facultatives.");
+  } catch (e) {
+    finalMeta = "échec"; finalStatus = "fail";
+    _logAppend("drivers-log", "Erreur : " + e.message);
+    showToast("Windows Update", e.message, "warn");
+  } finally {
+    if (btn._activityId != null) {
+      activityDone(btn._activityId, finalMeta, finalStatus);
+      btn._activityId = null;
+    }
+    _btnReset(btn);
+  }
 }
 
 function _renderDrivers() {

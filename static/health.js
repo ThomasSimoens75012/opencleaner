@@ -127,3 +127,4 @@ function quickFixHealth(taskId) {
     if (typeof showCleanPreview === "function") showCleanPreview([task]);
   }
 }
+

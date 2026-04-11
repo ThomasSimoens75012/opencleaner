@@ -15,13 +15,14 @@ from datetime import datetime
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
-from flask import Flask, Response, jsonify, render_template, request
+from flask import Flask, Response, jsonify, redirect, render_template, request, url_for
 
 from cleaner import (
     TASKS, fmt_size, get_disk_info,
     get_startup_entries, set_startup_entry,
     get_installed_apps, launch_uninstaller,
     find_duplicates, delete_duplicate_files,
+    find_duplicate_folders, delete_duplicate_folders,
     scan_registry, fix_registry_issues,
     get_browser_extensions, remove_browser_extension,
     get_health_data,
@@ -37,8 +38,9 @@ from cleaner import (
     get_windows_old_info, delete_windows_old,
     find_old_installers, delete_installer_files,
     is_admin, is_admin_path,
-    get_drivers,
+    get_drivers, export_drivers_report, scan_windows_update_drivers,
     get_windows_tweaks, set_windows_tweak,
+    capture_benchmark,
 )
 
 
@@ -108,6 +110,33 @@ def index():
     downloads = str(Path.home() / "Downloads")
     return render_template("index.html", tasks_json=tasks_json,
                            is_admin=is_admin(), downloads_folder=downloads)
+
+
+@app.route("/favicon.ico")
+def favicon():
+    return redirect(url_for("static", filename="favicon.svg"))
+
+
+@app.route("/api/benchmark/snapshot", methods=["GET"])
+def api_benchmark_snapshot():
+    try:
+        return jsonify(capture_benchmark())
+    except Exception as e:
+        app.logger.exception("benchmark snapshot error")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/open-settings", methods=["POST"])
+def api_open_settings():
+    data = request.get_json(force=True) or {}
+    uri = (data.get("uri") or "").strip()
+    if not uri.startswith("ms-settings:"):
+        return jsonify({"ok": False, "error": "URI invalide"}), 400
+    try:
+        os.startfile(uri)
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 
 @app.route("/api/sizes")
@@ -250,6 +279,33 @@ def api_duplicates_delete():
         return rejected
     freed, errors = delete_duplicate_files(paths)
     _log_delete("duplicates/delete", f"{len(paths)} fichier(s), {fmt_size(freed)} libérés", errors)
+    return jsonify({"freed": freed, "freed_fmt": fmt_size(freed), "errors": errors})
+
+
+@app.route("/api/duplicate-folders", methods=["POST"])
+def api_duplicate_folders():
+    data   = request.get_json(force=True) or {}
+    folder = (data.get("folder") or "").strip()
+    if not folder or not Path(folder).is_dir():
+        return jsonify({"error": "Dossier invalide ou introuvable."}), 400
+    try:
+        return jsonify(find_duplicate_folders(folder))
+    except Exception as e:
+        app.logger.exception("duplicate-folders error")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/duplicate-folders/delete", methods=["POST"])
+def api_duplicate_folders_delete():
+    data  = request.get_json(force=True) or {}
+    paths = data.get("paths", [])
+    if not paths:
+        return jsonify({"error": "Aucun dossier sélectionné."}), 400
+    rejected = _reject_if_admin_paths(paths)
+    if rejected:
+        return rejected
+    freed, errors = delete_duplicate_folders(paths)
+    _log_delete("duplicate-folders/delete", f"{len(paths)} dossier(s), {fmt_size(freed)} libérés", errors)
     return jsonify({"freed": freed, "freed_fmt": fmt_size(freed), "errors": errors})
 
 
@@ -579,6 +635,29 @@ def api_windows_tweaks_set():
     return jsonify({"ok": False, "error": err}), 500
 
 
+@app.route("/api/windows-tweaks/set-batch", methods=["POST"])
+def api_windows_tweaks_set_batch():
+    data    = request.get_json(force=True) or {}
+    changes = data.get("changes") or []
+    results = []
+    ok_count, fail_count = 0, 0
+    for change in changes:
+        tid = change.get("id")
+        active = bool(change.get("active"))
+        if not tid:
+            results.append({"id": tid, "ok": False, "error": "id manquant"})
+            fail_count += 1
+            continue
+        ok, err = set_windows_tweak(tid, active)
+        results.append({"id": tid, "ok": ok, "error": err, "active": active})
+        if ok:
+            ok_count += 1
+        else:
+            fail_count += 1
+    app.logger.info("windows-tweaks/set-batch — %d ok, %d échec(s)", ok_count, fail_count)
+    return jsonify({"ok": fail_count == 0, "results": results, "ok_count": ok_count, "fail_count": fail_count})
+
+
 @app.route("/api/drivers")
 def api_drivers():
     try:
@@ -586,6 +665,30 @@ def api_drivers():
     except Exception as e:
         app.logger.exception("drivers error")
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/drivers/export")
+def api_drivers_export():
+    fmt = (request.args.get("format") or "html").lower()
+    if fmt not in ("html", "txt", "json"):
+        fmt = "html"
+    try:
+        report = export_drivers_report(fmt)
+    except Exception as e:
+        app.logger.exception("drivers export error")
+        return jsonify({"error": str(e)}), 500
+    resp = Response(report["content"], mimetype=report["mimetype"])
+    resp.headers["Content-Disposition"] = f'attachment; filename="{report["filename"]}"'
+    return resp
+
+
+@app.route("/api/drivers/wu-scan", methods=["POST"])
+def api_drivers_wu_scan():
+    try:
+        return jsonify(scan_windows_update_drivers())
+    except Exception as e:
+        app.logger.exception("wu-scan error")
+        return jsonify({"updates": [], "error": str(e)}), 500
 
 
 @app.route("/api/relaunch-admin", methods=["POST"])
@@ -880,6 +983,9 @@ def _run():
     print("  ║                                              ║")
     print("  ╚══════════════════════════════════════════════╝")
     print()
+
+    import webbrowser as _wb, threading as _th
+    _th.Timer(1.0, lambda: _wb.open(url)).start()
 
     app.run(host='127.0.0.1', port=port, debug=False, threaded=True, use_reloader=False)
 
