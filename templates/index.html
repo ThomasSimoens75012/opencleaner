@@ -1336,6 +1336,54 @@
     .da-loading { display: flex; align-items: center; gap: 12px; padding: 8px 6px; border-bottom: 1px solid var(--border); opacity: .5; }
     .da-loading .da-bar { animation: shimmer 1.4s infinite; background: linear-gradient(90deg, var(--border) 25%, var(--bg3) 50%, var(--border) 75%); background-size: 200%; }
 
+    /* ── Vue treemap ── */
+    .da-view-toggle .da-view-btn {
+      font-size: 11px; padding: 4px 10px;
+    }
+    .da-view-toggle .da-view-btn.active {
+      background: var(--bg3); color: var(--text); border-color: var(--border2);
+    }
+    .da-treemap {
+      position: relative;
+      width: 100%;
+      height: 520px;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .da-tile {
+      position: absolute;
+      border: 1px solid var(--bg);
+      background: var(--bg3);
+      overflow: hidden;
+      display: flex; flex-direction: column;
+      padding: 6px 8px;
+      transition: background .12s, transform .12s;
+      cursor: default;
+      box-sizing: border-box;
+    }
+    .da-tile.da-tile-dir { cursor: pointer; }
+    .da-tile.da-tile-dir:hover { background: var(--hover); z-index: 2; }
+    .da-tile-name {
+      font-size: 12px; font-weight: 600; color: var(--text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .da-tile-size {
+      font-size: 10px; color: var(--text-dim);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .da-tile.da-small .da-tile-size { display: none; }
+    .da-tile.da-tiny  .da-tile-name { font-size: 10px; }
+    .da-tile.da-tiny  .da-tile-size { display: none; }
+    /* Intensité proportionnelle à la taille (0..1 via --w) */
+    .da-tile[data-w="5"] { background: color-mix(in srgb, var(--accent) 28%, var(--bg3)); }
+    .da-tile[data-w="4"] { background: color-mix(in srgb, var(--accent) 22%, var(--bg3)); }
+    .da-tile[data-w="3"] { background: color-mix(in srgb, var(--accent) 16%, var(--bg3)); }
+    .da-tile[data-w="2"] { background: color-mix(in srgb, var(--accent) 10%, var(--bg3)); }
+    .da-tile[data-w="1"] { background: color-mix(in srgb, var(--accent)  5%, var(--bg3)); }
+
 
     /* ══════════════════════════════════════════
        TOAST — Notion
@@ -2042,6 +2090,10 @@
           <input class="dupe-folder-input" id="da-folder" value="C:\">
           <button class="btn-ghost" onclick="browseFolder('da-folder')">Parcourir…</button>
           <button class="btn-primary" id="btn-scan-da" data-activity="Analyse de l'espace disque" onclick="startDiskAnalysis()">Analyser</button>
+          <div class="da-view-toggle" style="display:flex;gap:4px;margin-left:auto">
+            <button class="btn-ghost da-view-btn active" data-view="list" onclick="setDiskView('list')" title="Vue liste">Liste</button>
+            <button class="btn-ghost da-view-btn" data-view="treemap" onclick="setDiskView('treemap')" title="Vue treemap">Treemap</button>
+          </div>
         </div>
       </div>
       <div id="da-breadcrumb" style="font-size:12px;color:var(--text-dim);display:none;padding:8px 0"></div>

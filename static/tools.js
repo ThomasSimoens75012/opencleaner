@@ -2045,6 +2045,16 @@ let _daTotal     = 0;
 let _daEsActive  = null;
 let _daSortKey   = "size";   // "size" | "name"
 let _daSortDir   = -1;       // -1 desc, 1 asc
+let _daView      = "list";   // "list" | "treemap"
+
+function setDiskView(view) {
+  _daView = view;
+  document.querySelectorAll(".da-view-btn").forEach(b => {
+    b.classList.toggle("active", b.dataset.view === view);
+  });
+  const folder = document.getElementById("da-folder")?.value || "";
+  if (_daItems.length) _renderDiskItems(_daItems, _daTotal, folder);
+}
 
 function startDiskAnalysis(folder) {
   const inputEl = document.getElementById("da-folder");
@@ -2140,6 +2150,10 @@ function _renderDiskItems(items, total, folder) {
     el.innerHTML = `<div class="tool-empty">Aucun résultat.</div>`;
     return;
   }
+  if (_daView === "treemap") {
+    _renderDiskTreemap(items, total, folder);
+    return;
+  }
 
   const sorted  = _daSortItems(items);
   const maxSize = sorted[0]?.size || 1;
@@ -2227,6 +2241,135 @@ function _updateBreadcrumb(folder) {
     span.style.color = i === parts.length - 1 ? "var(--text)" : "var(--text-dim)";
     el.appendChild(span);
   });
+}
+
+// Squarified treemap — Bruls, Huijbregts & van Wijk (2000)
+// Chaque item = { name, path, size, size_fmt, is_dir }
+function _renderDiskTreemap(items, total, folder) {
+  const el = document.getElementById("da-results");
+  el.innerHTML = "";
+  const container = document.createElement("div");
+  container.className = "da-treemap";
+  el.appendChild(container);
+
+  // Attendre le layout pour connaître la largeur réelle
+  requestAnimationFrame(() => {
+    const W = container.clientWidth;
+    const H = container.clientHeight;
+    if (W <= 0 || H <= 0) return;
+
+    // Ne garder que les items avec une taille > 0
+    const positive = items.filter(i => i.size > 0);
+    if (!positive.length) {
+      container.innerHTML = `<div class="tool-empty" style="padding:20px">Aucun contenu mesurable.</div>`;
+      return;
+    }
+
+    // Plafonner à ~80 items pour éviter un rendu illisible
+    const sorted = [...positive].sort((a, b) => b.size - a.size).slice(0, 80);
+    const sum = sorted.reduce((s, i) => s + i.size, 0);
+    // Quantiles pour intensité de couleur (w : 1 à 5)
+    const sizes = sorted.map(i => i.size).sort((a, b) => a - b);
+    const q = (p) => sizes[Math.min(sizes.length - 1, Math.floor(sizes.length * p))];
+    const qs = [q(0.2), q(0.4), q(0.6), q(0.8)];
+    const intensityOf = (size) => {
+      if (size >= qs[3]) return 5;
+      if (size >= qs[2]) return 4;
+      if (size >= qs[1]) return 3;
+      if (size >= qs[0]) return 2;
+      return 1;
+    };
+
+    // Surface totale du container normalisée à la somme des tailles
+    const scale = (W * H) / sum;
+    const scaled = sorted.map(i => ({ ...i, _a: i.size * scale }));
+
+    // Squarified layout
+    const rects = [];
+    _squarify(scaled, [], { x: 0, y: 0, w: W, h: H }, rects);
+
+    rects.forEach(r => {
+      const tile = document.createElement("div");
+      tile.className = "da-tile" + (r.item.is_dir ? " da-tile-dir" : "");
+      if (r.w < 80 || r.h < 40) tile.classList.add("da-small");
+      if (r.w < 40 || r.h < 24) tile.classList.add("da-tiny");
+      tile.style.left   = r.x + "px";
+      tile.style.top    = r.y + "px";
+      tile.style.width  = r.w + "px";
+      tile.style.height = r.h + "px";
+      tile.dataset.w = String(intensityOf(r.item.size));
+      tile.title = `${r.item.name}\n${r.item.size_fmt}${total > 0 ? ` — ${(r.item.size / total * 100).toFixed(1)}%` : ""}`;
+
+      const name = document.createElement("div");
+      name.className = "da-tile-name";
+      name.textContent = r.item.name;
+      const size = document.createElement("div");
+      size.className = "da-tile-size";
+      size.textContent = r.item.size_fmt;
+      tile.append(name, size);
+
+      if (r.item.is_dir) {
+        tile.addEventListener("click", () => {
+          _daHistory.push({ folder, items: [..._daItems], total: _daTotal });
+          document.getElementById("da-folder").value = r.item.path;
+          _runDiskAnalysis(r.item.path, false);
+        });
+      }
+      container.appendChild(tile);
+    });
+  });
+}
+
+function _squarify(children, row, rect, out) {
+  if (!children.length) {
+    _layoutRow(row, rect, out);
+    return;
+  }
+  const shortest = Math.min(rect.w, rect.h);
+  const next = children[0];
+  const newRow = row.concat([next]);
+  if (row.length === 0 || _worst(row, shortest) >= _worst(newRow, shortest)) {
+    _squarify(children.slice(1), newRow, rect, out);
+  } else {
+    const newRect = _layoutRow(row, rect, out);
+    _squarify(children, [], newRect, out);
+  }
+}
+
+function _worst(row, w) {
+  if (!row.length) return Infinity;
+  const s = row.reduce((a, r) => a + r._a, 0);
+  const rMax = Math.max(...row.map(r => r._a));
+  const rMin = Math.min(...row.map(r => r._a));
+  const w2 = w * w;
+  const s2 = s * s;
+  return Math.max((w2 * rMax) / s2, s2 / (w2 * rMin));
+}
+
+function _layoutRow(row, rect, out) {
+  if (!row.length) return rect;
+  const s = row.reduce((a, r) => a + r._a, 0);
+  if (rect.w >= rect.h) {
+    // On pose la row sur le côté gauche (colonne verticale)
+    const rowW = s / rect.h;
+    let yOff = 0;
+    row.forEach(r => {
+      const h = r._a / rowW;
+      out.push({ item: r, x: rect.x, y: rect.y + yOff, w: rowW, h });
+      yOff += h;
+    });
+    return { x: rect.x + rowW, y: rect.y, w: rect.w - rowW, h: rect.h };
+  } else {
+    // On pose la row sur le haut (ligne horizontale)
+    const rowH = s / rect.w;
+    let xOff = 0;
+    row.forEach(r => {
+      const w = r._a / rowH;
+      out.push({ item: r, x: rect.x + xOff, y: rect.y, w, h: rowH });
+      xOff += w;
+    });
+    return { x: rect.x, y: rect.y + rowH, w: rect.w, h: rect.h - rowH };
+  }
 }
 
 // ── Windows.old ──────────────────────────────────────────────────────────────
