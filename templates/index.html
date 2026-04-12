@@ -1754,11 +1754,13 @@
     .tweak-group-title.tweak-hidden { display: none; }
 
     /* Rows incompatibles avec la version Windows détectée */
-    .tweak-row.row-incompatible {
-      opacity: 0.5;
+    .tweak-row.row-incompatible,
+    .tweak-row.row-absent {
+      opacity: 0.45;
       pointer-events: none;
     }
-    .tweak-row.row-incompatible .sw { pointer-events: none; opacity: 0.4; }
+    .tweak-row.row-incompatible .sw,
+    .tweak-row.row-absent .sw { pointer-events: none; opacity: 0.4; }
     .tweak-row.row-incompatible .tweak-label .incompat-badge {
       display: inline-block;
       font-size: 9px;

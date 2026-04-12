@@ -3920,10 +3920,83 @@ _TWEAK_IMPACTS = {
 }
 
 
+def _detect_feature_presence():
+    """Détecte quelles features sont réellement installées sur ce PC.
+
+    Retourne un dict {tweak_id: True/False}. Les tweaks non listés sont
+    considérés comme présents (pure modification registre = toujours applicable).
+    """
+    presence = {}
+
+    # Copilot — besoin du package UWP OU d'un exe
+    try:
+        r = subprocess.run(
+            ["powershell", "-NoProfile", "-Command",
+             "if (Get-AppxPackage -Name '*copilot*' -ErrorAction SilentlyContinue) {'1'} else {'0'}"],
+            capture_output=True, timeout=10, creationflags=0x08000000,
+        )
+        has_copilot = "1" in r.stdout.decode("utf-8", errors="replace")
+    except Exception:
+        has_copilot = True  # en cas de doute, ne pas greyer
+    presence["copilot"] = has_copilot
+    presence["copilot_button"] = has_copilot
+
+    # Cortana
+    try:
+        r = subprocess.run(
+            ["powershell", "-NoProfile", "-Command",
+             "if (Get-AppxPackage -Name 'Microsoft.549981C3F5F10' -ErrorAction SilentlyContinue) {'1'} else {'0'}"],
+            capture_output=True, timeout=10, creationflags=0x08000000,
+        )
+        presence["cortana"] = "1" in r.stdout.decode("utf-8", errors="replace")
+    except Exception:
+        presence["cortana"] = True
+
+    # Game Bar UWP
+    try:
+        r = subprocess.run(
+            ["powershell", "-NoProfile", "-Command",
+             "if (Get-AppxPackage -Name 'Microsoft.XboxGamingOverlay' -ErrorAction SilentlyContinue) {'1'} else {'0'}"],
+            capture_output=True, timeout=10, creationflags=0x08000000,
+        )
+        has_gamebar = "1" in r.stdout.decode("utf-8", errors="replace")
+    except Exception:
+        has_gamebar = True
+    presence["game_bar"] = has_gamebar
+    presence["game_dvr"] = has_gamebar  # Game DVR dépend de la Game Bar
+
+    # OneDrive
+    presence["onedrive_startup"] = bool(Path(os.path.expandvars(
+        r"%LOCALAPPDATA%\Microsoft\OneDrive\OneDrive.exe")).exists())
+
+    # Edge (presque toujours présent mais vérifie quand même)
+    edge_exe = Path(r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe")
+    has_edge = edge_exe.exists()
+    for eid in ("edge_startup_boost", "edge_background", "edge_hub_sidebar",
+                "edge_shopping", "edge_personalization_reporting"):
+        presence[eid] = has_edge
+
+    # Phone Link
+    try:
+        r = subprocess.run(
+            ["powershell", "-NoProfile", "-Command",
+             "if (Get-AppxPackage -Name 'Microsoft.YourPhone' -ErrorAction SilentlyContinue) {'1'} else {'0'}"],
+            capture_output=True, timeout=10, creationflags=0x08000000,
+        )
+        presence["phone_link"] = "1" in r.stdout.decode("utf-8", errors="replace")
+    except Exception:
+        presence["phone_link"] = True
+
+    return presence
+
+
 def get_windows_tweaks():
     result = {"groups": [], "items": []}
     for gid, glabel in _TWEAK_GROUPS:
         result["groups"].append({"id": gid, "label": glabel})
+
+    # Détection de présence des features sur ce PC
+    feature_presence = _detect_feature_presence()
 
     # Regroupe les tweaks par path pour n'ouvrir chaque clé qu'une fois
     by_path = defaultdict(list)
@@ -3968,6 +4041,10 @@ def get_windows_tweaks():
 
         min_win = 11 if tid in _TWEAK_W11_ONLY else 10
 
+        # Présence : True si la feature existe sur ce PC (par défaut True
+        # pour les tweaks purement registre sans composant spécifique)
+        present = feature_presence.get(tid, True)
+
         result["items"].append({
             "id":    t["id"],
             "label": t["label"],
@@ -3976,6 +4053,7 @@ def get_windows_tweaks():
             "active": active,
             "tags":   tags,
             "min_windows": min_win,
+            "present": present,
             "impact": {
                 "ram_mb":      ram_mb,
                 "processes":   procs,

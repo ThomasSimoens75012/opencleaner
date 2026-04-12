@@ -3268,7 +3268,7 @@ function _renderVersionBanner() {
   const real     = _windowsVersion.major || 11;
   const caption  = _windowsVersion.caption || "Windows";
   const isFake   = detected !== real;
-  const incompatCount = _tweakItems.filter(i => !_isTweakCompatible(i)).length;
+  const incompatCount = _tweakItems.filter(i => !_isTweakCompatible(i) || i.present === false).length;
 
   el.classList.toggle("has-incompat", incompatCount > 0);
   el.style.display = "flex";
@@ -3989,7 +3989,9 @@ function _renderTweakChart() {
 function _tweakRow(item) {
   const row = document.createElement("div");
   const compatible = _isTweakCompatible(item);
-  row.className = "tweak-row" + (compatible ? "" : " row-incompatible");
+  const present = item.present !== false;  // absent seulement si explicitement false
+  const enabled = compatible && present;
+  row.className = "tweak-row" + (!compatible ? " row-incompatible" : "") + (!present ? " row-absent" : "");
   row.dataset.group = item.group;
   row.dataset.tags  = (item.tags || []).join(",");
   row.dataset.id    = item.id;
@@ -3997,10 +3999,12 @@ function _tweakRow(item) {
   info.className = "tweak-info";
   const lbl = document.createElement("div");
   lbl.className = "tweak-label";
-  if (compatible) {
-    lbl.textContent = item.label;
-  } else {
+  if (!present) {
+    lbl.innerHTML = `${_escapeHtml(item.label)} <span class="incompat-badge" style="background:var(--bg3);color:var(--text-dim)">Absent de ce PC</span>`;
+  } else if (!compatible) {
     lbl.innerHTML = `${_escapeHtml(item.label)} <span class="incompat-badge">Windows 11 uniquement</span>`;
+  } else {
+    lbl.textContent = item.label;
   }
   const desc = document.createElement("div");
   desc.className = "tweak-desc";
@@ -4012,7 +4016,7 @@ function _tweakRow(item) {
   const cb = document.createElement("input");
   cb.type = "checkbox";
   cb.checked = !!item.active;
-  cb.disabled = !compatible;
+  cb.disabled = !enabled;
   const slider = document.createElement("span");
   slider.className = "slider";
   sw.append(cb, slider);
