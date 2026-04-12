@@ -326,7 +326,7 @@ async function loadApps(deep = false) {
   const el = document.getElementById("apps-list");
   el.innerHTML = _skeleton(6, true);
   const url = deep ? "/api/apps?deep=1" : "/api/apps";
-  const actId = deep ? activityPush("Scan approfondi apps", "Calcul des tailles réelles…") : null;
+  const actId = deep ? activityPush("Scan approfondi apps", "run", "Calcul des tailles réelles…") : null;
   try {
     const res = await fetch(url);
     allApps = await res.json();
@@ -537,7 +537,7 @@ async function uninstallApp(app, btn, silent) {
     msg,
     async () => {
       if (btn) { btn.disabled = true; btn.textContent = "En cours…"; }
-      const actId = activityPush("Désinstallation", app.name, { tab: "outils" });
+      const actId = activityPush("Désinstallation", "run", app.name, { tab: "outils" });
       try {
         const res  = await fetch("/api/apps/uninstall", {
           method: "POST",
@@ -2008,7 +2008,7 @@ async function openDiskCleanup() {
 }
 
 async function downloadGlobalReport() {
-  const actId = activityPush("Rapport global", "Génération…");
+  const actId = activityPush("Rapport global", "run", "Génération…");
   try {
     const res = await fetch("/api/report");
     if (!res.ok) {
@@ -2134,7 +2134,7 @@ async function cleanBrowserData() {
     : "Supprimer les données sélectionnées ?";
   if (!confirm(msg)) return;
 
-  const actId = activityPush("Nettoyage navigateurs", "Suppression…", { tab: "outils" });
+  const actId = activityPush("Nettoyage navigateurs", "run", "Suppression…", { tab: "outils" });
   try {
     const res = await fetch("/api/browser-data/clean", {
       method: "POST",
@@ -2157,7 +2157,7 @@ async function loadUpdateCenter() {
   const summary = document.getElementById("uc-summary");
   _btnScan(btn, "Scan…");
   container.innerHTML = `<div class="tool-loading">Analyse Windows + pilotes + logiciels… (peut prendre 1–3 min)</div>`;
-  const actId = activityPush("Centre de mises à jour", "Recherche en cours…", { tab: "outils" });
+  const actId = activityPush("Centre de mises à jour", "run", "Recherche en cours…", { tab: "outils" });
   try {
     const res = await fetch("/api/update-center");
     const data = await res.json();
@@ -3386,6 +3386,7 @@ async function toggleGamingMode() {
   btn.disabled = true;
   const actId = activityPush(
     newEnabled ? "Activation mode gaming" : "Restauration configuration",
+    "run",
     "En cours…",
     { tab: "perso" }
   );
@@ -3480,7 +3481,7 @@ async function handleImportConfigFile(event) {
     `Hôte : ${snapshot.hostname || "inconnu"}`;
   if (!confirm(summary)) return;
 
-  const actId = activityPush("Restauration configuration", "Application en cours…", { tab: "outils" });
+  const actId = activityPush("Restauration configuration", "run", "Application en cours…", { tab: "outils" });
   try {
     const res = await fetch("/api/config/import", {
       method: "POST",

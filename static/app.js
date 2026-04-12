@@ -502,6 +502,16 @@ function activityGoto(id) {
   const a = _activity.find(x => x.id === id);
   if (!a || !a.target) return;
   const el = a.target;
+
+  // Support des plain objects {tab: "outils"} en plus des éléments DOM
+  if (el && typeof el === "object" && el.tab && !(el instanceof HTMLElement)) {
+    const sbBtn = document.querySelector(`.sb-item[data-tab="${el.tab}"]`);
+    if (sbBtn && typeof switchTab === "function") {
+      switchTab(el.tab, sbBtn);
+    }
+    return;
+  }
+
   const panel = el.closest?.(".tab-panel");
   if (panel) {
     const tabId = panel.id.replace(/^tab-/, "");
@@ -523,6 +533,16 @@ function activityRelaunch(id) {
   const a = _activity.find(x => x.id === id);
   if (!a || !a.target) return;
   const el = a.target;
+
+  // Support des plain objects {tab: "outils"}
+  if (el && typeof el === "object" && el.tab && !(el instanceof HTMLElement)) {
+    const sbBtn = document.querySelector(`.sb-item[data-tab="${el.tab}"]`);
+    if (sbBtn && typeof switchTab === "function") {
+      switchTab(el.tab, sbBtn);
+    }
+    return;
+  }
+
   const panel = el.closest?.(".tab-panel");
   if (panel) {
     const tabId = panel.id.replace(/^tab-/, "");

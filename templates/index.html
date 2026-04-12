@@ -1168,7 +1168,7 @@
     }
     .tool-info  { flex: 1; min-width: 0; }
     .tool-name  { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .tool-sub   { font-size: 12px; color: var(--text-mid); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 380px; }
+    .tool-sub   { font-size: 12px; color: var(--text-mid); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 380px; font-variant-numeric: tabular-nums; }
     .tool-meta  { font-size: 13px; color: var(--text-mid); min-width: 90px; text-align: right; font-variant-numeric: tabular-nums; }
     .tool-meta.dim { color: var(--text-dim); }
     .tool-loading { padding: 24px 6px; text-align: center; color: var(--text-mid); font-size: 13px; font-style: italic; }
@@ -2221,12 +2221,14 @@
         <div class="tool-section-title">Cache Windows Installer</div>
         <div class="tool-section-sub">C:\Windows\Installer — MSI/MSP utilisés pour les réparations et mises à jour. Nettoyer via l'outil Microsoft uniquement (risqué sinon).</div>
       </div>
-      <div style="display:flex;gap:6px">
-        <button class="btn-primary" id="btn-scan-wic" onclick="loadInstallerCache()">Analyser</button>
-        <button class="btn-ghost" id="btn-cleanmgr" onclick="openDiskCleanup()" style="display:none" title="Ouvre l'outil Microsoft Nettoyage de disque qui sait supprimer ce cache en toute sécurité">Nettoyage de disque…</button>
-      </div>
     </div>
     <div class="card">
+      <div class="card-body">
+        <div class="dupe-scan-bar">
+          <button class="btn-primary" id="btn-scan-wic" onclick="loadInstallerCache()">Analyser</button>
+          <button class="btn-ghost" id="btn-cleanmgr" onclick="openDiskCleanup()" style="display:none" title="Ouvre l'outil Microsoft Nettoyage de disque qui sait supprimer ce cache en toute sécurité">Nettoyage de disque…</button>
+        </div>
+      </div>
       <div id="wic-container"><div class="tool-empty">Cliquez sur « Analyser » pour mesurer ce cache.</div></div>
     </div>
   </div>
