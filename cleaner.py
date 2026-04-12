@@ -4131,6 +4131,16 @@ _TWEAK_PRESETS = {
             r"\Microsoft\Windows\Maps\MapsToastTask",
         ],
     },
+    "gaming": {
+        "label": "Performance Max",
+        "desc":  "Désactive tout ce qui consomme des ressources en arrière-plan + plan High Performance. Idéal pour le gaming.",
+        "tweaks_off":   _PRESET_AGGRESSIVE_TWEAKS,
+        "services_off": [
+            "SysMain", "WSearch", "DiagTrack", "WerSvc", "MapsBroker", "RetailDemo",
+        ],
+        "tasks_off":    [],
+        "power_plan":   "high_performance",
+    },
     "paranoid": {
         "label": "Paranoïaque",
         "desc":  "Agressif + toute la telemetry et data collection. Coupe DiagTrack et les tâches CEIP.",
@@ -4178,7 +4188,7 @@ def get_tweak_presets():
         tweaks_off   = data.get("tweaks_off",   [])
         services_off = data.get("services_off", [])
         tasks_off    = data.get("tasks_off",    [])
-        out.append({
+        entry = {
             "id":           pid,
             "label":        data["label"],
             "desc":         data["desc"],
@@ -4186,7 +4196,10 @@ def get_tweak_presets():
             "tweaks_off":   tweaks_off,
             "services_off": services_off,
             "tasks_off":    tasks_off,
-        })
+        }
+        if data.get("power_plan"):
+            entry["power_plan"] = data["power_plan"]
+        out.append(entry)
     return out
 
 

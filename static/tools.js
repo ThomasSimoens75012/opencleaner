@@ -3661,12 +3661,25 @@ async function applyTweakPreset(presetId) {
         }
       }
 
+      // 4. Power plan (si le preset le demande, ex: "gaming")
+      if (preset.power_plan === "high_performance") {
+        try {
+          await fetch("/api/gaming-mode", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ enabled: true }),
+          });
+          okCount++;
+        } catch (e) { failCount++; }
+      }
+
       _renderTweakChart();
+      if (typeof loadServices === "function") loadServices();
+      if (typeof loadScheduledTasks === "function") loadScheduledTasks();
 
       if (okCount === 0 && failCount === 0) {
         showToast("Rien à faire", "Toutes les fonctionnalités de ce preset sont déjà dans l'état cible.", "info");
       } else if (failCount === 0) {
-        showToast("Preset appliqué", `${okCount} fonctionnalité(s) désactivée(s).`, "success");
+        showToast("Preset appliqué", `${okCount} fonctionnalité(s) désactivée(s)${preset.power_plan ? " + plan High Performance" : ""}.`, "success");
       } else {
         showToast("Preset partiel", `${okCount} appliqué(s), ${failCount} échec(s) (admin requis pour services/tâches ?).`, "warn");
       }

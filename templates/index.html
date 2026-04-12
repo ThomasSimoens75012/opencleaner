@@ -2822,20 +2822,6 @@
   </div>
 </div>
 
-<!-- Mode Gaming one-click -->
-<div class="callout" id="gaming-card" style="margin-bottom:14px;align-items:center">
-  <div class="callout-icon">
-    <svg class="icon icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4M8 10v4M15 13h.01M18 11h.01"/></svg>
-  </div>
-  <div class="callout-content" style="flex:1">
-    <div style="font-weight:600;color:var(--text);margin-bottom:2px">Mode Gaming</div>
-    <div id="gaming-state" style="color:var(--text-mid);font-size:13px">
-      Arrête SysMain, WSearch, DiagTrack, WerSvc, MapsBroker, RetailDemo et bascule sur le plan <strong>High Performance</strong>. Entièrement réversible.
-    </div>
-  </div>
-  <button class="btn-primary" id="btn-gaming-toggle" onclick="toggleGamingMode()" style="flex-shrink:0;padding:10px 18px">Activer</button>
-</div>
-
 <div class="callout callout-blue" style="margin-bottom:14px">
   <div class="callout-icon">
     <svg class="icon icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
@@ -3236,7 +3222,7 @@
     if (crumb && TAB_LABELS[name]) crumb.textContent = TAB_LABELS[name];
     if (name === "outils")   initTools();
     if (name === "sante")    initHealth();
-    if (name === "perso")    { loadWindowsTweaks(); loadGamingMode(); }
+    if (name === "perso")    loadWindowsTweaks();
   }
 
 </script>

@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Mockups Layout Complets — Personnalisation</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+  :root {
+    --text: #37352f; --text-mid: #787774; --text-dim: #9b9a97;
+    --bg: #fff; --bg2: #fbfbfa; --bg3: #f1f1ef;
+    --border: #e9e9e7; --border2: #dfdedc;
+    --hover: #f7f6f3; --hover-strong: #ededeb;
+    --accent: #37352f;
+    --green: #0f7b6c; --green-bg: #e6f4ea;
+    --amber: #d9730d; --amber-bg: #fdebd0;
+    --red: #e03e3e; --red-bg: #fbe4e4;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'IBM Plex Sans', -apple-system, sans-serif; background: #f5f5f4; color: var(--text); }
+
+  /* ── Shared components ── */
+  .mockup-container { max-width: 980px; margin: 30px auto; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .mockup-label { background: var(--text); color: var(--bg); padding: 10px 20px; font-size: 13px; font-weight: 600; letter-spacing: 0.3px; }
+  .mockup-desc { padding: 12px 20px; background: var(--bg2); border-bottom: 1px solid var(--border); font-size: 12px; color: var(--text-mid); line-height: 1.5; }
+  .page { padding: 30px 40px; }
+
+  h1.page-title { font-size: 26px; font-weight: 700; margin-bottom: 4px; }
+  .page-sub { font-size: 14px; color: var(--text-mid); margin-bottom: 20px; }
+  .version-banner { font-size: 11px; background: var(--bg2); border: 1px solid var(--border); border-radius: 4px; padding: 6px 12px; margin-bottom: 14px; color: var(--text-mid); display: inline-block; }
+
+  /* Callout */
+  .callout { display: flex; gap: 14px; align-items: flex-start; padding: 16px 18px; border-radius: 6px; font-size: 14px; line-height: 1.55; background: var(--bg2); border: 1px solid var(--border); border-left: 3px solid var(--text-mid); color: var(--text); margin-bottom: 14px; }
+  .callout-icon { flex-shrink: 0; color: var(--text-mid); }
+  .callout-content { flex: 1; min-width: 0; }
+  .callout-green { border-left-color: var(--green); }
+  .callout-green .callout-icon { color: var(--green); }
+  .callout-blue { border-left-color: var(--text); }
+
+  /* Buttons */
+  .btn-primary { background: var(--text); color: var(--bg); border: none; border-radius: 4px; padding: 8px 16px; font-family: inherit; font-size: 13px; font-weight: 500; cursor: pointer; }
+  .btn-ghost { background: none; border: 1px solid var(--border2); border-radius: 4px; padding: 6px 12px; font-family: inherit; font-size: 12px; color: var(--text-mid); cursor: pointer; }
+  .btn-ghost:hover { background: var(--hover); color: var(--text); }
+
+  /* Card */
+  .card { border: 1px solid var(--border); border-radius: 6px; margin-bottom: 14px; overflow: hidden; }
+
+  /* Switch */
+  .sw { position: relative; width: 34px; height: 20px; background: var(--border2); border-radius: 10px; cursor: pointer; flex-shrink: 0; }
+  .sw::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; background: var(--bg); border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,.15); transition: .2s; }
+  .sw.on { background: var(--accent); }
+  .sw.on::after { transform: translateX(14px); }
+
+  /* Chart placeholder */
+  .chart-box { background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; padding: 16px; margin-bottom: 14px; }
+  .chart-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 11px; }
+  .chart-bar-row:last-child { margin-bottom: 0; }
+  .chart-bar-label { width: 100px; text-align: right; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .chart-bar { flex: 1; height: 8px; background: var(--bg3); border-radius: 4px; overflow: hidden; }
+  .chart-bar-fill { height: 100%; background: var(--text); border-radius: 4px; }
+  .chart-bar-val { width: 55px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text-mid); }
+
+  /* Filter pills */
+  .pills { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+  .pill { font-size: 11px; padding: 4px 10px; border-radius: 4px; background: var(--bg3); color: var(--text-dim); border: none; cursor: pointer; font-family: inherit; }
+  .pill.active { background: var(--text); color: var(--bg); }
+  .pill .c { font-weight: 600; }
+
+  /* Preset bar */
+  .preset-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 12px 16px; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 14px; background: var(--bg2); }
+  .preset-bar .label { font-size: 12px; font-weight: 600; margin-right: 4px; }
+
+  /* Tweak group */
+  .tg-section { margin-top: 4px; }
+  .tg-section:first-child { margin-top: 0; }
+  .tg-header { display: flex; flex-direction: column; gap: 3px; padding: 12px 14px; background: var(--bg2); border-bottom: 1px solid var(--border); border-left: 3px solid var(--text-dim); cursor: pointer; }
+  .tg-header:hover { background: var(--hover); }
+  .tg-header.open { border-left-color: var(--text); }
+  .tg-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .tg-chevron { width: 14px; height: 14px; color: var(--text-dim); transition: transform .2s; flex-shrink: 0; }
+  .tg-header:not(.open) .tg-chevron { transform: rotate(-90deg); }
+  .tg-name { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; }
+  .tg-stats { display: flex; gap: 4px; flex-wrap: wrap; font-size: 10px; color: var(--text-dim); }
+  .tg-stats span { background: var(--bg3); padding: 1px 6px; border-radius: 3px; }
+  .tg-desc { font-size: 11px; color: var(--text-dim); padding-left: 22px; }
+  .tg-bulk { margin-left: auto; }
+  .tg-body { border-left: 3px solid var(--border); }
+
+  /* Tweak row */
+  .tw-row { display: flex; align-items: center; gap: 12px; padding: 10px 14px 10px 24px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background .12s; }
+  .tw-row:hover { background: var(--hover); }
+  .tw-row:last-child { border-bottom: none; }
+  .tw-row.selected { background: var(--bg3); }
+  .tw-info { flex: 1; min-width: 0; }
+  .tw-label { font-size: 13px; font-weight: 500; }
+  .tw-desc { font-size: 11px; color: var(--text-dim); margin-top: 1px; }
+  .tw-absent { opacity: 0.4; pointer-events: none; }
+  .absent-badge { font-size: 9px; background: var(--bg3); color: var(--text-dim); padding: 1px 6px; border-radius: 3px; font-weight: 600; margin-left: 4px; }
+
+  /* Detail panel */
+  .detail-split { display: flex; }
+  .detail-list { flex: 1; min-width: 0; overflow-y: auto; }
+  .detail-panel { width: 270px; flex-shrink: 0; border-left: 1px solid var(--border); background: var(--bg2); padding: 16px; overflow-y: auto; }
+  .dp-title { font-size: 14px; font-weight: 700; margin-bottom: 3px; }
+  .dp-desc { font-size: 12px; color: var(--text-mid); line-height: 1.5; margin-bottom: 12px; }
+  .dp-stat { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+  .dp-stat:last-of-type { border-bottom: none; }
+  .dp-stat-label { color: var(--text-dim); }
+  .dp-stat-val { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .dp-stat-val.none { color: var(--text-dim); font-weight: 400; }
+  .dp-tradeoff { margin-top: 12px; padding: 10px; background: var(--bg3); border-radius: 4px; border-left: 2px solid var(--text-dim); font-size: 11px; color: var(--text-mid); line-height: 1.5; }
+  .dp-source { margin-top: 8px; font-size: 10px; color: var(--text-dim); }
+  .dp-empty { color: var(--text-dim); font-size: 12px; padding: 30px 0; text-align: center; }
+
+  /* Tabs */
+  .inner-tabs { display: flex; border-bottom: 2px solid var(--border); margin-bottom: 0; }
+  .inner-tab { padding: 10px 18px; font-size: 13px; font-weight: 500; color: var(--text-dim); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; }
+  .inner-tab.active { color: var(--text); border-bottom-color: var(--text); }
+
+  /* Sidebar nav (V4) */
+  .side-nav { width: 180px; border-right: 1px solid var(--border); padding: 8px 0; flex-shrink: 0; }
+  .side-nav-item { padding: 8px 14px; font-size: 12px; color: var(--text-mid); cursor: pointer; border-left: 3px solid transparent; }
+  .side-nav-item:hover { background: var(--hover); }
+  .side-nav-item.active { background: var(--bg3); color: var(--text); font-weight: 600; border-left-color: var(--text); }
+  .side-nav-sep { height: 1px; background: var(--border); margin: 6px 14px; }
+
+  /* Row layout */
+  .flex-row { display: flex; gap: 14px; margin-bottom: 14px; }
+  .flex-row > * { flex: 1; }
+
+  h2.variant-title { font-size: 14px; color: var(--bg); background: var(--text); padding: 10px 20px; margin: 0; }
+  .sep { height: 60px; }
+</style>
+</head>
+<body>
+
+<div style="max-width:980px;margin:30px auto;padding:0 20px">
+  <h1 style="font-size:22px;margin-bottom:6px">Layout Personnalisation — 7 variantes complètes</h1>
+  <p style="font-size:13px;color:var(--text-mid);margin-bottom:40px">Chaque mockup utilise les vrais composants OpenCleaner avec du contenu réel.</p>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     V2 — Gaming + Chart côte à côte
+     ══════════════════════════════════════════════════════════════════════ -->
+<div class="mockup-container">
+<div class="mockup-label">VARIANTE 2 — Gaming + Chart côte à côte, presets dans la sidebar</div>
+<div class="mockup-desc">Le gaming et le chart partagent la première ligne. Les presets, actions et widgets passent dans le panneau latéral. Moins de hauteur perdue.</div>
+<div class="page">
+  <h1 class="page-title">Personnalisation Windows</h1>
+  <p class="page-sub">Désactivez les fonctionnalités inutiles. Tout est réversible. <span class="version-banner">Windows 11 25H2 (build 26200)</span></p>
+
+  <div class="flex-row">
+    <div class="callout callout-green" style="flex:3;margin:0;align-items:center">
+      <div class="callout-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4M8 10v4M15 13h.01M18 11h.01"/></svg></div>
+      <div class="callout-content">
+        <div style="font-weight:600;margin-bottom:2px">Mode Gaming</div>
+        <div style="font-size:12px;color:var(--text-mid)">Arrête 6 services + High Performance. Réversible.</div>
+      </div>
+      <button class="btn-primary">Activer</button>
+    </div>
+    <div class="chart-box" style="flex:2;margin:0">
+      <div style="font-size:11px;font-weight:600;color:var(--text-mid);margin-bottom:10px;text-transform:uppercase;letter-spacing:.4px">Impact estimé</div>
+      <div class="chart-bar-row"><div class="chart-bar-label">RAM</div><div class="chart-bar"><div class="chart-bar-fill" style="width:35%"></div></div><div class="chart-bar-val">533 Mo</div></div>
+      <div class="chart-bar-row"><div class="chart-bar-label">Processus</div><div class="chart-bar"><div class="chart-bar-fill" style="width:20%"></div></div><div class="chart-bar-val">4</div></div>
+      <div class="chart-bar-row"><div class="chart-bar-label">Services</div><div class="chart-bar"><div class="chart-bar-fill" style="width:45%"></div></div><div class="chart-bar-val">9/17</div></div>
+    </div>
+  </div>
+
+  <div class="pills">
+    <button class="pill active">Tout voir <span class="c">50</span></button>
+    <button class="pill">Performance <span class="c">8</span></button>
+    <button class="pill">Télémétrie <span class="c">12</span></button>
+    <button class="pill">Confidentialité <span class="c">15</span></button>
+    <button class="pill">Publicités <span class="c">6</span></button>
+    <button class="pill">Cosmétique <span class="c">7</span></button>
+  </div>
+
+  <div class="card">
+    <div class="detail-split">
+      <div class="detail-list">
+        <div class="tg-section">
+          <div class="tg-header open">
+            <div class="tg-top">
+              <svg class="tg-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+              <span class="tg-name">IA & contenus imposés</span>
+              <div class="tg-stats"><span>500 Mo RAM</span><span>1 proc.</span><span>9/9 désactivés</span><span>2 absents</span></div>
+              <div class="tg-bulk"><div class="sw"></div></div>
+            </div>
+            <div class="tg-desc">Copilot, Edge IA, contenus recommandés. Libère de la RAM et réduit le trafic réseau.</div>
+          </div>
+          <div class="tg-body">
+            <div class="tw-row tw-absent"><div class="tw-info"><div class="tw-label">Copilot Windows <span class="absent-badge">Absent de ce PC</span></div><div class="tw-desc">Assistant IA intégré à Windows</div></div><div class="sw"></div></div>
+            <div class="tw-row selected"><div class="tw-info"><div class="tw-label">Edge Startup Boost</div><div class="tw-desc">Pré-lance Edge au démarrage pour ouverture rapide</div></div><div class="sw"></div></div>
+            <div class="tw-row"><div class="tw-info"><div class="tw-label">Edge arrière-plan</div><div class="tw-desc">Continue de tourner même après fermeture du navigateur</div></div><div class="sw"></div></div>
+          </div>
+        </div>
+        <div class="tg-section">
+          <div class="tg-header"><div class="tg-top"><svg class="tg-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg><span class="tg-name">Recherche & Cortana</span><div class="tg-stats"><span>133 Mo RAM</span><span>2 proc.</span><span>0/2 désactivés</span></div><div class="tg-bulk"><div class="sw on"></div></div></div><div class="tg-desc">Indexation, suggestions de recherche. Impact I/O disque et RAM.</div></div>
+        </div>
+        <div class="tg-section">
+          <div class="tg-header"><div class="tg-top"><svg class="tg-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg><span class="tg-name">Barre des tâches</span><div class="tg-stats"><span>0/5 désactivés</span></div><div class="tg-bulk"><div class="sw on"></div></div></div></div>
+        </div>
+        <div class="tg-section">
+          <div class="tg-header"><div class="tg-top"><svg class="tg-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg><span class="tg-name">Vie privée & tâches de fond</span><div class="tg-stats"><span>15 Mo RAM</span><span>0/4 désactivés</span><span>2 absents</span></div><div class="tg-bulk"><div class="sw on"></div></div></div></div>
+        </div>
+      </div>
+      <div class="detail-panel">
+        <div class="dp-title">Edge Startup Boost</div>
+        <div class="dp-desc">Pré-lance des processus Edge au démarrage de Windows pour accélérer l'ouverture du navigateur.</div>
+        <div class="dp-stat"><span class="dp-stat-label">État</span><span class="dp-stat-val">Désactivé</span></div>
+        <div class="dp-stat"><span class="dp-stat-label">RAM libérée</span><span class="dp-stat-val">350 Mo</span></div>
+        <div class="dp-stat"><span class="dp-stat-label">Processus</span><span class="dp-stat-val">1</span></div>
+        <div class="dp-stat"><span class="dp-stat-label">Disque</span><span class="dp-stat-val none">—</span></div>
+        <div class="dp-tradeoff"><strong>Compromis :</strong> Edge mettra 1-2 secondes de plus à s'ouvrir au premier lancement.</div>
+        <div class="dp-source">Estimation moyenne</div>
+        <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:12px">
+          <div style="font-size:11px;font-weight:600;margin-bottom:8px">Actions rapides</div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <button class="btn-ghost" style="font-size:11px;text-align:left">Sauvegarder la config</button>
+            <button class="btn-ghost" style="font-size:11px;text-align:left">Restaurer une config</button>
+            <button class="btn-ghost" style="font-size:11px;text-align:left">Exporter .reg</button>
+            <button class="btn-ghost" style="font-size:11px;text-align:left">Paramètres Widgets</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="sep"></div>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     V3 — Sous-onglets internes
+     ══════════════════════════════════════════════════════════════════════ -->
+<div class="mockup-container">
+<div class="mockup-label">VARIANTE 3 — Sous-onglets internes (Tweaks | Services | Tâches)</div>
+<div class="mockup-desc">Tweaks, Services et Tâches dans des onglets. Le contenu ne change pas, juste la zone visible. Réduit le scroll.</div>
+<div class="page">
+  <h1 class="page-title">Personnalisation Windows</h1>
+  <p class="page-sub">Désactivez les fonctionnalités inutiles. <span class="version-banner">Windows 11 25H2</span></p>
+
+  <div class="flex-row">
+    <div class="callout callout-green" style="flex:2;margin:0;align-items:center">
+      <div class="callout-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4M8 10v4M15 13h.01M18 11h.01"/></svg></div>
+      <div class="callout-content"><div style="font-weight:600">Mode Gaming</div><div style="font-size:12px;color:var(--text-mid)">6 services + High Performance</div></div>
+      <button class="btn-primary">Activer</button>
+    </div>
+    <div style="flex:1;display:flex;flex-direction:column;gap:6px">
+      <div style="display:flex;gap:6px"><button class="btn-ghost" style="flex:1">Standard</button><button class="btn-ghost" style="flex:1">Agressif</button><button class="btn-ghost" style="flex:1">Paranoïaque</button></div>
+      <div style="display:flex;gap:6px"><button class="btn-ghost" style="flex:1;font-size:10px">Sauvegarder</button><button class="btn-ghost" style="flex:1;font-size:10px">Restaurer</button><button class="btn-ghost" style="flex:1;font-size:10px">.reg</button></div>
+    </div>
+  </div>
+
+  <div class="chart-box" style="margin-top:14px">
+    <div class="chart-bar-row"><div class="chart-bar-label">RAM économisée</div><div class="chart-bar"><div class="chart-bar-fill" style="width:35%"></div></div><div class="chart-bar-val">533 Mo</div></div>
+    <div class="chart-bar-row"><div class="chart-bar-label">Services off</div><div class="chart-bar"><div class="chart-bar-fill" style="width:45%"></div></div><div class="chart-bar-val">9/17</div></div>
+  </div>
+
+  <div class="pills">
+    <button class="pill active">Tout <span class="c">50</span></button>
+    <button class="pill">Performance <span class="c">8</span></button>
+    <button class="pill">Télémétrie <span class="c">12</span></button>
+    <button class="pill">Confidentialité <span class="c">15</span></button>
+  </div>
+
+  <div class="card" style="margin-bottom:0">
+    <div class="inner-tabs">
+      <div class="inner-tab active">Tweaks (50)</div>
+      <div class="inner-tab">Services (17)</div>
+      <div class="inner-tab">Tâches planifiées (13)</div>
+    </div>
+    <div class="detail-split">
+      <div class="detail-list">
+        <div class="tg-section"><div class="tg-header open"><div class="tg-top"><svg class="tg-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg><span class="tg-name">IA & contenus imposés</span><div class="tg-stats"><span>500 Mo</span><span>9/9</span></div><div class="tg-bulk"><div class="sw"></div></div></div></div>
+          <div class="tg-body">
+            <div class="tw-row"><div class="tw-info"><div class="tw-label">Edge Startup Boost</div><div class="tw-desc">Pré-lance Edge au démarrage</div></div><div class="sw"></div></div>
+            <div class="tw-row"><div class="tw-info"><div class="tw-label">Edge arrière-plan</div><div class="tw-desc">Tourne après fermeture</div></div><div class="sw"></div></div>
+            <div class="tw-row"><div class="tw-info"><div class="tw-label">Hub sidebar Edge</div><div class="tw-desc">Barre latérale Bing/Discover</div></div><div class="sw"></div></div>
+          </div>
+        </div>
+        <div class="tg-section"><div class="tg-header"><div class="tg-top"><svg class="tg-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg><span class="tg-name">Recherche & Cortana</span><div class="tg-stats"><span>133 Mo</span><span>0/2</span></div><div class="tg-bulk"><div class="sw on"></div></div></div></div></div>
+        <div class="tg-section"><div class="tg-header"><div class="tg-top"><svg class="tg-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg><span class="tg-name">Menu Démarrer & pubs</span><div class="tg-stats"><span>0/9</span></div><div class="tg-bulk"><div class="sw on"></div></div></div></div></div>
+        <div class="tg-section"><div class="tg-header"><div class="tg-top"><svg class="tg-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg><span class="tg-name">Vie privée</span><div class="tg-stats"><span>15 Mo</span><span>0/4</span></div><div class="tg-bulk"><div class="sw on"></div></div></div></div></div>
+      </div>
+      <div class="detail-panel">
+        <div class="dp-empty">Cliquez sur un élément pour voir ses détails.</div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="sep"></div>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     V5 — Dashboard 2 colonnes
+     ══════════════════════════════════════════════════════════════════════ -->
+<div class="mockup-container">
+<div class="mockup-label">VARIANTE 5 — Dashboard 2 colonnes</div>
+<div class="mockup-desc">Colonne gauche = Gaming, Chart, Presets, Actions. Colonne droite = Filtres + Tweaks. Dense, peu de scroll, pas de panneau détail séparé.</div>
+<div class="page">
+  <h1 class="page-title">Personnalisation Windows</h1>
+  <p class="page-sub">Désactivez les fonctionnalités inutiles. <span class="version-banner">Windows 11 25H2</span></p>
+
+  <div style="display:flex;gap:20px;align-items:flex-start">
+    <!-- Colonne gauche -->
+    <div style="width:300px;flex-shrink:0">
+      <div class="callout callout-green" style="align-items:center">
+        <div class="callout-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4M8 10v4M15 13h.01M18 11h.01"/></svg></div>
+        <div class="callout-content"><div style="font-weight:600;font-size:13px">Mode Gaming</div><div style="font-size:11px;color:var(--text-mid)">6 services + High Perf</div></div>
+        <button class="btn-primary" style="font-size:12px;padding:6px 12px">Activer</button>
+      </div>
+
+      <div class="chart-box">
+        <div style="font-size:10px;font-weight:600;color:var(--text-mid);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Impact</div>
+        <div class="chart-bar-row"><div class="chart-bar-label" style="width:70px">RAM</div><div class="chart-bar"><div class="chart-bar-fill" style="width:35%"></div></div><div class="chart-bar-val" style="width:50px">533 Mo</div></div>
+        <div class="chart-bar-row"><div class="chart-bar-label" style="width:70px">Proc.</div><div class="chart-bar"><div class="chart-bar-fill" style="width:20%"></div></div><div class="chart-bar-val" style="width:50px">4</div></div>
+        <div class="chart-bar-row"><div class="chart-bar-label" style="width:70px">Services</div><div class="chart-bar"><div class="chart-bar-fill" style="width:45%"></div></div><div class="chart-bar-val" style="width:50px">9/17</div></div>
+      </div>
+
+      <div style="font-size:11px;font-weight:600;margin-bottom:8px">Presets</div>
+      <div style="display:flex;gap:6px;margin-bottom:12px"><button class="btn-ghost" style="flex:1;font-size:11px">Standard</button><button class="btn-ghost" style="flex:1;font-size:11px">Agressif</button><button class="btn-ghost" style="flex:1;font-size:11px">Paranoïaque</button></div>
+
+      <div style="font-size:11px;font-weight:600;margin-bottom:8px">Actions</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <button class="btn-ghost" style="font-size:11px;text-align:left">Sauvegarder la configuration</button>
+        <button class="btn-ghost" style="font-size:11px;text-align:left">Restaurer une configuration</button>
+        <button class="btn-ghost" style="font-size:11px;text-align:left">Exporter en fichier .reg</button>
+        <button class="btn-ghost" style="font-size:11px;text-align:left">Paramètres Widgets (ms-settings)</button>
+      </div>
+
+      <div class="callout callout-blue" style="margin-top:14px;font-size:12px">
+        <div class="callout-content"><strong>Note :</strong> Tous les réglages sont stockés dans HKCU et réversibles à tout moment.</div>
+      </div>
+    </div>
+
+    <!-- Colonne droite -->
+    <div style="flex:1">
+      <div class="pills">
+        <button class="pill active">Tout <span class="c">50</span></button>
+        <button class="pill">Performance <span class="c">8</span></button>
+        <button class="pill">Télémétrie <span class="c">12</span></button>
+        <button class="pill">Confidentialité <span class="c">15</span></button>
+        <button class="pill">Publicités <span class="c">6</span></button>
+      </div>
+
+      <div class="card" style="margin-bottom:10px">
+        <div class="tg-section"><div class="tg-header open"><div class="tg-top"><svg class="tg-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg><span class="tg-name">IA & contenus</span><div class="tg-stats"><span>500 Mo</span><span>9/9</span></div><div class="tg-bulk"><div class="sw"></div></div></div><div class="tg-desc">Copilot, Edge IA. Libère RAM + réduit trafic réseau.</div></div>
+          <div class="tg-body">
+            <div class="tw-row tw-absent"><div class="tw-info"><div class="tw-label">Copilot <span class="absent-badge">Absent</span></div></div><div class="sw"></div></div>
+            <div class="tw-row"><div class="tw-info"><div class="tw-label">Edge Startup Boost</div><div class="tw-desc">Pré-lance Edge — libère ~350 Mo</div></div><div class="sw"></div></div>
+            <div class="tw-row"><div class="tw-info"><div class="tw-label">Edge arrière-plan</div><div class="tw-desc">Continue après fermeture — libère ~150 Mo</div></div><div class="sw"></div></div>
+          </div>
+        </div>
+        <div class="tg-section"><div class="tg-header"><div class="tg-top"><svg class="tg-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg><span class="tg-name">Recherche & Cortana</span><div class="tg-stats"><span>133 Mo</span><span>0/2</span></div><div class="tg-bulk"><div class="sw on"></div></div></div></div></div>
+        <div class="tg-section"><div class="tg-header"><div class="tg-top"><svg class="tg-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg><span class="tg-name">Menu Démarrer & pubs</span><div class="tg-stats"><span>0/9</span></div><div class="tg-bulk"><div class="sw on"></div></div></div></div></div>
+        <div class="tg-section"><div class="tg-header"><div class="tg-top"><svg class="tg-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg><span class="tg-name">Vie privée</span><div class="tg-stats"><span>15 Mo</span><span>0/4</span></div><div class="tg-bulk"><div class="sw on"></div></div></div></div></div>
+      </div>
+
+      <div class="card">
+        <div class="tg-header"><div class="tg-top"><svg class="tg-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg><span class="tg-name">Services Windows</span><div class="tg-stats"><span>14 services</span></div><div class="tg-bulk"><div class="sw on"></div></div></div></div>
+      </div>
+      <div class="card">
+        <div class="tg-header"><div class="tg-top"><svg class="tg-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg><span class="tg-name">Tâches planifiées</span><div class="tg-stats"><span>13 tâches</span></div><div class="tg-bulk"><div class="sw on"></div></div></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="sep"></div>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     V6 — Minimal (tout dans un flux unique)
+     ══════════════════════════════════════════════════════════════════════ -->
+<div class="mockup-container">
+<div class="mockup-label">VARIANTE 6 — Minimaliste, flux unique</div>
+<div class="mockup-desc">Services et tâches intégrés dans la même liste accordéon. Gaming et presets compacts en haut. Un seul scroll vertical.</div>
+<div class="page">
+  <h1 class="page-title">Personnalisation Windows</h1>
+  <p class="page-sub">Désactivez les fonctionnalités inutiles. <span class="version-banner">Windows 11 25H2</span></p>
+
+  <div class="flex-row">
+    <div class="callout callout-green" style="flex:1;margin:0;align-items:center">
+      <div class="callout-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4M8 10v4M15 13h.01M18 11h.01"/></svg></div>
+      <div class="callout-content"><div style="font-weight:600;font-size:13px">Mode Gaming</div><div style="font-size:11px;color:var(--text-mid)">6 services + High Perf</div></div>
+      <button class="btn-primary" style="font-size:12px;padding:6px 14px">Activer</button>
+    </div>
+    <div class="preset-bar" style="flex:1;margin:0">
+      <span class="label">Presets :</span>
+      <button class="btn-ghost" style="font-size:11px">Standard</button>
+      <button class="btn-ghost" style="font-size:11px">Agressif</button>
+      <button class="btn-ghost" style="font-size:11px">Paranoïaque</button>
+    </div>
+  </div>
+
+  <div class="pills" style="margin-top:14px">
+    <button class="pill active">Tout <span class="c">50</span></button>
+    <button class="pill">Performance <span class="c">8</span></button>
+    <button class="pill">Télémétrie <span class="c">12</span></button>
+    <button class="pill">Confidentialité <span class="c">15</span></button>
+  </div>
+
+  <div class="card">
+    <div class="tg-section"><div class="tg-header open"><div class="tg-top"><svg class="tg-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg><span class="tg-name">IA & contenus</span><div class="tg-stats"><span>500 Mo</span><span>9/9</span></div><div class="tg-bulk"><div class="sw"></div></div></div><div class="tg-desc">Copilot, Edge IA. Libère RAM + réduit trafic réseau.</div></div>
+      <div class="tg-body">
+        <div class="tw-row tw-absent"><div class="tw-info"><div class="tw-label">Copilot <span class="absent-badge">Absent</span></div><div class="tw-desc">Assistant IA Windows</div></div><div class="sw"></div></div>
+        <div class="tw-row"><div class="tw-info"><div class="tw-label">Edge Startup Boost</div><div class="tw-desc">Pré-lance Edge — libère ~350 Mo RAM</div></div><div class="sw"></div></div>
+        <div class="tw-row"><div class="tw-info"><div class="tw-label">Edge arrière-plan</div><div class="tw-desc">Continue après fermeture — ~150 Mo RAM</div></div><div class="sw"></div></div>
+      </div>
+    </div>
+    <div class="tg-section"><div class="tg-header"><div class="tg-top"><svg class="tg-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg><span class="tg-name">Recherche & Cortana</span><div class="tg-stats"><span>133 Mo</span><span>0/2</span></div><div class="tg-bulk"><div class="sw on"></div></div></div></div></div>
+    <div class="tg-section"><div class="tg-header"><div class="tg-top"><svg class="tg-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg><span class="tg-name">Barre des tâches</span><div class="tg-stats"><span>33 Mo</span><span>0/5</span></div><div class="tg-bulk"><div class="sw on"></div></div></div></div></div>
+    <div class="tg-section"><div class="tg-header"><div class="tg-top"><svg class="tg-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg><span class="tg-name">Menu Démarrer & pubs</span><div class="tg-stats"><span>0/9</span></div><div class="tg-bulk"><div class="sw on"></div></div></div></div></div>
+    <div class="tg-section"><div class="tg-header"><div class="tg-top"><svg class="tg-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg><span class="tg-name">Notifications & écran de verrouillage</span><div class="tg-stats"><span>0/9</span></div><div class="tg-bulk"><div class="sw on"></div></div></div></div></div>
+    <div class="tg-section"><div class="tg-header"><div class="tg-top"><svg class="tg-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg><span class="tg-name">Explorateur de fichiers</span><div class="tg-stats"><span>0/7</span></div><div class="tg-bulk"><div class="sw on"></div></div></div></div></div>
+    <div class="tg-section"><div class="tg-header"><div class="tg-top"><svg class="tg-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg><span class="tg-name">Vie privée & tâches de fond</span><div class="tg-stats"><span>15 Mo</span><span>0/4</span></div><div class="tg-bulk"><div class="sw on"></div></div></div></div></div>
+
+    <div style="border-top:2px solid var(--border);margin:0 12px"></div>
+
+    <div class="tg-section"><div class="tg-header"><div class="tg-top"><svg class="tg-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg><span class="tg-name">Services Windows</span><div class="tg-stats"><span>14 services</span><span>admin requis</span></div><div class="tg-bulk"><div class="sw on"></div></div></div><div class="tg-desc">Télémétrie, Xbox, legacy, cloud sync. Nécessite les droits administrateur.</div></div></div>
+    <div class="tg-section"><div class="tg-header"><div class="tg-top"><svg class="tg-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg><span class="tg-name">Tâches planifiées</span><div class="tg-stats"><span>13 tâches</span><span>admin requis</span></div><div class="tg-bulk"><div class="sw on"></div></div></div><div class="tg-desc">CEIP, Maps, Error Reporting. Nécessite les droits administrateur.</div></div></div>
+  </div>
+</div>
+</div>
+
+<div class="sep"></div>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     V7 — Hybride recommandée
+     ══════════════════════════════════════════════════════════════════════ -->
+<div class="mockup-container" style="border-color:var(--green);border-width:2px">
+<div class="mockup-label" style="background:var(--green)">VARIANTE 7 — RECOMMANDÉE (hybride)</div>
+<div class="mockup-desc">Gaming+Chart côte à côte, Presets+Actions sur une barre, flux unique accordéon + panneau détail. Le meilleur ratio info/scroll.</div>
+<div class="page">
+  <h1 class="page-title">Personnalisation Windows</h1>
+  <p class="page-sub">Désactivez les fonctionnalités inutiles. Tout est réversible. <span class="version-banner">Windows 11 25H2 (build 26200)</span></p>
+
+  <div class="flex-row">
+    <div class="callout callout-green" style="flex:3;margin:0;align-items:center">
+      <div class="callout-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4M8 10v4M15 13h.01M18 11h.01"/></svg></div>
+      <div class="callout-content">
+        <div style="font-weight:600;margin-bottom:2px">Mode Gaming</div>
+        <div style="font-size:12px;color:var(--text-mid)">Arrête SysMain, WSearch, DiagTrack + High Performance. Réversible.</div>
+      </div>
+      <button class="btn-primary">Activer</button>
+    </div>
+    <div class="chart-box" style="flex:2;margin:0">
+      <div style="font-size:10px;font-weight:600;color:var(--text-mid);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Impact estimé</div>
+      <div class="chart-bar-row"><div class="chart-bar-label" style="width:60px">RAM</div><div class="chart-bar"><div class="chart-bar-fill" style="width:35%"></div></div><div class="chart-bar-val" style="width:50px">533 Mo</div></div>
+      <div class="chart-bar-row"><div class="chart-bar-label" style="width:60px">Proc.</div><div class="chart-bar"><div class="chart-bar-fill" style="width:20%"></div></div><div class="chart-bar-val" style="width:50px">4</div></div>
+      <div class="chart-bar-row"><div class="chart-bar-label" style="width:60px">Services</div><div class="chart-bar"><div class="chart-bar-fill" style="width:45%"></div></div><div class="chart-bar-val" style="width:50px">9/17</div></div>
+    </div>
+  </div>
+
+  <div class="preset-bar">
+    <span class="label">Presets :</span>
+    <button class="btn-ghost" style="font-size:11px">Standard</button>
+    <button class="btn-ghost" style="font-size:11px">Agressif</button>
+    <button class="btn-ghost" style="font-size:11px">Paranoïaque</button>
+    <span style="color:var(--border2);margin:0 4px">|</span>
+    <button class="btn-ghost" style="font-size:10px">Sauvegarder</button>
+    <button class="btn-ghost" style="font-size:10px">Restaurer</button>
+    <button class="btn-ghost" style="font-size:10px">.reg</button>
+    <span style="color:var(--border2);margin:0 4px">|</span>
+    <button class="btn-ghost" style="font-size:10px">Widgets (ms-settings)</button>
+  </div>
+
+  <div class="pills">
+    <button class="pill active">Tout voir <span class="c">50</span></button>
+    <button class="pill">Performance <span class="c">8</span></button>
+    <button class="pill">Télémétrie <span class="c">12</span></button>
+    <button class="pill">Confidentialité <span class="c">15</span></button>
+    <button class="pill">Publicités <span class="c">6</span></button>
+    <button class="pill">Cosmétique <span class="c">7</span></button>
+    <button class="pill">Sécurité <span class="c">2</span></button>
+  </div>
+
+  <div class="card" style="margin-bottom:0">
+    <div class="detail-split">
+      <div class="detail-list">
+        <div class="tg-section"><div class="tg-header open"><div class="tg-top"><svg class="tg-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg><span class="tg-name">IA & contenus imposés</span><div class="tg-stats"><span>500 Mo RAM</span><span>1 proc.</span><span>9/9 désactivés</span><span>2 absents</span></div><div class="tg-bulk"><div class="sw"></div></div></div><div class="tg-desc">Copilot, Edge IA, contenus recommandés. Libère de la RAM et réduit le trafic réseau.</div></div>
+          <div class="tg-body">
+            <div class="tw-row tw-absent"><div class="tw-info"><div class="tw-label">Copilot Windows <span class="absent-badge">Absent de ce PC</span></div><div class="tw-desc">Assistant IA intégré à Windows</div></div><div class="sw"></div></div>
+            <div class="tw-row tw-absent"><div class="tw-info"><div class="tw-label">Bouton Copilot <span class="absent-badge">Absent de ce PC</span></div><div class="tw-desc">Icône Copilot dans la barre des tâches</div></div><div class="sw"></div></div>
+            <div class="tw-row selected"><div class="tw-info"><div class="tw-label">Edge Startup Boost</div><div class="tw-desc">Pré-lance des processus Edge au démarrage de Windows</div></div><div class="sw"></div></div>
+            <div class="tw-row"><div class="tw-info"><div class="tw-label">Edge arrière-plan</div><div class="tw-desc">Continue de tourner même après fermeture du navigateur</div></div><div class="sw"></div></div>
+            <div class="tw-row"><div class="tw-info"><div class="tw-label">Hub sidebar Edge</div><div class="tw-desc">Barre latérale Bing/Discover dans Edge</div></div><div class="sw"></div></div>
+            <div class="tw-row"><div class="tw-info"><div class="tw-label">Shopping Edge</div><div class="tw-desc">Suggestions de prix et coupons dans Edge</div></div><div class="sw"></div></div>
+            <div class="tw-row"><div class="tw-info"><div class="tw-label">Rapports personnalisation Edge</div><div class="tw-desc">Données de navigation envoyées à Microsoft</div></div><div class="sw"></div></div>
+            <div class="tw-row"><div class="tw-info"><div class="tw-label">Notepad IA</div><div class="tw-desc">Fonctions IA dans le Bloc-notes Windows 11</div></div><div class="sw"></div></div>
+          </div>
+        </div>
+        <div class="tg-section"><div class="tg-header"><div class="tg-top"><svg class="tg-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg><span class="tg-name">Barre des tâches</span><div class="tg-stats"><span>33 Mo RAM</span><span>0/5 désactivés</span></div><div class="tg-bulk"><div class="sw on"></div></div></div><div class="tg-desc">Widgets météo/news, position de la barre, raccourcis imposés.</div></div></div>
+        <div class="tg-section"><div class="tg-header"><div class="tg-top"><svg class="tg-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg><span class="tg-name">Recherche & Cortana</span><div class="tg-stats"><span>133 Mo RAM</span><span>2 proc.</span><span>0/2 désactivés</span><span>1 absent</span></div><div class="tg-bulk"><div class="sw on"></div></div></div><div class="tg-desc">Indexation, suggestions. Impact I/O disque et RAM.</div></div></div>
+        <div class="tg-section"><div class="tg-header"><div class="tg-top"><svg class="tg-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg><span class="tg-name">Menu Démarrer & pubs</span><div class="tg-stats"><span>0/9 désactivés</span></div><div class="tg-bulk"><div class="sw on"></div></div></div></div></div>
+        <div class="tg-section"><div class="tg-header"><div class="tg-top"><svg class="tg-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg><span class="tg-name">Notifications & écran de verrouillage</span><div class="tg-stats"><span>0/9 désactivés</span></div><div class="tg-bulk"><div class="sw on"></div></div></div></div></div>
+        <div class="tg-section"><div class="tg-header"><div class="tg-top"><svg class="tg-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg><span class="tg-name">Explorateur de fichiers</span><div class="tg-stats"><span>0/7 désactivés</span></div><div class="tg-bulk"><div class="sw on"></div></div></div></div></div>
+        <div class="tg-section"><div class="tg-header"><div class="tg-top"><svg class="tg-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg><span class="tg-name">Vie privée & tâches de fond</span><div class="tg-stats"><span>15 Mo RAM</span><span>0/4 désactivés</span><span>2 absents</span></div><div class="tg-bulk"><div class="sw on"></div></div></div></div></div>
+
+        <div style="border-top:2px solid var(--border);margin:2px 12px"></div>
+
+        <div class="tg-section"><div class="tg-header"><div class="tg-top"><svg class="tg-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg><span class="tg-name">Services Windows</span><div class="tg-stats"><span>14 services</span><span>admin requis</span></div><div class="tg-bulk"><div class="sw on"></div></div></div><div class="tg-desc">Télémétrie, Xbox, legacy. Nécessite les droits administrateur.</div></div></div>
+        <div class="tg-section"><div class="tg-header"><div class="tg-top"><svg class="tg-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg><span class="tg-name">Tâches planifiées</span><div class="tg-stats"><span>13 tâches</span><span>admin requis</span></div><div class="tg-bulk"><div class="sw on"></div></div></div><div class="tg-desc">CEIP, Maps, Error Reporting. Nécessite admin.</div></div></div>
+      </div>
+
+      <div class="detail-panel">
+        <div class="dp-title">Edge Startup Boost</div>
+        <div class="dp-desc">Pré-lance des processus Edge au démarrage de Windows pour accélérer l'ouverture du navigateur.</div>
+        <div class="dp-stat"><span class="dp-stat-label">État</span><span class="dp-stat-val">Désactivé</span></div>
+        <div class="dp-stat"><span class="dp-stat-label">RAM libérée</span><span class="dp-stat-val">350 Mo</span></div>
+        <div class="dp-stat"><span class="dp-stat-label">Processus</span><span class="dp-stat-val">1</span></div>
+        <div class="dp-stat"><span class="dp-stat-label">Espace disque</span><span class="dp-stat-val none">—</span></div>
+        <div class="dp-stat"><span class="dp-stat-label">Catégorie</span><span class="dp-stat-val none">performance</span></div>
+        <div class="dp-tradeoff"><strong>Compromis :</strong> Edge mettra 1-2 secondes de plus à s'ouvrir au premier lancement. Libère ~350 Mo de RAM quand Edge est fermé.</div>
+        <div class="dp-source">Estimation moyenne (pas de mesure locale)</div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div style="max-width:980px;margin:40px auto;padding:20px 20px 60px">
+  <div style="padding:20px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;font-size:13px;color:var(--text-mid);line-height:1.7">
+    <strong style="color:var(--text)">Résumé</strong><br><br>
+    <strong>V2 (Gaming+Chart côte à côte)</strong> — Économise de la hauteur. Actions dans la sidebar du detail panel. Bonne densité.<br><br>
+    <strong>V3 (Sous-onglets)</strong> — Le plus économe en scroll. Tweaks/Services/Tâches en onglets internes. Gaming et presets côte à côte en haut. Ajoute un clic mais réduit le chaos.<br><br>
+    <strong>V5 (Dashboard 2 colonnes)</strong> — Actions à gauche, contenu à droite. Très dense, idéal si beaucoup de tweaks. Pas de panneau détail — les infos sont inline sur chaque row.<br><br>
+    <strong>V6 (Minimaliste)</strong> — Services et Tâches dans la même liste accordéon. Un seul flux. Le plus simple à comprendre. Présets et Gaming compacts sur une ligne en haut.<br><br>
+    <strong style="color:var(--green)">V7 (Recommandée)</strong> — Meilleur des mondes : Gaming+Chart côte à côte, barre d'actions unifiée, flux accordéon unique (tweaks + services + tâches séparés par un trait), panneau détail à droite. Scroll minimal, hiérarchie claire.
+  </div>
+</div>
+
+</body>
+</html>
