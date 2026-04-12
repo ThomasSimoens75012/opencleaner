@@ -3569,17 +3569,24 @@ def run_self_check():
     except Exception as e:
         checks.append({"id": "hkcu", "label": "Écriture HKCU", "status": "error", "detail": str(e)})
 
-    # 2. Fichier baseline
+    # 2. Fichier baseline — tente un scan si absent
     try:
+        if not _BASELINE_PATH.exists():
+            _refresh_tweak_baseline()
         if _BASELINE_PATH.exists():
             size = _BASELINE_PATH.stat().st_size
             baseline = _load_tweak_baseline()
             count = len(baseline)
-            checks.append({"id": "baseline", "label": "Baseline mesures", "status": "ok",
-                           "detail": f"{count} entrée(s) mesurée(s) stockées ({size} octets)"})
+            if count > 0:
+                checks.append({"id": "baseline", "label": "Baseline mesures", "status": "ok",
+                               "detail": f"{count} processus mesuré(s) ({size} octets)"})
+            else:
+                mapped = list(_TWEAK_PROCESSES.keys())
+                checks.append({"id": "baseline", "label": "Baseline mesures", "status": "warn",
+                               "detail": f"Fichier créé mais vide — aucun des {len(mapped)} processus surveillés n'est en cours d'exécution ({', '.join(mapped[:5])}…). C'est normal si ces features sont déjà désactivées."})
         else:
             checks.append({"id": "baseline", "label": "Baseline mesures", "status": "warn",
-                           "detail": "Aucune mesure encore collectée (fichier absent)"})
+                           "detail": "Impossible de créer le fichier baseline"})
     except Exception as e:
         checks.append({"id": "baseline", "label": "Baseline mesures", "status": "error", "detail": str(e)})
 
@@ -3733,9 +3740,23 @@ _TWEAK_TAGS = [
 # avec le navigateur utilisateur, pas SearchHost.exe qui sert aussi à la
 # recherche Windows générale).
 _TWEAK_PROCESSES = {
-    "copilot":   ["copilot.exe", "microsoft.copilot.native.exe", "copilotruntime.exe"],
-    "game_dvr":  ["broadcastdvrserver.exe", "gamesvr.exe"],
-    "game_bar":  ["gamebar.exe", "gamebarft.exe", "gamebarelevatedft_plus.exe"],
+    # IA / Copilot
+    "copilot":              ["copilot.exe", "microsoft.copilot.native.exe", "copilotruntime.exe"],
+    # Gaming
+    "game_dvr":             ["broadcastdvrserver.exe", "gamesvr.exe"],
+    "game_bar":             ["gamebar.exe", "gamebarft.exe", "gamebarelevatedft_plus.exe"],
+    # Edge en arrière-plan (msedge.exe partagé mais les --type= de fond sont identifiables)
+    "edge_startup_boost":   ["msedge.exe"],
+    # Windows Search / Indexation
+    "search_highlights":    ["searchhost.exe", "searchprotocolhost.exe", "searchfilterhost.exe", "searchindexer.exe"],
+    # Widgets / News feed
+    "widgets":              ["widgets.exe", "widgetservice.exe"],
+    # Cortana legacy
+    "cortana":              ["cortana.exe"],
+    # OneDrive sync
+    "onedrive_startup":     ["onedrive.exe"],
+    # Phone Link
+    "phone_link":           ["phoneexperiencehost.exe", "yourphone.exe"],
 }
 
 _BASELINE_PATH = Path(__file__).parent / "tweak_baseline.json"
