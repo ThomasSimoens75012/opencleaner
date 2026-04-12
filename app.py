@@ -57,24 +57,6 @@ from cleaner import (
 )
 
 
-@app.before_request
-def _csrf_guard():
-    """Bloque les requêtes mutantes (POST/PUT/DELETE) venant d'une autre origin.
-
-    Empêche un site malveillant de déclencher des actions via fetch() vers localhost.
-    """
-    if request.method in ("POST", "PUT", "DELETE"):
-        origin = request.headers.get("Origin") or ""
-        referer = request.headers.get("Referer") or ""
-        allowed = ("http://127.0.0.1", "http://localhost")
-        if origin:
-            if not any(origin.startswith(a) for a in allowed):
-                return jsonify({"error": "Origin non autorisée"}), 403
-        elif referer:
-            if not any(referer.startswith(a) for a in allowed):
-                return jsonify({"error": "Referer non autorisé"}), 403
-
-
 def _log_delete(op, summary, errors):
     app.logger.info("%s — %s, %d erreur(s)", op, summary, len(errors or []))
     for e in (errors or []):
@@ -92,6 +74,22 @@ def _reject_if_admin_paths(paths):
     return None
 
 app = Flask(__name__)
+
+
+@app.before_request
+def _csrf_guard():
+    """Bloque les requêtes mutantes (POST/PUT/DELETE) venant d'une autre origin."""
+    if request.method in ("POST", "PUT", "DELETE"):
+        origin = request.headers.get("Origin") or ""
+        referer = request.headers.get("Referer") or ""
+        allowed = ("http://127.0.0.1", "http://localhost")
+        if origin:
+            if not any(origin.startswith(a) for a in allowed):
+                return jsonify({"error": "Origin non autorisée"}), 403
+        elif referer:
+            if not any(referer.startswith(a) for a in allowed):
+                return jsonify({"error": "Referer non autorisé"}), 403
+
 
 _LOG_DIR = Path(__file__).parent / "logs"
 _LOG_DIR.mkdir(exist_ok=True)
