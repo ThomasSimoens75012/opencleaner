@@ -4567,12 +4567,11 @@ def get_scheduled_tasks_state():
             )
             if r.returncode == 0:
                 exists = True
-                out = r.stdout.decode("utf-8", errors="replace")
-                out_norm = out.replace("\ufffd", "")
+                out = r.stdout.decode("oem", errors="replace")
                 # CSV format: "TaskName","Next Run Time","Status" — tolérant FR/EN
-                if "Disabled" in out or "sactiv" in out_norm.lower():
+                if "Disabled" in out or "sactiv" in out.lower():
                     state = "disabled"
-                elif "Ready" in out or "Running" in out or "Pr" in out_norm or "En cours" in out:
+                elif "Ready" in out or "Running" in out or "Prêt" in out or "En cours" in out:
                     state = "enabled"
         except Exception:
             pass
@@ -4614,8 +4613,8 @@ def get_all_scheduled_tasks_dynamic():
             capture_output=True, timeout=30, creationflags=0x08000000,
         )
         if r.returncode != 0:
-            return {"items": [], "error": r.stderr.decode("utf-8", errors="replace")}
-        out = r.stdout.decode("utf-8", errors="replace")
+            return {"items": [], "error": r.stderr.decode("oem", errors="replace")}
+        out = r.stdout.decode("oem", errors="replace")
     except Exception as e:
         return {"items": [], "error": str(e)}
 
@@ -4711,7 +4710,7 @@ def set_scheduled_task_enabled(task_path, enabled):
         )
         if r.returncode == 0:
             return True, None
-        err = r.stderr.decode("utf-8", errors="replace").strip()
+        err = r.stderr.decode("oem", errors="replace").strip()
         return False, err or "schtasks a échoué"
     except Exception as e:
         return False, str(e)
