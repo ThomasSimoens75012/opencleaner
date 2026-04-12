@@ -3268,25 +3268,23 @@ function _renderVersionBanner() {
   const isFake   = detected !== real;
   const incompatCount = _tweakItems.filter(i => !_isTweakCompatible(i) || i.present === false).length;
 
-  el.classList.toggle("has-incompat", incompatCount > 0);
-  el.style.display = "flex";
+  el.style.display = "inline-flex";
 
   const fakeLabel = isFake
-    ? ` <span style="color:var(--amber)">[simulé W${detected}]</span>`
+    ? ` <span style="color:var(--amber)">(simulé W${detected})</span>`
     : "";
   const incompatNote = incompatCount > 0
-    ? `<span style="color:var(--text-mid)">— ${incompatCount} tweak(s) Windows 11 uniquement sont grisés</span>`
-    : `<span style="color:var(--green)">— tous les tweaks sont compatibles</span>`;
+    ? `<span class="vb-note">${incompatCount} grisé${incompatCount > 1 ? "s" : ""}</span>`
+    : "";
 
   const fakeBtn = isFake
-    ? `<button class="fake-btn" onclick="fakeWindowsVersion(null)">retirer simulation</button>`
+    ? `<button class="fake-btn" onclick="fakeWindowsVersion(null)">retirer</button>`
     : (detected === 11
         ? `<button class="fake-btn" onclick="fakeWindowsVersion(10)">simuler W10</button>`
         : `<button class="fake-btn" onclick="fakeWindowsVersion(11)">simuler W11</button>`);
 
   el.innerHTML = `
-    <span class="vb-icon">détecté</span>
-    <strong>${_escapeHtml(caption)}</strong>${fakeLabel}
+    <span class="vb-chip"><strong>${_escapeHtml(caption)}</strong></span>${fakeLabel}
     ${incompatNote}
     ${fakeBtn}
   `;

@@ -1860,37 +1860,33 @@
 
     /* Bandeau version détectée en haut de Personnalisation */
     .version-banner {
-      display: flex;
+      display: inline-flex;
       align-items: center;
-      gap: 10px;
-      padding: 10px 14px;
-      background: var(--bg3);
-      border: 1px solid var(--border);
-      border-radius: 6px;
+      gap: 8px;
       font-size: 12px;
-      color: var(--text-mid);
+      color: var(--text-dim);
       margin-bottom: 14px;
     }
-    .version-banner .vb-icon {
+    .version-banner .vb-chip {
       font-family: 'IBM Plex Mono', monospace;
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: var(--text-dim);
-      font-weight: 600;
+      font-size: 11px;
+      background: var(--bg3);
+      padding: 3px 10px;
+      border-radius: 4px;
+      color: var(--text-mid);
     }
-    .version-banner strong { color: var(--text); font-weight: 600; }
-    .version-banner.has-incompat { border-left: 3px solid var(--amber); }
+    .version-banner .vb-chip strong { color: var(--text); font-weight: 600; }
+    .version-banner .vb-note { font-size: 11px; color: var(--text-dim); }
     .version-banner .fake-btn {
-      margin-left: auto;
       background: none;
-      border: 1px solid var(--border);
+      border: none;
       color: var(--text-dim);
       font-family: inherit;
       font-size: 10px;
-      padding: 3px 8px;
-      border-radius: 3px;
+      padding: 0;
       cursor: pointer;
+      text-decoration: underline;
+      text-underline-offset: 2px;
     }
     .version-banner .fake-btn:hover { color: var(--text); }
     .health-metric-card:hover { background: var(--hover); }
@@ -2822,19 +2818,20 @@
     </div>
   </div>
   <!-- Presets + Actions -->
-  <div style="flex:2;min-width:240px;display:flex;flex-direction:column;gap:8px">
-    <div style="font-size:13px;font-weight:600">Appliquer un preset</div>
-    <div id="tweak-presets" style="display:flex;gap:6px;flex-wrap:wrap"></div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
-      <button class="btn-ghost" onclick="exportConfigSnapshot()" style="font-size:11px" title="Sauvegarde JSON complète">Sauvegarder</button>
-      <button class="btn-ghost" onclick="triggerImportConfig()" style="font-size:11px" title="Restaurer un fichier JSON">Restaurer</button>
-      <input type="file" id="config-import-file" accept="application/json" style="display:none" onchange="handleImportConfigFile(event)">
-      <button class="btn-ghost" onclick="exportTweaksReg()" style="font-size:11px" title="Fichier .reg importable sans OpenCleaner">.reg</button>
-      <span style="color:var(--border2);line-height:28px">|</span>
-      <button class="btn-ghost" onclick="openSettingsUri('ms-settings:taskbar')" style="font-size:11px" title="Widgets non modifiables par registre depuis 24H2">Widgets</button>
+  <div style="flex:2;min-width:240px;display:flex;flex-direction:column;gap:10px;justify-content:center">
+    <div>
+      <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-dim);margin-bottom:6px">Presets</div>
+      <div id="tweak-presets" style="display:flex;gap:6px;flex-wrap:wrap"></div>
     </div>
-    <div style="font-size:10px;color:var(--text-dim);margin-top:auto;line-height:1.4">
-      Réglages HKCU, réversibles. Certains nécessitent un redémarrage de l'Explorateur.
+    <div>
+      <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-dim);margin-bottom:6px">Actions</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn-ghost" onclick="exportConfigSnapshot()" style="font-size:11px" title="Sauvegarde JSON complète">Sauvegarder</button>
+        <button class="btn-ghost" onclick="triggerImportConfig()" style="font-size:11px" title="Restaurer un fichier JSON">Restaurer</button>
+        <input type="file" id="config-import-file" accept="application/json" style="display:none" onchange="handleImportConfigFile(event)">
+        <button class="btn-ghost" onclick="exportTweaksReg()" style="font-size:11px" title="Fichier .reg importable sans OpenCleaner">.reg</button>
+        <button class="btn-ghost" onclick="openSettingsUri('ms-settings:taskbar')" style="font-size:11px" title="Widgets non modifiables par registre depuis 24H2">Widgets</button>
+      </div>
     </div>
   </div>
 </div>
