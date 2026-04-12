@@ -1082,6 +1082,12 @@
       padding: 3px 10px !important;
       text-transform: none;
       letter-spacing: 0;
+      border: 1px solid var(--border2) !important;
+      border-radius: 4px !important;
+    }
+    .bulk-btn:hover {
+      background: var(--bg3) !important;
+      border-color: var(--text-dim) !important;
     }
     .tweak-group-title .bulk {
       display: inline-flex;
@@ -2789,9 +2795,25 @@
 <!-- Bandeau de version Windows détectée -->
 <div id="version-banner" class="version-banner" style="display:none"></div>
 
+<!-- Widgets & actualités — deep-link ms-settings (W11 24H2+) -->
+<div class="card" style="margin-bottom:14px">
+  <div class="card-body">
+    <div class="section-head" style="padding:0">
+      <div>
+        <div class="tool-section-title">Widgets &amp; actualités de la barre des tâches</div>
+        <div class="tool-section-sub">Depuis Windows 11 24H2, ces options ne sont plus modifiables par le registre — Microsoft les gère désormais uniquement via l'application Paramètres.</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="btn-ghost" onclick="openSettingsUri('ms-settings:taskbar')">Ouvrir les paramètres Barre des tâches</button>
+      <button class="btn-ghost" onclick="openSettingsUri('ms-settings:widgets')">Paramètres Widgets</button>
+    </div>
+  </div>
+</div>
+
 <!-- Mode Gaming one-click -->
-<div class="callout" id="gaming-card" style="margin-bottom:14px;border-left-color:var(--text);align-items:center">
-  <div class="callout-icon" style="color:var(--text)">
+<div class="callout callout-green" id="gaming-card" style="margin-bottom:14px;align-items:center">
+  <div class="callout-icon">
     <svg class="icon icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4M8 10v4M15 13h.01M18 11h.01"/></svg>
   </div>
   <div class="callout-content" style="flex:1">
@@ -2852,21 +2874,6 @@
 <!-- Filtres par catégorie d'effet -->
 <div class="tweak-filters" id="tweak-filters">
   <button class="tweak-filter-btn active" data-filter="all">Tout voir <span class="c"></span></button>
-</div>
-
-<div class="card" style="margin-bottom:14px">
-  <div class="card-body">
-    <div class="section-head" style="padding:0">
-      <div>
-        <div class="tool-section-title">Widgets &amp; actualités de la barre des tâches</div>
-        <div class="tool-section-sub">Depuis Windows 11 24H2, ces options ne sont plus modifiables par le registre — Microsoft les gère désormais uniquement via l'application Paramètres.</div>
-      </div>
-    </div>
-    <div style="display:flex;gap:8px;margin-top:10px">
-      <button class="btn-ghost" onclick="openSettingsUri('ms-settings:taskbar')">Ouvrir les paramètres Barre des tâches</button>
-      <button class="btn-ghost" onclick="openSettingsUri('ms-settings:widgets')">Paramètres Widgets</button>
-    </div>
-  </div>
 </div>
 
 <div class="card">
