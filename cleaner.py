@@ -172,10 +172,12 @@ def _recycle_many(paths, label="Nettoyage"):
         errs.append(f"{len(existing) - moved} élément(s) non déplacé(s)")
     freed = int(total * (moved / len(existing))) if existing else 0
 
-    # Sauvegarde la session (uniquement si au moins un élément a été déplacé)
+    # Sauvegarde la session avec les chemins réellement supprimés (pas un slice
+    # des N premiers — les échecs peuvent être à n'importe quelle position)
     if moved > 0:
         try:
-            _save_recycle_session(label, existing[:moved] if moved < len(existing) else existing, freed)
+            actually_moved = [p for p in existing if not Path(p).exists()]
+            _save_recycle_session(label, actually_moved if actually_moved else existing, freed)
         except Exception:
             pass
 
@@ -507,7 +509,7 @@ def clean_browser_data(selections):
                 if p.exists():
                     batch.append(str(p))
 
-    freed, errs = _recycle_many(batch)
+    freed, errs = _recycle_many(batch, label="Données navigateurs")
     errors.extend(errs)
     return {"deleted_bytes": freed, "deleted_fmt": fmt_size(freed), "errors": errors}
 
@@ -621,7 +623,7 @@ def _recent_files_dir():
 def _purge_recent_shortcuts():
     """Supprime les raccourcis .lnk du dossier Recent. Retourne (count, freed, errors)."""
     files = [str(f) for f in _recent_files_dir().glob("*.lnk")]
-    freed, errors = _recycle_many(files)
+    freed, errors = _recycle_many(files, label="Fichiers récents")
     count = len(files) - len(errors)
     return max(count, 0), freed, errors
 
@@ -807,7 +809,7 @@ def task_thumbnails(log):
         log("Cache miniatures — déjà propre")
         return 0
     items = [str(f) for f in d.glob("thumbcache_*.db")]
-    freed, _ = _recycle_many(items)
+    freed, _ = _recycle_many(items, label="Cache miniatures")
     if freed > 0:
         log(f"Cache miniatures — {fmt_size(freed)} libérés")
     else:
@@ -837,7 +839,7 @@ def task_dumps(log):
             continue
         for ext in ["*.dmp", "*.mdmp"]:
             batch.extend(str(f) for f in d.glob(ext))
-    total, _ = _recycle_many(batch)
+    total, _ = _recycle_many(batch, label="Fichiers crash")
     if total > 0:
         log(f"Fichiers crash — {len(batch)} fichier(s) supprimé(s), {fmt_size(total)} libérés")
     else:
@@ -1170,19 +1172,45 @@ def _detect_choco_apps():
 
 
 def _exe_exists(uninstall_string):
-    """Extrait le chemin de l'exécutable et vérifie son existence."""
+    """Extrait le chemin de l'exécutable et vérifie son existence.
+
+    Stratégie multi-passes pour gérer les UninstallString non quotés avec
+    espaces (ex: C:\\Program Files (x86)\\Steam\\uninstall.exe) :
+    1. shlex.split (fonctionne si quoté correctement)
+    2. Regex .*\\.exe (extrait le plus long chemin terminant par .exe)
+    3. La chaîne brute entière (dernier recours)
+    """
     if not uninstall_string:
         return False
+    s = uninstall_string.strip()
+
+    # msiexec est toujours présent
+    if "msiexec" in s.lower():
+        return True
+
+    # Passe 1 : shlex
     import shlex
     try:
-        parts = shlex.split(uninstall_string, posix=False)
+        parts = shlex.split(s, posix=False)
         exe = parts[0].strip('"').strip("'") if parts else ""
-        # msiexec est toujours présent
-        if exe.lower().endswith("msiexec.exe") or exe.lower() == "msiexec":
+        if exe and Path(exe).exists():
             return True
-        return bool(exe) and Path(exe).exists()
     except Exception:
-        return False
+        pass
+
+    # Passe 2 : regex .*\.exe (gère les chemins avec espaces non quotés)
+    m = re.search(r'^(.*?\.exe)', s, re.IGNORECASE)
+    if m:
+        exe = m.group(1).strip('"').strip("'")
+        if exe and Path(exe).exists():
+            return True
+
+    # Passe 3 : le premier "mot" jusqu'à l'espace (dernier recours)
+    first = s.split()[0].strip('"').strip("'") if s.split() else ""
+    if first and Path(first).exists():
+        return True
+
+    return False
 
 
 def _extract_exe_from_uninstall_string(uninstall_string):
@@ -2530,7 +2558,7 @@ def get_disk_smart():
                 "size":     size,
                 "size_fmt": fmt_size(size),
                 "status":   status or "Unknown",
-                "healthy":  status.lower() == "healthy",
+                "healthy":  status.lower() in ("healthy", "intègre", "int\ufffdgre", "en bon état", "0"),
             })
     except Exception:
         pass
@@ -3131,13 +3159,18 @@ def set_gaming_mode(enabled):
     from datetime import datetime
 
     if enabled:
+        # Garde : si le mode gaming est déjà actif, ne pas écraser le snapshot d'origine
+        if _GAMING_STATE_PATH.exists():
+            return {"ok": False, "error": "Mode gaming déjà actif — désactivez d'abord"}
+
         services_prev = {}
         try:
             states = {s["name"]: s for s in get_services_state()}
             for name in _GAMING_SERVICES_TO_STOP:
                 st = states.get(name)
-                if st and st.get("enabled") is not None:
-                    services_prev[name] = bool(st.get("enabled"))
+                if st and st.get("start_type"):
+                    # Stocke le start_type exact (Manual/Automatic/Disabled) — pas juste bool
+                    services_prev[name] = st.get("start_type", "manual")
         except Exception:
             pass
 
@@ -3175,8 +3208,13 @@ def set_gaming_mode(enabled):
 
     restored = 0
     errors = []
-    for name, prev_enabled in (state.get("services_prev") or {}).items():
-        ok, err = set_service_enabled(name, bool(prev_enabled))
+    for name, prev_state in (state.get("services_prev") or {}).items():
+        # prev_state peut être un start_type string (v2) ou un bool (v1 legacy)
+        if isinstance(prev_state, bool):
+            enable = prev_state  # compat v1
+        else:
+            enable = str(prev_state).lower() not in ("disabled", "4")
+        ok, err = set_service_enabled(name, enable)
         if ok:
             restored += 1
         elif err:
@@ -4124,7 +4162,7 @@ def _run_rebuild_icon_cache():
             batch.extend(str(f) for f in t.glob("thumbcache*"))
             steps.append(f"Nettoyé : {t.name}")
     if batch:
-        _, errs = _recycle_many(batch)
+        _, errs = _recycle_many(batch, label="Cache icônes/miniatures")
         if errs:
             steps.append(f"{len(errs)} erreur(s) corbeille")
     # 3. Relancer explorer
@@ -4361,7 +4399,7 @@ def get_services_state():
         status   = (state.get("Status") or "").lower()
         # "active" = service actuellement configuré pour démarrer (Automatic / Manual)
         # "disabled" = StartType = Disabled
-        is_disabled = start == "disabled"
+        is_disabled = start in ("disabled", "4")  # PS peut sérialiser l'enum en int
         result.append({
             "name":     svc["name"],
             "label":    svc["label"],
@@ -4473,7 +4511,7 @@ def get_all_services_dynamic():
             "curated":      name in curated_set,
             "status":       status,
             "start_type":   start,
-            "active":       start != "disabled",
+            "active":       start not in ("disabled", "4"),
             "exists":       True,
             "risk":         meta.get("risk") or ("low" if category == "third_party" else "medium"),
             "needs_admin":  True,
@@ -4498,11 +4536,14 @@ def set_service_enabled(service_name, enabled):
     """
     if service_name in _SERVICES_PROTECTED:
         return False, "Service protégé : modification refusée"
+    # Validation anti-injection : nom de service = alphanum + _ . uniquement
+    if not re.fullmatch(r'[A-Za-z0-9_.]+', service_name):
+        return False, "Nom de service invalide"
     target = "Manual" if enabled else "Disabled"
-    ps_cmd = f"Set-Service -Name '{service_name}' -StartupType {target} -ErrorAction Stop"
     try:
         r = subprocess.run(
-            ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_cmd],
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command",
+             "Set-Service", "-Name", service_name, "-StartupType", target, "-ErrorAction", "Stop"],
             capture_output=True, timeout=15, creationflags=0x08000000,
         )
         if r.returncode == 0:
@@ -4527,10 +4568,11 @@ def get_scheduled_tasks_state():
             if r.returncode == 0:
                 exists = True
                 out = r.stdout.decode("utf-8", errors="replace")
-                # CSV format: "TaskName","Next Run Time","Status"
-                if "Disabled" in out or "Désactivé" in out or "D\u00e9sactiv\u00e9" in out:
+                out_norm = out.replace("\ufffd", "")
+                # CSV format: "TaskName","Next Run Time","Status" — tolérant FR/EN
+                if "Disabled" in out or "sactiv" in out_norm.lower():
                     state = "disabled"
-                elif "Ready" in out or "Running" in out or "Prêt" in out or "En cours" in out:
+                elif "Ready" in out or "Running" in out or "Pr" in out_norm or "En cours" in out:
                     state = "enabled"
         except Exception:
             pass
@@ -4658,6 +4700,9 @@ def set_scheduled_task_enabled(task_path, enabled):
     """
     if any(task_path.startswith(p) for p in _TASKS_PROTECTED_PREFIXES):
         return False, "Tâche protégée : modification refusée"
+    # Validation anti-injection : chemin de tâche = backslash + alphanum + espaces + ponctuation simple
+    if not re.fullmatch(r'[\\A-Za-z0-9 _.()-]+', task_path):
+        return False, "Chemin de tâche invalide"
     action = "/ENABLE" if enabled else "/DISABLE"
     try:
         r = subprocess.run(
@@ -5505,7 +5550,7 @@ def clean_privacy_items(ids):
                 for f in d.iterdir():
                     if f.is_file():
                         batch.append(str(f))
-        _, errs = _recycle_many(batch)
+        _, errs = _recycle_many(batch, label="Jump Lists")
         cleaned += len(batch) - len(errs)
         errors.extend(errs)
 

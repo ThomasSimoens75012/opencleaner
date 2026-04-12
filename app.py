@@ -57,6 +57,24 @@ from cleaner import (
 )
 
 
+@app.before_request
+def _csrf_guard():
+    """Bloque les requêtes mutantes (POST/PUT/DELETE) venant d'une autre origin.
+
+    Empêche un site malveillant de déclencher des actions via fetch() vers localhost.
+    """
+    if request.method in ("POST", "PUT", "DELETE"):
+        origin = request.headers.get("Origin") or ""
+        referer = request.headers.get("Referer") or ""
+        allowed = ("http://127.0.0.1", "http://localhost")
+        if origin:
+            if not any(origin.startswith(a) for a in allowed):
+                return jsonify({"error": "Origin non autorisée"}), 403
+        elif referer:
+            if not any(referer.startswith(a) for a in allowed):
+                return jsonify({"error": "Referer non autorisé"}), 403
+
+
 def _log_delete(op, summary, errors):
     app.logger.info("%s — %s, %d erreur(s)", op, summary, len(errors or []))
     for e in (errors or []):
@@ -207,6 +225,10 @@ def api_config_import():
     sections = data.get("sections")
     if not isinstance(snapshot, dict):
         return jsonify({"error": "snapshot manquant ou invalide"}), 400
+    # Guard admin : les sections services/tasks nécessitent admin
+    needs_admin = sections is None or any(s in (sections or []) for s in ("services", "tasks"))
+    if needs_admin and not is_admin():
+        return jsonify({"error": "Droits administrateur requis pour les services/tâches"}), 403
     try:
         result = import_config_snapshot(snapshot, sections=sections)
     except Exception as e:
@@ -477,13 +499,25 @@ def api_apps():
 @app.route("/api/apps/uninstall", methods=["POST"])
 def api_uninstall():
     data = request.get_json(force=True) or {}
-    string      = data.get("uninstall_string") or ""
+    app_id      = data.get("id") or ""
     silent      = bool(data.get("silent"))
     winget_id   = data.get("winget_id") or ""
-    quiet_unins = data.get("quiet_uninstall") or ""
+    # Sécurité : on relit l'uninstall_string depuis le registre server-side
+    # au lieu d'accepter une chaîne arbitraire du client (OC-2026-004)
+    string = ""
+    quiet_unins = ""
+    if app_id:
+        match = next((a for a in get_installed_apps() if a.get("id") == app_id), None)
+        if match:
+            string = match.get("uninstall_string") or ""
+            quiet_unins = match.get("quiet_uninstall") or ""
+            winget_id = winget_id or match.get("winget_id") or ""
     if not string and not winget_id:
-        return jsonify({"error": "uninstall_string ou winget_id requis"}), 400
+        return jsonify({"error": "Application introuvable ou pas de désinstalleur"}), 400
     ok = launch_uninstaller(string, silent=silent, winget_id=winget_id, quiet_uninstall=quiet_unins)
+    if ok:
+        app_name = (match or {}).get("name", app_id)
+        _save_history_entry(0, kind="uninstall", label=f"Désinstallation : {app_name}")
     return jsonify({"ok": ok})
 
 
@@ -496,6 +530,9 @@ def api_apps_remove_entry():
     reg_path = data.get("reg_path") or ""
     if reg_hive not in ("HKLM", "HKCU") or not reg_path:
         return jsonify({"ok": False, "error": "reg_hive/reg_path invalides"}), 400
+    # Sécurité : restreindre aux clés Uninstall uniquement
+    if "\\Uninstall\\" not in reg_path:
+        return jsonify({"ok": False, "error": "Chemin registre restreint aux clés Uninstall"}), 403
     ok, err = remove_uninstall_registry_entry(reg_hive, reg_path)
     return jsonify({"ok": ok, "error": err})
 

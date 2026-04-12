@@ -193,7 +193,7 @@ function _makeSelHeader(el, { countText, deleteId, deleteLabel = "Supprimer la s
     const sortDiv = document.createElement("div"); sortDiv.style.cssText = "display:flex;gap:3px;margin-left:6px;";
     sortKeys.forEach(([key, label]) => {
       const pill = document.createElement("span");
-      pill.className = "sort-pill" + (sortKey === key ? " active" : "");
+      pill.className = "tweak-filter-btn" + (sortKey === key ? " active" : "");
       pill.textContent = label + (sortKey === key ? (sortDir === -1 ? " ↓" : " ↑") : "");
       pill.addEventListener("click", () => onSort(key));
       sortDiv.appendChild(pill);
@@ -336,7 +336,7 @@ async function loadApps(deep = false) {
     if (actId) activityDone(actId, `${allApps.length} apps scannées`);
   } catch (e) {
     el.innerHTML = `<div class="tool-error">Erreur de chargement.</div>`;
-    if (actId) activityDone(actId, "Échec", "error");
+    if (actId) activityDone(actId, "Échec", "fail");
   }
 }
 
@@ -543,15 +543,14 @@ async function uninstallApp(app, btn, silent) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            uninstall_string: app.uninstall_string,
+            id:               app.id,
             winget_id:        app.winget_id,
-            quiet_uninstall:  app.quiet_uninstall,
             silent:           silent,
           }),
         });
         const data = await res.json();
         if (!res.ok || !data.ok) {
-          activityDone(actId, "Échec", "error");
+          activityDone(actId, "Échec", "fail");
           showToast("Erreur", data.error || "Impossible de lancer la désinstallation.", "warn");
           if (btn) { btn.disabled = false; btn.textContent = silent ? "Silencieux" : "Désinstaller"; }
         } else {
@@ -563,7 +562,7 @@ async function uninstallApp(app, btn, silent) {
           setTimeout(() => checkResiduals(app), 2000);
         }
       } catch (e) {
-        activityDone(actId, "Échec", "error");
+        activityDone(actId, "Échec", "fail");
         showToast("Erreur", e.message, "warn");
         if (btn) { btn.disabled = false; btn.textContent = silent ? "Silencieux" : "Désinstaller"; }
       }
@@ -767,12 +766,17 @@ let duplicateFolderGroups = [];
 // ── Helper : filter pills pour services/tasks ──────────────────────────────
 
 const _SERVICE_CATEGORY_LABELS = {
-  "all":        "Tout voir",
-  "telemetry":  "Télémétrie",
-  "gaming":     "Gaming",
-  "legacy":     "Legacy",
-  "cloud_sync": "Cloud sync",
-  "privacy":    "Confidentialité",
+  "all":                 "Tout voir",
+  "telemetry":           "Télémétrie",
+  "gaming":              "Gaming",
+  "legacy":              "Legacy",
+  "cloud_sync":          "Cloud sync",
+  "privacy":             "Confidentialité",
+  // Catégories dynamiques (mode expert)
+  "protected":           "Protégés",
+  "curated_disable":     "Recommandés",
+  "microsoft_optional":  "Microsoft optionnel",
+  "third_party":         "Tiers",
 };
 
 function _renderCategoryFilters(filterElId, items, currentFilter, onFilter) {
@@ -784,7 +788,7 @@ function _renderCategoryFilters(filterElId, items, currentFilter, onFilter) {
     const c = it.category || "legacy";
     counts[c] = (counts[c] || 0) + 1;
   }
-  const order = ["all", "telemetry", "gaming", "legacy", "cloud_sync", "privacy"];
+  const order = ["all", "protected", "curated_disable", "telemetry", "gaming", "legacy", "cloud_sync", "privacy", "microsoft_optional", "third_party"];
   el.innerHTML = order
     .filter(t => t === "all" || counts[t])
     .map(t => {
@@ -2025,7 +2029,7 @@ async function downloadGlobalReport() {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
     activityDone(actId, `${filename} téléchargé`);
   } catch (e) {
-    activityDone(actId, "Échec", "error");
+    activityDone(actId, "Échec", "fail");
     showToast("Rapport", e.message, "warn");
   }
 }
@@ -2142,7 +2146,7 @@ async function cleanBrowserData() {
     activityDone(actId, `${data.deleted_fmt} libérés`);
     loadBrowserData();
   } catch (e) {
-    activityDone(actId, "Échec", "error");
+    activityDone(actId, "Échec", "fail");
     showToast("Nettoyage navigateurs", e.message, "warn");
   }
 }
@@ -2163,7 +2167,7 @@ async function loadUpdateCenter() {
     activityDone(actId, `${data.total} mise(s) à jour trouvée(s)`);
   } catch (e) {
     container.innerHTML = `<div class="tool-error">Erreur : ${e.message}</div>`;
-    activityDone(actId, "Échec", "error");
+    activityDone(actId, "Échec", "fail");
   } finally {
     _btnReset(btn);
   }
@@ -2398,9 +2402,9 @@ function deleteSelectedLargeFiles() {
   _deleteSelected({
     resultsId: "lf-results",
     btnId:     "btn-delete-lf",
-    endpoint:  "/api/duplicates/delete",
+    endpoint:  "/api/recycle-bin/send",
     confirmBody: (n, size) =>
-      `Ces fichiers seront définitivement supprimés du disque. Espace récupéré estimé : ${fmtBytesTools(size)}.`,
+      `Ces fichiers seront envoyés à la corbeille. Espace récupéré estimé : ${fmtBytesTools(size)}.`,
   });
 }
 
@@ -2774,7 +2778,7 @@ function renderWindowsOld(data) {
   const subD  = document.createElement("div"); subD.className  = "tool-sub";
   subD.textContent = `${data.size_fmt} — ancienne installation Windows, inutile si votre système fonctionne bien`;
   info.append(nameD, subD);
-  const btn = document.createElement("button"); btn.className = "btn-ghost"; btn.style.cssText = "font-size:12px;flex-shrink:0;color:var(--danger,#e05)";
+  const btn = document.createElement("button"); btn.className = "btn-ghost"; btn.style.cssText = "font-size:12px;flex-shrink:0;color:var(--red)";
   btn.textContent = `Supprimer (libérer ${data.size_fmt})`;
   btn.addEventListener("click", () => deleteWindowsOld(btn, data.size_fmt));
   row.append(info, btn);
@@ -3399,7 +3403,7 @@ async function toggleGamingMode() {
     loadGamingMode();
     if (typeof loadServices === "function") loadServices();
   } catch (e) {
-    activityDone(actId, "Échec", "error");
+    activityDone(actId, "Échec", "fail");
     showToast("Mode gaming", e.message, "warn");
   } finally {
     btn.disabled = false;
@@ -3495,7 +3499,7 @@ async function handleImportConfigFile(event) {
     if (typeof loadScheduledTasks === "function") loadScheduledTasks();
     if (typeof loadStartup === "function") loadStartup();
   } catch (e) {
-    activityDone(actId, "Échec", "error");
+    activityDone(actId, "Échec", "fail");
     showToast("Restauration impossible", e.message, "warn");
   }
 }
@@ -4210,7 +4214,7 @@ function _renderDrivers() {
   pillsRow.className = "drivers-header-pills";
   const mkPill = (key, label, count) => {
     const pill = document.createElement("span");
-    pill.className = "sort-pill" + (_driversFilter === key ? " active" : "");
+    pill.className = "tweak-filter-btn" + (_driversFilter === key ? " active" : "");
     pill.textContent = count != null ? `${label} (${count})` : label;
     pill.addEventListener("click", () => { _driversFilter = key; _renderDrivers(); });
     return pill;
