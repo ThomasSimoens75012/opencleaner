@@ -49,14 +49,14 @@ async function browseFolder(inputId) {
       if (el) el.value = data.folder;
     }
   } catch (e) {
-    showToast("Erreur", "Impossible d'ouvrir le sélecteur de dossier.", "warn");
+    showToast(t("toast.error"), t("toast.browse_error"), "warn");
   }
 }
 
 // ── Helpers animation boutons ─────────────────────────────────────────────────
 
 function _activityLabelFor(btn) {
-  if (!btn) return "Analyse";
+  if (!btn) return t("common.analyser");
   if (btn.dataset.activity) return btn.dataset.activity;
   const section = btn.closest("section, .card, div")?.parentElement;
   let el = btn;
@@ -67,7 +67,7 @@ function _activityLabelFor(btn) {
   }
   const tabPanel = btn.closest(".tab-panel");
   const title = tabPanel?.querySelector(".page-title");
-  return title ? title.textContent.trim() : "Analyse";
+  return title ? title.textContent.trim() : t("common.analyser");
 }
 
 function _btnScan(btn, label = "Analyse…") {
@@ -109,8 +109,8 @@ function _applyAdminLock(row, cb, needsAdmin) {
   cb.checked = false;
   const badge = document.createElement("span");
   badge.className = "admin-badge";
-  badge.textContent = "Admin requis";
-  badge.title = "Relancez l'application en mode administrateur pour pouvoir supprimer cet élément.";
+  badge.textContent = t("common.admin_badge");
+  badge.title = t("tools.startup.admin_relaunch");
   row.appendChild(badge);
 }
 
@@ -179,7 +179,8 @@ function _skeleton(n = 3, withBtn = false) {
 
 // ── Helper en-tête de liste unifié ────────────────────────────────────────────
 
-function _makeSelHeader(el, { countText, deleteId, deleteLabel = "Supprimer la sélection", deleteFn, sortKeys = [], sortKey, sortDir, onSort, noSelAll = false }) {
+function _makeSelHeader(el, { countText, deleteId, deleteLabel, deleteFn, sortKeys = [], sortKey, sortDir, onSort, noSelAll = false }) {
+  if (!deleteLabel && deleteFn) deleteLabel = t("common.delete_selection");
   const header = document.createElement("div"); header.className = "reg-header";
   const left   = document.createElement("div"); left.className   = "list-header";
 
@@ -243,14 +244,14 @@ async function loadStartup() {
     _startupEntries = data;
     renderStartup();
   } catch (e) {
-    el.innerHTML = `<div class="tool-error">Erreur de chargement.</div>`;
+    el.innerHTML = `<div class="tool-error">${t("common.error_loading")}</div>`;
   }
 }
 
 function renderStartup() {
   const el = document.getElementById("startup-list");
   if (!_startupEntries.length) {
-    el.innerHTML = `<div class="tool-empty">Aucun résultat.</div>`;
+    el.innerHTML = `<div class="tool-empty">${t("common.no_result")}</div>`;
     return;
   }
   const isAdmin = window.IS_ADMIN === true || document.body.dataset.admin === "1";
@@ -278,7 +279,7 @@ function renderStartup() {
       const adm = document.createElement("span");
       adm.className = "source-badge";
       adm.textContent = "admin";
-      adm.title = "Relancez en administrateur pour modifier";
+      adm.title = t("tools.startup.admin_relaunch");
       meta.appendChild(adm);
     }
 
@@ -286,7 +287,7 @@ function renderStartup() {
     sw.className = "switch" + (e.enabled ? " on" : "");
     if (needsAdmin && !isAdmin) {
       sw.classList.add("disabled");
-      sw.title = "Droits administrateur requis";
+      sw.title = t("tools.startup.admin_rights");
     } else {
       sw.title = e.enabled ? "Désactiver" : "Activer";
       sw.addEventListener("click", () => toggleStartup(e, sw));
@@ -312,7 +313,7 @@ async function toggleStartup(entry, swEl) {
     entry.enabled = newEnabled;
     renderStartup();
   } catch (e) {
-    showToast("Erreur", "Impossible de modifier le démarrage.", "warn");
+    showToast(t("toast.error"), t("toast.startup_error"), "warn");
     delete swEl.dataset.busy;
   }
 }
@@ -665,7 +666,7 @@ let duplicateGroups = [];
 async function startDuplicateScan() {
   const folder  = document.getElementById("dupe-folder").value.trim();
   const minSize = parseInt(document.getElementById("dupe-minsize").value) || 100;
-  if (!folder) { showToast("Dossier requis", "Entrez un dossier à analyser.", "warn"); return; }
+  if (!folder) { showToast(t("toast.folder_required"), t("toast.folder_required_body"), "warn"); return; }
 
   const resultEl = document.getElementById("dupe-results");
   const btnEl    = document.getElementById("btn-scan-dupes");
@@ -1407,7 +1408,7 @@ function _renderUwpList() {
 async function deleteSelectedUwp() {
   const checked = [...document.querySelectorAll("#uwp-results input[type=checkbox]:checked:not(.sel-all)")];
   if (!checked.length) {
-    showToast("Aucune sélection", "Cochez au moins une app.", "warn");
+    showToast(t("toast.no_selection"), t("toast.no_selection_app"), "warn");
     return;
   }
   const packages = checked.map(c => c.dataset.path);
@@ -1448,7 +1449,7 @@ async function deleteSelectedUwp() {
 
 async function startDuplicateFolderScan() {
   const folder = document.getElementById("dupe-folder").value.trim();
-  if (!folder) { showToast("Dossier requis", "Entrez un dossier à analyser.", "warn"); return; }
+  if (!folder) { showToast(t("toast.folder_required"), t("toast.folder_required_body"), "warn"); return; }
 
   const resultEl = document.getElementById("dupe-results");
   const btnEl    = document.getElementById("btn-scan-dupes");
@@ -1540,7 +1541,7 @@ function deleteSelectedDupeFolders() {
         const all = group.querySelectorAll("input[type=checkbox]");
         const checkedIn = group.querySelectorAll("input[type=checkbox]:checked:not(.sel-all)");
         if (all.length > 0 && checkedIn.length >= all.length) {
-          showToast("Action impossible", "Vous ne pouvez pas supprimer tous les dossiers d'un groupe.", "warn");
+          showToast(t("toast.action_impossible"), t("toast.all_folders_warn"), "warn");
           return false;
         }
       }
@@ -1561,7 +1562,7 @@ function deleteSelectedDupes() {
         const all = group.querySelectorAll("input[type=checkbox]");
         const checkedIn = group.querySelectorAll("input[type=checkbox]:checked:not(.sel-all)");
         if (all.length > 0 && checkedIn.length >= all.length) {
-          showToast("Action impossible", "Vous ne pouvez pas supprimer toutes les copies d'un groupe.", "warn");
+          showToast(t("toast.action_impossible"), t("toast.all_copies_warn"), "warn");
           return false;
         }
       }
@@ -1602,8 +1603,8 @@ function _watchSelSize(el, btnEl) {
     const checked = [...el.querySelectorAll("input[type=checkbox]:checked:not(.sel-all)")];
     const total = checked.reduce((s, c) => s + (parseInt(c.dataset.size) || 0), 0);
     btnEl.textContent = total > 0
-      ? `Supprimer la sélection (${fmtBytesTools(total)})`
-      : "Supprimer la sélection";
+      ? `${t("common.delete_selection")} (${fmtBytesTools(total)})`
+      : t("common.delete_selection");
   };
   if (el._selSizeHandler) el.removeEventListener("change", el._selSizeHandler);
   el._selSizeHandler = update;
@@ -1649,7 +1650,7 @@ async function _deleteSelected(opts) {
     `#${opts.resultsId} input[type=checkbox]:checked:not(.sel-all)`
   )].filter(c => !c.disabled);
   if (!checked.length) {
-    showToast("Aucune sélection", "Cochez au moins un élément.", "warn");
+    showToast(t("toast.no_selection"), t("toast.no_selection_body"), "warn");
     return;
   }
   if (opts.preCheck && opts.preCheck() === false) return;
@@ -1678,12 +1679,12 @@ async function _deleteSelected(opts) {
           const sub = freedFmt
             ? `${deleted} supprimé(s) — ${freedFmt} libérés — ${errCount} échec(s).`
             : `${deleted} supprimé(s) — ${errCount} échec(s).`;
-          showToast("Suppression partielle", sub, "warn");
+          showToast(t("toast.delete_partial"), sub, "warn");
         } else {
           const sub = freedFmt
             ? `${deleted} supprimé(s) — ${freedFmt} libérés.`
             : `${deleted} supprimé(s).`;
-          showToast("Suppression terminée", sub, "success");
+          showToast(t("toast.delete_done"), sub, "success");
         }
         checked.forEach(c => {
           const row = c.closest(opts.rowSelector || ".dupe-row");
@@ -1801,7 +1802,7 @@ function renderRegistryIssues(issues) {
 
 async function fixSelectedRegistry() {
   const checked = [...document.querySelectorAll("#reg-results input[type=checkbox]:checked:not(.sel-all)")];
-  if (!checked.length) { showToast("Aucune sélection", "Cochez au moins un élément.", "warn"); return; }
+  if (!checked.length) { showToast(t("toast.no_selection"), t("toast.no_selection_body"), "warn"); return; }
 
   const selected = checked.map(c => registryIssues[parseInt(c.dataset.idx)]).filter(Boolean);
   showConfirm(
@@ -2405,7 +2406,7 @@ function _setDefaultInstallerFolder() {
 
 async function startInstallerScan() {
   const folder  = document.getElementById("inst-folder").value.trim();
-  if (!folder) { showToast("Dossier requis", "Entrez un dossier à analyser.", "warn"); return; }
+  if (!folder) { showToast(t("toast.folder_required"), t("toast.folder_required_body"), "warn"); return; }
 
   const resultEl = document.getElementById("inst-results");
   const btnEl    = document.getElementById("btn-scan-inst");
@@ -2558,7 +2559,7 @@ function renderPrivacy(items) {
 
 async function cleanSelectedPrivacy() {
   const checked = [...document.querySelectorAll("#privacy-results input[type=checkbox]:checked:not(.sel-all)")];
-  if (!checked.length) { showToast("Aucune sélection", "Cochez au moins un élément.", "warn"); return; }
+  if (!checked.length) { showToast(t("toast.no_selection"), t("toast.no_selection_body"), "warn"); return; }
   const ids = checked.map(c => c.dataset.id);
   const btn = document.getElementById("btn-clean-privacy");
   showConfirm(
@@ -2660,7 +2661,7 @@ let _emptyFolders = [];
 
 async function startEmptyFolderScan() {
   const folder  = document.getElementById("ef-folder").value.trim();
-  if (!folder) { showToast("Dossier requis", "Entrez un dossier à analyser.", "warn"); return; }
+  if (!folder) { showToast(t("toast.folder_required"), t("toast.folder_required_body"), "warn"); return; }
 
   const logEl    = document.getElementById("ef-log");
   const resultEl = document.getElementById("ef-results");
@@ -4156,7 +4157,7 @@ function deleteSelectedRestorePoints() {
 
 async function _deleteSelectedRestorePoints() {
   const checked = [...document.querySelectorAll("#rp-results input[type=checkbox]:checked:not(.sel-all)")];
-  if (!checked.length) { showToast("Aucune sélection", "Cochez au moins un élément.", "warn"); return; }
+  if (!checked.length) { showToast(t("toast.no_selection"), t("toast.no_selection_body"), "warn"); return; }
 
   const ids = checked.map(c => parseInt(c.dataset.id));
   const btn = document.getElementById("btn-delete-rp");

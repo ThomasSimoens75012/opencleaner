@@ -29,7 +29,7 @@ async function loadHealth() {
   const logEl     = document.getElementById("health-log");
   if (logEl) logEl.innerHTML = "";
   if (metricsEl) metricsEl.innerHTML = "";
-  _btnScan(btnEl, "Analyse…");
+  _btnScan(btnEl, t("common.analyse"));
 
   const ringFill = document.getElementById("health-ring-fill");
   const scoreVal = document.getElementById("health-score-val");
@@ -46,7 +46,7 @@ async function loadHealth() {
     updateHealthBadge(data);
     _btnReset(btnEl);
   } catch (e) {
-    _logAppend("health-log", "Erreur de chargement.");
+    _logAppend("health-log", t("health.error_loading"));
     _btnReset(btnEl);
   }
 }
@@ -76,7 +76,7 @@ function renderHealth(data) {
   }
   if (scoreVal) { scoreVal.textContent = pct + "%"; }
   if (scoreLbl) {
-    scoreLbl.textContent = pct >= 80 ? "Excellent" : pct >= 50 ? "À améliorer" : "Attention";
+    scoreLbl.textContent = pct >= 80 ? t("health.excellent") : pct >= 50 ? t("health.to_improve") : t("health.attention");
   }
 
   updateHealthBadge(data);
@@ -103,7 +103,7 @@ function renderHealth(data) {
         <div class="hm-detail">${m.detail}</div>
       </div>
       <div class="hm-bar-wrap">
-        ${hasAction ? `<button class="btn-ghost hm-fix-btn" onclick="quickFixHealth('${m.action}')">Nettoyer</button>` : ""}
+        ${hasAction ? `<button class="btn-ghost hm-fix-btn" onclick="quickFixHealth('${m.action}')">${t("health.btn_clean")}</button>` : ""}
         <div class="hm-bar-bg"><div class="hm-bar-fill ${statusCls}" style="width:${mPct}%"></div></div>
         <div class="hm-pct ${statusCls}">${mPct}%</div>
       </div>`;

@@ -156,7 +156,8 @@ def index():
     ])
     downloads = str(Path.home() / "Downloads")
     return render_template("index.html", tasks_json=tasks_json,
-                           is_admin=is_admin(), downloads_folder=downloads)
+                           is_admin=is_admin(), downloads_folder=downloads,
+                           lang=_current_lang)
 
 
 @app.route("/api/windows-tweaks/export-reg")
@@ -1383,6 +1384,38 @@ def _relaunch_as_admin():
     ctypes.windll.shell32.ShellExecuteW(None, "runas", exe, args, None, 1)
 
 
+_current_lang = "fr"
+
+_last_heartbeat = time.time()
+_HEARTBEAT_TIMEOUT = 30  # secondes sans ping → shutdown
+
+
+@app.route("/api/set-lang", methods=["POST"])
+def api_set_lang():
+    global _current_lang
+    data = request.get_json(force=True) or {}
+    lang = data.get("lang", "fr")
+    if lang in ("fr", "en"):
+        _current_lang = lang
+    return "", 204
+
+
+@app.route("/api/heartbeat", methods=["POST"])
+def api_heartbeat():
+    global _last_heartbeat
+    _last_heartbeat = time.time()
+    return "", 204
+
+
+def _heartbeat_watchdog():
+    """Thread daemon : arrête le serveur si plus de heartbeat."""
+    global _last_heartbeat
+    while True:
+        time.sleep(5)
+        if time.time() - _last_heartbeat > _HEARTBEAT_TIMEOUT:
+            os._exit(0)
+
+
 @app.route("/api/quit", methods=["POST"])
 def api_quit():
     """Arrête l'application proprement."""
@@ -1421,6 +1454,9 @@ def _run():
 
     import webbrowser as _wb, threading as _th
     _th.Timer(1.0, lambda: _wb.open(url)).start()
+
+    # Lancer le watchdog heartbeat (se coupe si l'onglet est fermé)
+    _th.Thread(target=_heartbeat_watchdog, daemon=True).start()
 
     app.run(host='127.0.0.1', port=port, debug=False, threaded=True, use_reloader=False)
 

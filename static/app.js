@@ -5,13 +5,17 @@ let sizes   = {};
 let cleaning = false;
 
 const GROUPS = {
-  system:  { label: "Système",      cls: "s-sys", grpCls: "grp-sys" },
-  browser: { label: "Navigateurs",  cls: "s-nav", grpCls: "grp-nav" },
-  apps:    { label: "Applications", cls: "s-app", grpCls: "grp-app" },
+  system:  { get label() { return t("cat.system"); },  cls: "s-sys", grpCls: "grp-sys" },
+  browser: { get label() { return t("cat.browser"); },  cls: "s-nav", grpCls: "grp-nav" },
+  apps:    { get label() { return t("cat.apps"); }, cls: "s-app", grpCls: "grp-app" },
 };
 
 // ── Init ─────────────────────────────────────────────────────────────────────
-document.addEventListener("DOMContentLoaded", () => {
+// ── Heartbeat — signale au serveur que l'onglet est ouvert ───────────────────
+setInterval(() => fetch("/api/heartbeat", { method: "POST" }).catch(() => {}), 10_000);
+
+document.addEventListener("DOMContentLoaded", async () => {
+  await I18N.init();
   renderTasks();
   loadSizes();
   loadDisk();
@@ -85,13 +89,13 @@ function renderTasks() {
       if (!locked) item.onclick = () => toggleTask(t.id);
 
       const badge = (t.admin && !window.IS_ADMIN)
-        ? `<span class="badge badge-admin">Admin requis</span>`
+        ? `<span class="badge badge-admin">${window.t("common.admin_badge")}</span>`
         : "";
 
       const sizeInfo = sizes[t.id];
       const sizeHtml = sizeInfo
         ? `<div class="size-val ${sizeColorClass(sizeInfo.bytes)}">${sizeInfo.fmt}</div>
-           <div class="size-sub">${sizeInfo.bytes > 0 ? "libérable" : ""}</div>`
+           <div class="size-sub">${sizeInfo.bytes > 0 ? t("common.liberable") : ""}</div>`
         : `<div class="size-val sz-load">…</div>`;
 
       item.innerHTML = `
@@ -154,9 +158,9 @@ function updateStatTotal() {
 
   if (!sizeKnown) {
     if (statVal)  { statVal.textContent  = "…"; statVal.classList.add("dim"); }
-    if (statMeta) statMeta.textContent  = "Calcul en cours…";
-    if (calloutT) calloutT.textContent  = "Calcul de l'espace récupérable…";
-    if (calloutD) calloutD.textContent  = "Patientez quelques instants";
+    if (statMeta) statMeta.textContent  = t("cleanup.stat_calculating");
+    if (calloutT) calloutT.textContent  = t("cleanup.callout_calculating");
+    if (calloutD) calloutD.textContent  = t("cleanup.callout_wait");
     return;
   }
 
@@ -170,22 +174,22 @@ function updateStatTotal() {
     }
   }
   if (statMeta) {
-    statMeta.textContent = `sur ${TASKS.length} tâche${TASKS.length > 1 ? "s" : ""} au total`;
+    statMeta.textContent = t("cleanup.stat_meta_tasks", {n: TASKS.length, s: TASKS.length > 1 ? "s" : ""});
   }
 
   if (calloutT) {
     if (checked.length === 0) {
-      calloutT.textContent = "Aucune tâche sélectionnée";
+      calloutT.textContent = t("cleanup.callout_none_selected");
     } else if (totalBytes === 0) {
-      calloutT.textContent = "Système déjà propre";
+      calloutT.textContent = t("cleanup.callout_already_clean");
     } else {
-      calloutT.textContent = `Prêt à libérer ${fmtBytes(totalBytes)}`;
+      calloutT.textContent = t("cleanup.callout_ready", {size: fmtBytes(totalBytes)});
     }
   }
   if (calloutD) {
     calloutD.textContent = checked.length === 0
-      ? "Cochez au moins une catégorie ci-dessus"
-      : `${checked.length} tâche${checked.length > 1 ? "s" : ""} cochée${checked.length > 1 ? "s" : ""} · cliquez pour exécuter`;
+      ? t("cleanup.callout_check_hint")
+      : t("cleanup.callout_checked", {n: checked.length, s: checked.length > 1 ? "s" : "", s2: checked.length > 1 ? "s" : ""});
   }
 }
 
@@ -209,7 +213,7 @@ async function loadSizes() {
     sortTasksBySize();
     renderTasks();
   } catch (e) {
-    addLog("Impossible de récupérer les tailles estimées.", "warn");
+    addLog(t("log.sizes_error"), "warn");
   } finally {
     setSizesLoading(false);
   }
@@ -242,11 +246,11 @@ function renderDisk(drives) {
     div.innerHTML  = `
       <div class="disk-left">
         <div class="dk-name">${d.device}</div>
-        <div class="dk-free">${d.free_fmt} libres</div>
+        <div class="dk-free">${d.free_fmt} ${t("common.libres")}</div>
       </div>
       <div class="disk-right">
         <div class="bar-bg"><div class="bar-fill ${barClass}" id="disk-bar-${d.device.replace(/\\/g,'')}" style="width:${pct}%"></div></div>
-        <div class="bar-stats"><span>${pct}% utilisé</span><span>${d.total_fmt}</span></div>
+        <div class="bar-stats"><span>${pct}% ${t("common.utilise")}</span><span>${d.total_fmt}</span></div>
       </div>`;
     container.appendChild(div);
   });
@@ -259,7 +263,7 @@ function renderDisk(drives) {
     sv.innerHTML = `${main.percent}<span class="unit">%</span>`;
     sv.classList.remove("dim");
   }
-  if (sm) sm.textContent = `${main.device} · ${main.free_fmt} libres sur ${main.total_fmt}`;
+  if (sm) sm.textContent = `${main.device} · ${main.free_fmt} ${t("common.libres")} / ${main.total_fmt}`;
 }
 
 // ── Historique ────────────────────────────────────────────────────────────────
@@ -274,7 +278,7 @@ async function loadHistory() {
 function renderHistoryHint(data) {
   const sb = document.getElementById("sb-last-scan");
   if (!data || !data.length) {
-    if (sb) sb.textContent = "jamais";
+    if (sb) sb.textContent = t("time.never");
     return;
   }
   const last = data[0];
@@ -296,11 +300,11 @@ function fmtAgo(date) {
   const min  = Math.floor(diff / 60000);
   const hrs  = Math.floor(diff / 3600000);
   const days = Math.floor(diff / 86400000);
-  if (days > 1)   return `il y a ${days} jours`;
-  if (days === 1) return "hier";
-  if (hrs >= 1)   return `il y a ${hrs}h`;
-  if (min >= 1)   return `il y a ${min} min`;
-  return "à l'instant";
+  if (days > 1)   return t("time.days_ago", {n: days});
+  if (days === 1) return t("time.yesterday");
+  if (hrs >= 1)   return t("time.hours_ago", {n: hrs});
+  if (min >= 1)   return t("time.minutes_ago", {n: min});
+  return t("time.just_now");
 }
 
 // ── Confirmation modale générique ────────────────────────────────────────────
@@ -331,15 +335,15 @@ function _activityFmtTime(ms) {
 }
 
 const ACTIVITY_TAB_LABELS = {
-  nettoyage: "Nettoyage",
-  outils:    "Outils",
-  sante:     "Santé",
-  pilotes:   "Pilotes",
-  perso:     "Personnalisation",
+  get nettoyage() { return t("activity.tab.nettoyage"); },
+  get outils()    { return t("activity.tab.outils"); },
+  get sante()     { return t("activity.tab.sante"); },
+  get pilotes()   { return t("activity.tab.pilotes"); },
+  get perso()     { return t("activity.tab.perso"); },
 };
 
 function _activityCategoryFor(target) {
-  if (!target || !target.closest) return { id: "autres", label: "Autres" };
+  if (!target || !target.closest) return { id: "autres", label: t("activity.tab.autres") };
   const panel = target.closest(".tab-panel");
   if (!panel) return { id: "autres", label: "Autres" };
   const id = panel.id.replace(/^tab-/, "");
@@ -417,7 +421,7 @@ function _activityRender() {
   const count = document.getElementById("activity-count");
   if (!list) return;
   if (!_activity.length) {
-    list.innerHTML = `<div class="activity-empty">Aucune activité pour l'instant.</div>`;
+    list.innerHTML = `<div class="activity-empty">${t("activity.empty")}</div>`;
   } else {
     const groups = new Map();
     const order = [];
@@ -452,7 +456,7 @@ function _activityRender() {
     }).join("");
     _activity.forEach(a => { a._fresh = false; });
   }
-  count.textContent = _activity.length + (_activity.length > 1 ? " entrées" : " entrée");
+  count.textContent = _activity.length + " " + (_activity.length > 1 ? t("activity.entries") : t("activity.entry"));
 
   const running = _activity.filter(a => a.status === "run").length;
   const ok = _activity.filter(a => a.status === "done").length;
@@ -789,8 +793,8 @@ function animateDiskBars() {
 function requireAdmin(callback) {
   if (window.IS_ADMIN) { callback(); return; }
   showConfirm(
-    "Droits administrateur requis",
-    "Cette fonctionnalité nécessite les droits administrateur. L'application va se relancer avec les droits nécessaires.",
+    t("confirm.admin_title"),
+    t("confirm.admin_body"),
     async () => {
       await fetch("/api/relaunch-admin", { method: "POST" });
       window.close();
@@ -854,7 +858,7 @@ async function showCleanPreview(selected) {
     listEl.appendChild(row);
   });
 
-  totalEl.textContent = total > 0 ? "≈ " + fmtBytes(total) : "Déjà propre";
+  totalEl.textContent = total > 0 ? "≈ " + fmtBytes(total) : t("log.already_clean");
   overlayEl.style.display = "flex";
 }
 
@@ -872,7 +876,7 @@ async function confirmClean() {
 function startClean() {
   if (cleaning) return;
   const selected = TASKS.filter(t => t.checked);
-  if (!selected.length) { addLog("Aucune catégorie sélectionnée.", "warn"); return; }
+  if (!selected.length) { addLog(t("log.no_category"), "warn"); return; }
   showCleanPreview(selected);
 }
 
@@ -900,7 +904,7 @@ async function _doClean() {
     }
     jobId = data.job_id;
   } catch (e) {
-    addLog("Erreur de connexion au serveur.", "warn");
+    addLog(t("log.connection_error"), "warn");
     activityDone(activityId, "échec", "fail");
     setCleaningUI(false); cleaning = false; return;
   }
@@ -932,7 +936,7 @@ async function _doClean() {
     }
   };
   es.onerror = () => {
-    addLog("Connexion SSE interrompue.", "warn");
+    addLog(t("log.sse_interrupted"), "warn");
     activityDone(activityId, "connexion perdue", "fail");
     es.close(); setCleaningUI(false); cleaning = false;
   };
@@ -942,13 +946,13 @@ function onCleanDone(freedBytes) {
   cleaning = false;
   const btn = document.getElementById("btn-clean");
   if (btn) {
-    const label = freedBytes > 0 ? `${fmtBytes(freedBytes)} libérés` : "Déjà propre";
+    const label = freedBytes > 0 ? `${fmtBytes(freedBytes)} ${t("common.libres")}` : t("log.already_clean");
     btn.innerHTML = `<span class="btn-icon">✓</span><span>${label}</span>`;
     btn.classList.remove("btn-running");
     btn.classList.add("btn-success");
     btn.disabled = false;
     setTimeout(() => {
-      btn.innerHTML = "Nettoyer maintenant";
+      btn.innerHTML = t("cleanup.btn_clean_now");
       btn.classList.remove("btn-success");
     }, 3000);
   }
@@ -989,7 +993,7 @@ function setCleaningUI(active) {
   const btn = document.getElementById("btn-clean");
   if (!btn) return;
   if (active) {
-    btn.innerHTML = `<span class="btn-icon">⟳</span><span>Nettoyage en cours…</span>`;
+    btn.innerHTML = `<span class="btn-icon">⟳</span><span>${t("cleanup.cleaning_inprogress")}</span>`;
     btn.classList.add("btn-running");
     btn.disabled = true;
   } else {

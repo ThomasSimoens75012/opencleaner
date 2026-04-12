@@ -486,6 +486,13 @@
     }
     .icon-btn:hover { background: var(--hover); color: var(--text); }
 
+    .lang-select {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: 4px;
+      color: var(--text-mid); font-size: 11px; font-family: inherit; font-weight: 600;
+      padding: 2px 4px; cursor: pointer; height: 28px;
+    }
+    .lang-select:hover { border-color: var(--text-dim); }
+
     /* Compatibilité ancien bouton thème */
     .theme-btn {
       width: 28px; height: 28px;
@@ -1929,33 +1936,33 @@
     OpenCleaner
   </div>
 
-  <div class="sb-section-title">Espace de travail</div>
+  <div class="sb-section-title" data-i18n="nav.workspace">Espace de travail</div>
   <button class="sb-item active" data-tab="nettoyage" onclick="switchTab('nettoyage', this)">
     <svg class="icon" viewBox="0 0 24 24"><path d="m9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>
-    Nettoyage
+    <span data-i18n="nav.nettoyage">Nettoyage</span>
   </button>
   <button class="sb-item" data-tab="outils" onclick="switchTab('outils', this)">
     <svg class="icon" viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
-    Outils
+    <span data-i18n="nav.outils">Outils</span>
   </button>
   <button class="sb-item" data-tab="sante" onclick="switchTab('sante', this)">
     <svg class="icon" viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/><path d="M3.22 12H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27"/></svg>
-    Santé
+    <span data-i18n="nav.sante">Santé</span>
     <span class="badge" id="health-badge"></span>
   </button>
   <button class="sb-item" data-tab="pilotes" onclick="switchTab('pilotes', this)">
     <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>
-    Pilotes
+    <span data-i18n="nav.pilotes">Pilotes</span>
   </button>
   <button class="sb-item" data-tab="perso" onclick="switchTab('perso', this)">
     <svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M3 5.479 10.5 4.45v7.05H3V5.479zM11.5 4.3 21 3v8.5h-9.5V4.3zM3 12.5h7.5v7.05L3 18.521V12.5zm8.5 0H21V21l-9.5-1.3V12.5z"/></svg>
-    Personnalisation
+    <span data-i18n="nav.perso">Personnalisation</span>
   </button>
 
-  <div class="sb-section-title">Récents</div>
+  <div class="sb-section-title" data-i18n="nav.recent">Récents</div>
   <button class="sb-item" onclick="openHistory()">
     <svg class="icon" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-    Historique
+    <span data-i18n="nav.historique">Historique</span>
     <span class="badge" id="sb-last-scan">…</span>
   </button>
 
@@ -1965,7 +1972,7 @@
     {% if not is_admin %}
     <button class="sb-item sb-admin" onclick="relancerAdmin()" title="Relancer l'application en mode administrateur">
       <svg class="icon" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
-      Passer en administrateur
+      <span data-i18n="nav.admin">Passer en administrateur</span>
     </button>
     {% endif %}
     <div class="sb-item" style="cursor:default">
@@ -1974,15 +1981,15 @@
     </div>
     <button class="sb-item" onclick="runSelfCheck()">
       <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-      Diagnostic
+      <span data-i18n="nav.diagnostic">Diagnostic</span>
     </button>
     <button class="sb-item" onclick="downloadGlobalReport()">
       <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-      Rapport HTML
+      <span data-i18n="nav.rapport">Rapport HTML</span>
     </button>
     <button class="sb-item" onclick="openHelp()">
       <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-      Aide
+      <span data-i18n="nav.aide">Aide</span>
     </button>
   </div>
 </aside>
@@ -1992,16 +1999,20 @@
 
 <div class="main-topbar">
   <div class="crumbs">
-    <span>Espace de travail</span>
+    <span data-i18n="nav.workspace">Espace de travail</span>
     <svg class="icon sep" viewBox="0 0 24 24" style="width:14px;height:14px"><polyline points="9 18 15 12 9 6"/></svg>
-    <span class="here" id="crumb-current">Nettoyage</span>
+    <span class="here" id="crumb-current" data-i18n="nav.nettoyage">Nettoyage</span>
   </div>
   <div class="main-topbar-right">
-    <button class="icon-btn" onclick="toggleTheme()" title="Changer le thème">
+    <select class="lang-select" onchange="I18N.load(this.value)" title="Langue / Language">
+      <option value="fr" {{ 'selected' if lang == 'fr' else '' }}>FR</option>
+      <option value="en" {{ 'selected' if lang == 'en' else '' }}>EN</option>
+    </select>
+    <button class="icon-btn" onclick="toggleTheme()" title="Changer le thème" data-i18n="topbar.theme_title" data-i18n-attr="title">
       <svg class="icon icon-moon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
       <svg class="icon icon-sun"  viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
     </button>
-    <button class="icon-btn" onclick="quitApp()" title="Quitter OpenCleaner">
+    <button class="icon-btn" onclick="quitApp()" title="Quitter OpenCleaner" data-i18n="topbar.quit_title" data-i18n-attr="title">
       <svg class="icon" viewBox="0 0 24 24"><path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.77.04"/></svg>
     </button>
   </div>
@@ -2016,7 +2027,7 @@
       <div class="page-icon">
         <svg class="icon icon-2xl" viewBox="0 0 24 24"><path d="m9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>
       </div>
-      <div class="page-title">Nettoyage</div>
+      <div class="page-title" data-i18n="cleanup.title">Nettoyage</div>
     </div>
 
     <div class="callout callout-green" style="margin-bottom:18px">
@@ -2034,15 +2045,15 @@
       <div class="stat">
         <div class="stat-label">
           <svg class="icon" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 12v5h5v-5z"/><path d="M14 7v10h5V7z"/></svg>
-          Espace récupérable
+          <span data-i18n="cleanup.stat_recoverable">Espace récupérable</span>
         </div>
         <div class="stat-value dim" id="stat-total">…</div>
-        <div class="stat-meta" id="stat-total-meta">Calcul…</div>
+        <div class="stat-meta" id="stat-total-meta" data-i18n="cleanup.stat_calculating">Calcul…</div>
       </div>
       <div class="stat">
         <div class="stat-label">
           <svg class="icon" viewBox="0 0 24 24"><line x1="22" y1="12" x2="2" y2="12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
-          Disque principal
+          <span data-i18n="cleanup.stat_disk">Disque principal</span>
         </div>
         <div class="stat-value dim" id="stat-disk">—</div>
         <div class="stat-meta" id="stat-disk-meta">—</div>
@@ -2050,10 +2061,10 @@
       <div class="stat">
         <div class="stat-label">
           <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          Dernier nettoyage
+          <span data-i18n="cleanup.stat_lastclean">Dernier nettoyage</span>
         </div>
         <div class="stat-value dim" id="stat-history">—</div>
-        <div class="stat-meta" id="stat-history-meta">Aucun historique</div>
+        <div class="stat-meta" id="stat-history-meta" data-i18n="cleanup.stat_nohistory">Aucun historique</div>
       </div>
     </div>
 
@@ -2090,7 +2101,7 @@
         </div>
         <div class="tooltip-wrap">
           <button class="btn-primary btn-clean" id="btn-clean" onclick="startClean()">
-            Lancer le nettoyage
+            <span data-i18n="cleanup.btn_clean">Lancer le nettoyage</span>
             <svg class="icon" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
           </button>
           <span class="tip">Lance le nettoyage des catégories cochées. Les fichiers supprimés sont irrécupérables.</span>
@@ -2101,15 +2112,15 @@
       <div class="nett-actions-secondary">
         <button class="btn-ghost" onclick="checkAll()">
           <svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-          Tout cocher
+          <span data-i18n="cleanup.btn_checkall">Tout cocher</span>
         </button>
         <button class="btn-ghost" onclick="uncheckAll()">
           <svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          Tout décocher
+          <span data-i18n="cleanup.btn_uncheckall">Tout décocher</span>
         </button>
         <button class="btn-ghost" id="btn-refresh" data-no-activity onclick="loadSizes()">
           <svg class="icon" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
-          Réanalyser
+          <span data-i18n="cleanup.btn_reanalyze">Réanalyser</span>
         </button>
       </div>
 
@@ -2135,8 +2146,8 @@
       <!-- Log -->
       <div class="log-card">
         <div class="log-header">
-          <span class="log-title">Journal en temps réel</span>
-          <span class="log-clear" onclick="clearLog()">Effacer</span>
+          <span class="log-title" data-i18n="cleanup.log_title">Journal en temps réel</span>
+          <span class="log-clear" onclick="clearLog()" data-i18n="cleanup.log_clear">Effacer</span>
         </div>
         <div class="progress-wrap" id="progress-wrap">
           <div class="progress-label" id="progress-label">En cours…</div>
@@ -2145,7 +2156,7 @@
         <div class="log-body" id="log-body">
           <div class="log-entry">
             <span class="log-ts">--:--:--</span>
-            <span class="log-msg">OpenCleaner prêt.</span>
+            <span class="log-msg" data-i18n="cleanup.log_ready">OpenCleaner prêt.</span>
           </div>
         </div>
       </div>
@@ -2162,7 +2173,7 @@
   <div class="page-icon">
     <svg class="icon icon-2xl" viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
   </div>
-  <div class="page-title">Outils</div>
+  <div class="page-title" data-i18n="tools.title">Outils</div>
   <div class="page-properties">
     <div class="prop">
       <svg class="icon" viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
@@ -2587,7 +2598,7 @@
     <div class="page-icon">
       <svg class="icon icon-2xl" viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/><path d="M3.22 12H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27"/></svg>
     </div>
-    <div class="page-title">Santé</div>
+    <div class="page-title" data-i18n="health.title">Santé</div>
     <div class="page-properties">
       <div class="prop">
         <svg class="icon" viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/><path d="M3.22 12H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27"/></svg>
@@ -2653,8 +2664,8 @@
     <div class="modal-title" id="confirm-title"></div>
     <div id="confirm-body" style="font-size:13px;color:var(--text-mid);margin-bottom:18px;line-height:1.5"></div>
     <div class="modal-actions">
-      <button class="btn-primary" id="confirm-ok">Confirmer</button>
-      <button class="btn-ghost" onclick="_closeConfirm()">Annuler</button>
+      <button class="btn-primary" id="confirm-ok" data-i18n="common.confirmer">Confirmer</button>
+      <button class="btn-ghost" onclick="_closeConfirm()" data-i18n="common.annuler">Annuler</button>
     </div>
   </div>
 </div>
@@ -2662,7 +2673,7 @@
 <!-- ── Modal Diagnostic self-check ── -->
 <div id="selfcheck-overlay" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeSelfCheck()">
   <div class="modal" style="max-width:560px">
-    <div class="modal-title">Diagnostic OpenCleaner</div>
+    <div class="modal-title" data-i18n="modal.diag_title">Diagnostic OpenCleaner</div>
     <div id="selfcheck-body" style="font-size:13px;color:var(--text-mid);line-height:1.5">
       <div class="tool-loading">Analyse en cours…</div>
     </div>
@@ -2676,7 +2687,7 @@
 <!-- ── Modal Aide ── -->
 <div id="help-overlay" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeHelp()">
   <div class="modal" style="max-width:540px">
-    <div class="modal-title">À propos d'OpenCleaner</div>
+    <div class="modal-title" data-i18n="modal.help_title">À propos d'OpenCleaner</div>
     <div style="font-size:14px;color:var(--text-mid);line-height:1.6">
       <p style="margin-bottom:14px">OpenCleaner est un nettoyeur de PC local qui ne touche jamais à vos mots de passe ni à vos cookies de session. Tout fonctionne hors-ligne, sur votre machine.</p>
       <div class="h3" style="margin:18px 0 6px">Les 3 onglets</div>
@@ -2695,7 +2706,7 @@
 <!-- ── Modal Historique ── -->
 <div id="history-overlay" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeHistory()">
   <div class="modal" style="max-width:640px">
-    <div class="modal-title">Historique des nettoyages</div>
+    <div class="modal-title" data-i18n="modal.history_title">Historique des nettoyages</div>
     <div style="display:flex;gap:4px;margin-bottom:10px;border-bottom:1px solid var(--border)">
       <button class="btn-ghost history-tab active" data-htab="history" onclick="switchHistoryTab('history')" style="border-radius:0;border-bottom:2px solid var(--text)">Historique</button>
       <button class="btn-ghost history-tab" data-htab="sessions" onclick="switchHistoryTab('sessions')" style="border-radius:0">Sessions restaurables</button>
@@ -2714,15 +2725,15 @@
 <!-- ── Modal aperçu nettoyage ── -->
 <div id="modal-overlay" class="modal-overlay" style="display:none" onclick="if(event.target===this)closePreview()">
   <div class="modal">
-    <div class="modal-title">Aperçu du nettoyage</div>
+    <div class="modal-title" data-i18n="modal.preview_title">Aperçu du nettoyage</div>
     <div class="modal-list" id="modal-list"></div>
     <div class="modal-total">
-      <span>Total estimé</span>
+      <span data-i18n="modal.total_estimated">Total estimé</span>
       <span class="modal-total-val" id="modal-total-val">0 o</span>
     </div>
     <div class="modal-actions">
-      <button class="btn-primary" onclick="confirmClean()">Nettoyer maintenant</button>
-      <button class="btn-ghost" onclick="closePreview()">Annuler</button>
+      <button class="btn-primary" onclick="confirmClean()" data-i18n="modal.btn_clean_now">Nettoyer maintenant</button>
+      <button class="btn-ghost" onclick="closePreview()" data-i18n="common.annuler">Annuler</button>
     </div>
   </div>
 </div>
@@ -2735,8 +2746,8 @@
   <div class="page-icon">
     <svg class="icon icon-2xl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>
   </div>
-  <h1 class="page-title">Pilotes</h1>
-  <p class="page-sub">Nom, fabricant, version et date de chaque pilote matériel installé sur le système.</p>
+  <h1 class="page-title" data-i18n="drivers.title">Pilotes</h1>
+  <p class="page-sub" data-i18n="drivers.sub">Nom, fabricant, version et date de chaque pilote matériel installé sur le système.</p>
 </div>
 
 <div style="display:flex;justify-content:flex-end;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap">
@@ -2767,8 +2778,8 @@
   <div class="page-icon">
     <svg class="icon icon-2xl" viewBox="0 0 24 24" fill="currentColor"><path d="M3 5.479 10.5 4.45v7.05H3V5.479zM11.5 4.3 21 3v8.5h-9.5V4.3zM3 12.5h7.5v7.05L3 18.521V12.5zm8.5 0H21V21l-9.5-1.3V12.5z"/></svg>
   </div>
-  <h1 class="page-title">Personnalisation Windows</h1>
-  <p class="page-sub">Désactivez les fonctionnalités inutiles. Tout est réversible.</p>
+  <h1 class="page-title" data-i18n="perso.title">Personnalisation Windows</h1>
+  <p class="page-sub" data-i18n="perso.sub">Désactivez les fonctionnalités inutiles. Tout est réversible.</p>
 </div>
 
 <!-- Bandeau de version Windows détectée -->
@@ -2864,7 +2875,7 @@
 <!-- ════════════════════ PANNEAU D'ACTIVITÉ ════════════════════ -->
 <aside class="activity" id="activity-panel">
   <div class="activity-head" id="activity-drag-handle">
-    <span class="label">Activité</span>
+    <span class="label" data-i18n="activity.title">Activité</span>
     <div class="head-actions">
       <button class="btn-dock" onclick="toggleActivityDock()" title="Ancrer à droite / Libérer">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
@@ -2872,7 +2883,7 @@
     </div>
   </div>
   <div class="activity-full" id="activity-list">
-    <div class="activity-empty">Aucune activité pour l'instant.</div>
+    <div class="activity-empty" data-i18n="activity.empty">Aucune activité pour l'instant.</div>
   </div>
   <div class="activity-collapsed" id="activity-collapsed">
     <div class="ac-line run" id="ac-run" style="display:none">
@@ -2886,7 +2897,7 @@
   </div>
   <div class="activity-foot">
     <span id="activity-count">0 entrée</span>
-    <button onclick="clearActivity()">Effacer</button>
+    <button onclick="clearActivity()" data-i18n="activity.clear">Effacer</button>
   </div>
   <div class="activity-resize-h" data-dir="n"></div>
   <div class="activity-resize-h" data-dir="s"></div>
@@ -2911,6 +2922,7 @@
     }
   })();
 </script>
+<script src="/static/i18n.js"></script>
 <script src="/static/app.js"></script>
 <script src="/static/tools.js"></script>
 <script src="/static/health.js"></script>
@@ -3148,7 +3160,7 @@
   })();
 
   // ── Onglets ──────────────────────────────────────────────────────────────
-  const TAB_LABELS = { nettoyage: "Nettoyage", outils: "Outils", sante: "Santé", pilotes: "Pilotes", perso: "Personnalisation" };
+  const TAB_LABELS = { nettoyage: "nav.nettoyage", outils: "nav.outils", sante: "nav.sante", pilotes: "nav.pilotes", perso: "nav.perso" };
   function switchTab(name, el) {
     document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
     document.querySelectorAll(".sb-item[data-tab]").forEach(b => b.classList.remove("active"));
@@ -3159,7 +3171,7 @@
       : document.querySelector(`.sb-item[data-tab="${name}"]`);
     if (item) item.classList.add("active");
     const crumb = document.getElementById("crumb-current");
-    if (crumb && TAB_LABELS[name]) crumb.textContent = TAB_LABELS[name];
+    if (crumb && TAB_LABELS[name]) crumb.textContent = t(TAB_LABELS[name]);
     if (name === "outils")   initTools();
     if (name === "sante")    initHealth();
     if (name === "perso")    loadWindowsTweaks();
